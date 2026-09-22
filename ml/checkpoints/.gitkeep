@@ -1,0 +1,3 @@
+# This directory holds trained model checkpoints (*.pt, *.pkl, *.h5 etc.).
+# It is gitignored — do NOT commit model files here.
+# See ml/README.md for download instructions.

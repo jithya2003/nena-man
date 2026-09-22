@@ -1,0 +1,30 @@
+# =============================================================================
+# nena-man · backend/requirements.txt
+# Planned Python dependencies — to be pinned with exact versions in Phase 2.
+# Run:  pip install -r requirements.txt
+# =============================================================================
+
+# --- Web Framework ---
+# flask
+# flask-cors
+
+# --- Firebase ---
+# firebase-admin
+
+# --- ML / Data Science ---
+# scikit-learn
+# numpy
+# pandas
+# torch          # PyTorch — for Whisper / Wav2Vec2
+# transformers   # HuggingFace Transformers
+# librosa        # Audio feature extraction (MFCC)
+# xgboost
+# joblib
+
+# --- API Utilities ---
+# marshmallow    # Request/response schema validation
+# python-dotenv  # Load .env files
+
+# --- Testing ---
+# pytest
+# pytest-cov
