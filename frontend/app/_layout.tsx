@@ -6,11 +6,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StyleSheet, Platform } from 'react-native';
 import { ThemeColors } from '@/constants/theme';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { AuthProvider } from '@/context/AuthContext';
 
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <SafeAreaProvider>
+      <AuthProvider>
+        <SafeAreaProvider>
         <GestureHandlerRootView style={styles.root}>
           <StatusBar style="dark" backgroundColor={ThemeColors.background} />
           <Stack
@@ -28,6 +30,7 @@ export default function RootLayout() {
           </Stack>
         </GestureHandlerRootView>
       </SafeAreaProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
