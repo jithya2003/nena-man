@@ -92,24 +92,39 @@ def create_app(config_name: str = None) -> Flask:
         }), 200
 
     # ── Register Auth Blueprint ───────────────────────────────────────────────
-    from .modules.auth.controller import auth_bp
-    app.register_blueprint(auth_bp)
+    try:
+        from .modules.auth.controller import auth_bp
+        app.register_blueprint(auth_bp)
+    except ImportError as e:
+        app.logger.warning("[Auth] Blueprint import failed: %s", e)
 
     # ── Register M1: Speech Classifier Blueprint ──────────────────────────────
-    from .modules.speech_classifier.controller import speech_bp
-    app.register_blueprint(speech_bp)
+    try:
+        from .modules.speech_classifier.controller import speech_bp
+        app.register_blueprint(speech_bp)
+    except ImportError as e:
+        app.logger.info("[M1 Speech] Module not yet initialized: %s", e)
 
     # ── Register M2: Text Difficulty Blueprint ────────────────────────────────
-    from .modules.text_difficulty.controller import text_bp
-    app.register_blueprint(text_bp)
+    try:
+        from .modules.text_difficulty.controller import text_bp
+        app.register_blueprint(text_bp)
+    except ImportError as e:
+        app.logger.info("[M2 Text] Module not yet initialized: %s", e)
 
     # ── Register M3: Recommendation Engine Blueprint ──────────────────────────
-    from .modules.recommendation_engine.controller import recommendation_bp
-    app.register_blueprint(recommendation_bp)
+    try:
+        from .modules.recommendation_engine.controller import recommendation_bp
+        app.register_blueprint(recommendation_bp)
+    except ImportError as e:
+        app.logger.info("[M3 Rec] Module not yet initialized: %s", e)
 
     # ── Register M4: Behavioral Detection Blueprint ───────────────────────────
-    from .modules.behavioral_detection.controller import behavioral_bp
-    app.register_blueprint(behavioral_bp)
+    try:
+        from .modules.behavioral_detection.controller import behavioral_bp
+        app.register_blueprint(behavioral_bp)
+    except ImportError as e:
+        app.logger.info("[M4 Behavior] Module not yet initialized: %s", e)
 
     app.logger.info("=" * 60)
     app.logger.info("🌟 Nena Man Flask API — create_app() complete")
