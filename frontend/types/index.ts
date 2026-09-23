@@ -26,6 +26,29 @@ export interface ParentUser {
   children: Child[];
 }
 
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  age?: number;
+  grade?: number;
+  schoolName?: string;
+  createdAt?: string;
+  childProfile?: Child;
+}
+
+export interface RegisterData {
+  email: string;
+  password?: string;
+  displayName: string;
+  role: UserRole;
+  age?: number;
+  grade?: number;
+  schoolName?: string;
+  childName?: string;
+}
+
 // ── Reading Content ───────────────────────────────────────────────────────────
 
 export type DifficultyLevel = 'easy' | 'medium' | 'hard';
