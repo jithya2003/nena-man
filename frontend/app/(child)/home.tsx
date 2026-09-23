@@ -238,7 +238,16 @@ const m2Styles = StyleSheet.create({
 
 export default function StudentDashboard() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (e) {
+      console.warn('[HomeScreen] Logout error:', e);
+    }
+    router.replace("/(auth)/role-select");
+  };
 
   const greetingName = user?.displayName
     ? user.displayName.split(" ")[0]
@@ -289,10 +298,21 @@ export default function StudentDashboard() {
             <StudentAvatarPhoto size={36} showEditBadge={false} />
           </TouchableOpacity>
 
+          {/* Back to Parent Dashboard — shown when a parent/teacher is viewing child mode */}
+          {(user?.role === 'parent' || user?.role === 'teacher') && (
+            <TouchableOpacity
+              style={styles.parentBackBtn}
+              onPress={() => router.replace("/(parent)/dashboard")}
+              activeOpacity={0.75}
+            >
+              <AppText size="xs" weight="bold" color="#0369A1">👨‍👩‍👧‍👦</AppText>
+            </TouchableOpacity>
+          )}
+
           {/* Log Out Button (Exit Icon Only) */}
           <TouchableOpacity
             style={styles.logoutBtn}
-            onPress={() => router.replace("/(auth)/role-select")}
+            onPress={handleLogout}
             activeOpacity={0.75}
           >
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
@@ -679,6 +699,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "#FECACA",
+  },
+  parentBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#E0F2FE",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#BAE6FD",
   },
   redDot: {
     position: "absolute",

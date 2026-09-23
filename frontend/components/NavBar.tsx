@@ -8,6 +8,7 @@ import {
   ThemeShadow,
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
+import { useAuth } from '@/context/AuthContext';
 
 export interface NavBarProps {
   title?: string;
@@ -37,6 +38,7 @@ export default function NavBar({
   backgroundColor = ThemeColors.surface,
 }: NavBarProps) {
   const router = useRouter();
+  const { logout } = useAuth();
 
   const handleBack = () => {
     if (onBack) {
@@ -60,7 +62,12 @@ export default function NavBar({
     router.push('/(settings)/settings');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.warn('[NavBar] Logout error:', err);
+    }
     router.replace('/(auth)/role-select');
   };
 
