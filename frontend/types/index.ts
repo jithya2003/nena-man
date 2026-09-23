@@ -36,6 +36,7 @@ export interface UserProfile {
   schoolName?: string;
   createdAt?: string;
   childProfile?: Child;
+  emailVerified?: boolean;
 }
 
 export interface RegisterData {
