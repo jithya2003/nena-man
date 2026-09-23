@@ -14,16 +14,25 @@ const STORAGE_KEYS = {
   TOKEN: '@nena_man_auth_token',
 };
 
+export interface LoginResult {
+  success: boolean;
+  needsVerification?: boolean;
+  email?: string;
+  role?: UserRole;
+}
+
 interface AuthContextType {
   user: UserProfile | null;
   role: UserRole | null;
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (identifier: string, password?: string, role?: UserRole) => Promise<boolean>;
-  register: (data: RegisterData) => Promise<boolean>;
+  isEmailVerified: boolean;
+  login: (identifier: string, password?: string, role?: UserRole) => Promise<LoginResult>;
+  register: (data: RegisterData) => Promise<{ success: boolean; email: string }>;
   logout: () => Promise<void>;
   switchRole: (role: UserRole) => void;
+  setUserSession: (user: UserProfile, token: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,16 +68,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     identifier: string,
     password?: string,
     role: UserRole = 'child'
-  ): Promise<boolean> => {
+  ): Promise<LoginResult> => {
     setIsLoading(true);
     try {
       const res = await authService.login(identifier, password, role);
+
+      // Block unverified parent/teacher accounts from establishing an active session
+      const isAdultAccount = res.user.role === 'parent' || res.user.role === 'teacher';
+      if (isAdultAccount && !res.user.emailVerified) {
+        setIsLoading(false);
+        return {
+          success: false,
+          needsVerification: true,
+          email: res.user.email,
+          role: res.user.role,
+        };
+      }
+
       setUser(res.user);
       setToken(res.token);
 
       await AppStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(res.user));
       await AppStorage.setItem(STORAGE_KEYS.TOKEN, res.token);
-      return true;
+      return { success: true, role: res.user.role };
     } catch (err) {
       console.error('[AuthContext] Login error:', err);
       throw err;
@@ -77,16 +99,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (data: RegisterData): Promise<boolean> => {
+  const register = async (data: RegisterData): Promise<{ success: boolean; email: string }> => {
     setIsLoading(true);
     try {
       const res = await authService.register(data);
-      setUser(res.user);
-      setToken(res.token);
-
-      await AppStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(res.user));
-      await AppStorage.setItem(STORAGE_KEYS.TOKEN, res.token);
-      return true;
+      // Do NOT persist session yet — user must verify email first
+      return { success: true, email: data.email };
     } catch (err) {
       console.error('[AuthContext] Registration error:', err);
       throw err;
@@ -98,6 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async (): Promise<void> => {
     setIsLoading(true);
     try {
+      await authService.logout();
       setUser(null);
       setToken(null);
       await AppStorage.removeItem(STORAGE_KEYS.USER);
@@ -105,6 +124,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const setUserSession = async (userProfile: UserProfile, authToken: string) => {
+    setUser(userProfile);
+    setToken(authToken);
+    await AppStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userProfile));
+    await AppStorage.setItem(STORAGE_KEYS.TOKEN, authToken);
   };
 
   const switchRole = (newRole: UserRole) => {
@@ -123,10 +149,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         token,
         isLoading,
         isAuthenticated: !!user,
+        isEmailVerified: user?.emailVerified ?? false,
         login,
         register,
         logout,
         switchRole,
+        setUserSession,
       }}
     >
       {children}

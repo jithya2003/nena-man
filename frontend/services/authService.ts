@@ -8,6 +8,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
+  sendEmailVerification,
+  sendPasswordResetEmail,
   signOut,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -55,6 +57,13 @@ export const authService = {
       // Update Firebase Auth profile display name
       await updateProfile(fbUser, { displayName: data.displayName });
 
+      // Send email verification — user must click the link before accessing the dashboard
+      try {
+        await sendEmailVerification(fbUser);
+      } catch (verifyErr) {
+        console.warn('[authService] sendEmailVerification warning:', verifyErr);
+      }
+
       // Save user profile in Cloud Firestore
       const userProfile: UserProfile = {
         uid: fbUser.uid,
@@ -65,6 +74,7 @@ export const authService = {
         grade: data.grade || (data.role === 'child' ? 2 : undefined),
         schoolName: data.schoolName || '',
         createdAt: new Date().toISOString(),
+        emailVerified: false,
       };
 
       try {
@@ -117,10 +127,15 @@ export const authService = {
   ): Promise<{ user: UserProfile; token: string }> {
     try {
       // Format email if username entered
-      const email = identifier.includes('@') ? identifier.trim() : `${identifier.trim()}@neman.lk`;
+      const email = identifier.includes('@') ? identifier.trim() : `${identifier.trim()}@nenaman.lk`;
       
       const userCred = await signInWithEmailAndPassword(auth, email, password);
       const fbUser = userCred.user;
+      try {
+        await fbUser.reload();
+      } catch {
+        // Fallback if network flickers during reload
+      }
       const token = await fbUser.getIdToken();
 
       // Retrieve full profile from Cloud Firestore
@@ -138,6 +153,7 @@ export const authService = {
             grade: docData.grade,
             schoolName: docData.schoolName,
             createdAt: docData.createdAt,
+            emailVerified: fbUser.emailVerified,
           };
         }
       } catch (firestoreErr) {
@@ -154,12 +170,25 @@ export const authService = {
           age: role === 'child' ? 7 : undefined,
           grade: role === 'child' ? 2 : undefined,
           createdAt: new Date().toISOString(),
+          emailVerified: fbUser.emailVerified,
         };
       }
 
       return { user: userProfile, token };
     } catch (err: any) {
       console.error('[authService] Login error:', err.code, err.message);
+      throw new Error(getFirebaseErrorMessage(err.code || ''));
+    }
+  },
+
+  /**
+   * Send Password Reset Email via Firebase Auth
+   */
+  async sendPasswordResetEmail(email: string): Promise<void> {
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+    } catch (err: any) {
+      console.error('[authService] Password reset error:', err.code, err.message);
       throw new Error(getFirebaseErrorMessage(err.code || ''));
     }
   },
