@@ -20,10 +20,13 @@ import {
 import AppText from "@/components/AppText";
 import NenaManLogo from "@/components/NenaManLogo";
 import { WelcomeStudentIllustration } from "@/components/Illustrations";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginScreen() {
   const router = useRouter();
   const { role: initialRole } = useLocalSearchParams<{ role: string }>();
+  const { login } = useAuth();
+
   const [currentRole, setCurrentRole] = useState<"child" | "parent">(
     initialRole === "parent" ? "parent" : "child",
   );
@@ -34,23 +37,78 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("••••••••");
   const [showPassword, setShowPassword] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<"si" | "en">("si");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const isParent = currentRole === "parent";
 
-  const handleSignIn = () => {
-    if (isParent) {
-      router.replace("/(parent)/dashboard");
-    } else {
-      router.replace("/(child)/home");
+  const handleSignIn = async () => {
+    setErrorMessage("");
+
+    const id = studentId.trim();
+    if (!id) {
+      setErrorMessage(
+        selectedLanguage === "si" 
+          ? "කරුණාකර ඔබගේ පිවිසුම් අංකය හෝ විද්‍යුත් තැපෑල ඇතුළත් කරන්න." 
+          : "Please enter your ID or Email."
+      );
+      return;
+    }
+    if (isParent && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(id)) {
+      setErrorMessage(
+        selectedLanguage === "si" 
+          ? "කරුණාකර නිවැරදි විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න." 
+          : "Please enter a valid email address."
+      );
+      return;
+    }
+    if (!password) {
+      setErrorMessage(
+        selectedLanguage === "si" 
+          ? "කරුණාකර ඔබගේ මුරපදය ඇතුළත් කරන්න." 
+          : "Please enter your password."
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const success = await login(id, password, currentRole);
+      if (success) {
+        if (isParent) {
+          router.replace("/(parent)/dashboard");
+        } else {
+          router.replace("/(child)/home");
+        }
+      } else {
+        setErrorMessage(
+          selectedLanguage === "si"
+            ? "පිවිසීම අසාර්ථක විය. කරුණාකර තොරතුරු පරීක්ෂා කරන්න."
+            : "Login failed. Please check credentials and try again."
+        );
+      }
+    } catch (err: any) {
+      setErrorMessage(
+        err?.message ||
+          (selectedLanguage === "si"
+            ? "දෝෂයක් සිදු විය. කරුණාකර නැවත උත්සාහ කරන්න."
+            : "An unexpected error occurred. Please try again.")
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleCreateAccount = () => {
-    router.push("/(auth)/register");
+    router.push({
+      pathname: "/(auth)/register",
+      params: { role: currentRole },
+    });
   };
 
   const toggleRole = (newRole: "child" | "parent") => {
     setCurrentRole(newRole);
+    setErrorMessage("");
     if (newRole === "parent") {
       setStudentId("perera.parent@neman.lk");
     } else {
@@ -326,6 +384,29 @@ export default function LoginScreen() {
                   මුරපදය අමතකද?
                 </AppText>
               </TouchableOpacity>
+
+              {/* Error Message */}
+              {errorMessage ? (
+                <View
+                  style={{
+                    backgroundColor: "#FEE2E2",
+                    borderRadius: ThemeRadius.md,
+                    padding: ThemeSpacing.sm,
+                    marginTop: ThemeSpacing.sm,
+                    borderWidth: 1,
+                    borderColor: "#FCA5A5",
+                  }}
+                >
+                  <AppText
+                    size="xs"
+                    weight="bold"
+                    color="#DC2626"
+                    align="center"
+                  >
+                    ⚠️ {errorMessage}
+                  </AppText>
+                </View>
+              ) : null}
             </View>
 
             {/* Primary Sign In Button */}
@@ -333,21 +414,29 @@ export default function LoginScreen() {
               style={[
                 styles.signInButton,
                 isParent && styles.signInButtonParent,
+                isSubmitting && { opacity: 0.7 },
               ]}
               onPress={handleSignIn}
+              disabled={isSubmitting}
               activeOpacity={0.85}
             >
               <AppText size="md" weight="bold" color="#FFFFFF">
-                {isParent ? "දෙමාපිය පුවරුවට පිවිසෙන්න" : "පිවිසෙන්න"}
+                {isSubmitting
+                  ? "මඳක් රැඳෙන්න..."
+                  : isParent
+                    ? "දෙමාපිය පුවරුවට පිවිසෙන්න"
+                    : "පිවිසෙන්න"}
               </AppText>
-              <AppText
-                size="md"
-                weight="bold"
-                color="#FFFFFF"
-                style={{ marginLeft: 6 }}
-              >
-                →
-              </AppText>
+              {!isSubmitting && (
+                <AppText
+                  size="md"
+                  weight="bold"
+                  color="#FFFFFF"
+                  style={{ marginLeft: 6 }}
+                >
+                  →
+                </AppText>
+              )}
             </TouchableOpacity>
 
             {/* Secondary Register Button */}

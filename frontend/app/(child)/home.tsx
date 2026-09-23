@@ -23,6 +23,7 @@ import {
   RelaxTreeIllustration,
 } from "@/components/Illustrations";
 import { useRouter as useRouterM2 } from "expo-router";
+import { useAuth } from "@/context/AuthContext";
 
 // ── M2 AI Simplification Card ─────────────────────────────────────────────────
 function M2SimplificationCard() {
@@ -237,6 +238,11 @@ const m2Styles = StyleSheet.create({
 
 export default function StudentDashboard() {
   const router = useRouter();
+  const { user } = useAuth();
+
+  const greetingName = user?.displayName
+    ? user.displayName.split(" ")[0]
+    : "සෙනුලි";
 
   return (
     <SafeAreaView style={styles.container}>
@@ -255,7 +261,7 @@ export default function StudentDashboard() {
             </AppText>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <AppText size="sm" weight="extrabold" color={ThemeColors.primary}>
-                සෙනුලි!
+                {greetingName}!
               </AppText>
               <AppText size="sm" style={{ marginLeft: 3 }}>
                 👏

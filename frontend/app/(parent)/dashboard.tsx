@@ -18,10 +18,17 @@ import {
 import AppText from '@/components/AppText';
 import NenaManLogo from '@/components/NenaManLogo';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
+import { useAuth } from '@/context/AuthContext';
 
 export default function ParentDashboardScreen() {
   const router = useRouter();
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'insights'>('overview');
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/(auth)/role-select');
+  };
 
   const students = [
     {
@@ -70,7 +77,7 @@ export default function ParentDashboardScreen() {
               දෙමාපිය & ගුරු පුවරුව
             </AppText>
             <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
-              සුභ උදෑසනක්! 👏
+              {user?.displayName || 'සුභ උදෑසනක්!'} 👏
             </AppText>
           </View>
         </View>
@@ -98,7 +105,7 @@ export default function ParentDashboardScreen() {
           {/* Log Out Button (Exit Icon Only) */}
           <TouchableOpacity
             style={styles.logoutBtn}
-            onPress={() => router.replace('/(auth)/role-select')}
+            onPress={handleLogout}
             activeOpacity={0.75}
           >
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">

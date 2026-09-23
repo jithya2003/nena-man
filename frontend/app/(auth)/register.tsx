@@ -20,12 +20,14 @@ import AppText from '@/components/AppText';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import NavBar from '@/components/NavBar';
+import { useAuth } from '@/context/AuthContext';
 
 const GRADES = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5'];
 
 export default function RegisterScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ role?: string }>();
+  const { register } = useAuth();
 
   const [accountType, setAccountType] = useState<'parent' | 'educator'>(
     params.role === 'educator' ? 'educator' : 'parent'
@@ -47,12 +49,13 @@ export default function RegisterScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!fullName.trim()) {
       setErrorMessage('Please enter your full name.');
       return;
     }
-    if (!email.trim() || !email.includes('@')) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim() || !emailRegex.test(email.trim())) {
       setErrorMessage('Please enter a valid email address.');
       return;
     }
@@ -76,10 +79,29 @@ export default function RegisterScreen() {
     setErrorMessage('');
     setIsSubmitting(true);
 
-    setTimeout(() => {
+    try {
+      const parsedAge = parseInt(childAge, 10) || 7;
+      const parsedGrade = parseInt(selectedGrade.replace(/\D/g, ''), 10) || 2;
+      const success = await register({
+        email,
+        password,
+        displayName: fullName,
+        role: accountType === 'educator' ? 'teacher' : 'parent',
+        childName,
+        age: parsedAge,
+        grade: parsedGrade,
+      });
+
+      if (success) {
+        router.replace('/(parent)/dashboard');
+      } else {
+        setErrorMessage('Failed to create account. Please try again.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'An unexpected error occurred. Please try again.');
+    } finally {
       setIsSubmitting(false);
-      router.replace('/(parent)/dashboard');
-    }, 500);
+    }
   };
 
   return (
@@ -315,6 +337,8 @@ export default function RegisterScreen() {
           <Button
             label={isSubmitting ? 'Setting up profile...' : 'Create Account & Start 🚀'}
             onPress={handleRegister}
+            loading={isSubmitting}
+            disabled={isSubmitting}
             fullWidth
             size="lg"
             style={{ marginTop: ThemeSpacing.lg }}

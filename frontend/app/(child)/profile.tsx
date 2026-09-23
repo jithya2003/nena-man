@@ -19,12 +19,19 @@ import {
 import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
+import { useAuth } from '@/context/AuthContext';
 
 export default function StudentProfileScreen() {
   const router = useRouter();
+  const { user, logout } = useAuth();
 
   const [audioAssistance, setAudioAssistance] = useState(true);
   const [largeFont, setLargeFont] = useState(true);
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/(auth)/role-select');
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -63,7 +70,7 @@ export default function StudentProfileScreen() {
 
           <TouchableOpacity
             style={styles.logoutPillBtn}
-            onPress={() => router.replace('/(auth)/role-select')}
+            onPress={handleLogout}
             activeOpacity={0.75}
           >
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
@@ -89,11 +96,11 @@ export default function StudentProfileScreen() {
           <StudentAvatarPhoto size={76} showEditBadge={true} style={styles.avatarMargin} />
 
           <AppText size="xl" weight="extrabold" color={ThemeColors.textPrimary} style={styles.studentName}>
-            සෙනුලි පෙරේරා
+            {user?.displayName || 'සෙනුලි පෙරේරා'}
           </AppText>
 
           <AppText size="xs" color={ThemeColors.textSecondary} style={styles.schoolSubtitle}>
-            5 ශ්‍රේණිය • ශ්‍රී ලංකා පාසල
+            {user?.grade ? `${user.grade} ශ්‍රේණිය` : '2 ශ්‍රේණිය'} • {user?.schoolName || 'ශ්‍රී ලංකා පාසල'}
           </AppText>
 
           {/* Edit Profile Button */}
@@ -331,7 +338,7 @@ export default function StudentProfileScreen() {
         {/* Big LogOut Button at bottom */}
         <TouchableOpacity
           style={[styles.fullLogoutBtn, ThemeShadow.sm]}
-          onPress={() => router.replace('/(auth)/role-select')}
+          onPress={handleLogout}
           activeOpacity={0.85}
         >
           <AppText size="md">🚪</AppText>
