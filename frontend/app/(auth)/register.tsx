@@ -1,3 +1,9 @@
+/**
+ * nena-man · frontend/app/(auth)/register.tsx
+ * Registration screen using react-hook-form + zod for real-time validation.
+ * On success, redirects to verify-email screen (email verification required).
+ */
+
 import React, { useState } from 'react';
 import {
   View,
@@ -10,6 +16,8 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   ThemeColors,
   ThemeSpacing,
@@ -18,9 +26,9 @@ import {
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
 import Button from '@/components/Button';
-import Card from '@/components/Card';
 import NavBar from '@/components/NavBar';
 import { useAuth } from '@/context/AuthContext';
+import { registerSchema, RegisterFormData } from '@/utils/validators';
 
 const GRADES = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5'];
 
@@ -32,73 +40,51 @@ export default function RegisterScreen() {
   const [accountType, setAccountType] = useState<'parent' | 'educator'>(
     params.role === 'educator' ? 'educator' : 'parent'
   );
-
-  // Form Fields
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-
-  // Child Profile Fields
-  const [childName, setChildName] = useState('');
-  const [childAge, setChildAge] = useState('7');
   const [selectedGrade, setSelectedGrade] = useState('Grade 2');
-  const [agreeTerms, setAgreeTerms] = useState(true);
-
-  const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serverError, setServerError] = useState('');
 
-  const handleRegister = async () => {
-    if (!fullName.trim()) {
-      setErrorMessage('Please enter your full name.');
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim() || !emailRegex.test(email.trim())) {
-      setErrorMessage('Please enter a valid email address.');
-      return;
-    }
-    if (password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match.');
-      return;
-    }
-    if (!childName.trim()) {
-      setErrorMessage("Please enter your student's or child's name.");
-      return;
-    }
-    if (!agreeTerms) {
-      setErrorMessage('Please agree to the Terms of Service & Privacy Policy.');
-      return;
-    }
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      fullName: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      childName: '',
+      agreeTerms: true,
+    },
+    mode: 'onChange', // Validate on every keystroke for real-time feedback
+  });
 
-    setErrorMessage('');
+  const onSubmit = async (data: RegisterFormData) => {
+    setServerError('');
     setIsSubmitting(true);
-
     try {
-      const parsedAge = parseInt(childAge, 10) || 7;
       const parsedGrade = parseInt(selectedGrade.replace(/\D/g, ''), 10) || 2;
-      const success = await register({
-        email,
-        password,
-        displayName: fullName,
+      const result = await register({
+        email: data.email,
+        password: data.password,
+        displayName: data.fullName,
         role: accountType === 'educator' ? 'teacher' : 'parent',
-        childName,
-        age: parsedAge,
+        childName: data.childName,
+        age: 7,
         grade: parsedGrade,
       });
 
-      if (success) {
-        router.replace('/(parent)/dashboard');
-      } else {
-        setErrorMessage('Failed to create account. Please try again.');
+      if (result.success) {
+        router.replace({
+          pathname: '/(auth)/verify-email',
+          params: { email: result.email },
+        });
       }
     } catch (err: any) {
-      setErrorMessage(err?.message || 'An unexpected error occurred. Please try again.');
+      setServerError(err?.message || 'ගිණුම සෑදීම අසාර්ථක විය. කරුණාකර නැවත උත්සාහ කරන්න. (Failed to create account. Please try again.)');
     } finally {
       setIsSubmitting(false);
     }
@@ -122,7 +108,7 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
         >
-          {/* Header Info */}
+          {/* Header */}
           <View style={styles.headerInfo}>
             <AppText size="xxl" weight="extrabold" color={ThemeColors.textPrimary}>
               Join Nena-Man 🌟
@@ -171,70 +157,95 @@ export default function RegisterScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Error Message */}
-          {errorMessage ? (
+          {/* Server-level Error */}
+          {serverError ? (
             <View style={styles.errorAlert}>
               <AppText size="sm">⚠️</AppText>
               <AppText size="xs" weight="bold" color={ThemeColors.error} style={{ flex: 1 }}>
-                {errorMessage}
+                {serverError}
               </AppText>
             </View>
           ) : null}
 
-          {/* ── SECTION 1: GUARDIAN DETAILS ── */}
+          {/* ── SECTION 1: YOUR INFORMATION ── */}
           <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
             1. Your Information
           </AppText>
 
+          {/* Full Name */}
           <View style={styles.inputGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
               Full Name
             </AppText>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Priyanthi Perera"
-              placeholderTextColor={ThemeColors.textMuted}
-              value={fullName}
-              onChangeText={(val) => {
-                setFullName(val);
-                if (errorMessage) setErrorMessage('');
-              }}
+            <Controller
+              control={control}
+              name="fullName"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.fullName && styles.inputError]}
+                  placeholder="e.g. Priyanthi Perera"
+                  placeholderTextColor={ThemeColors.textMuted}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                />
+              )}
             />
+            {errors.fullName && (
+              <AppText size="xs" color={ThemeColors.error} style={styles.fieldError}>
+                ⚠ {errors.fullName.message}
+              </AppText>
+            )}
           </View>
 
+          {/* Email */}
           <View style={styles.inputGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
               Email Address
             </AppText>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. priyanthi@example.com"
-              placeholderTextColor={ThemeColors.textMuted}
-              value={email}
-              onChangeText={(val) => {
-                setEmail(val);
-                if (errorMessage) setErrorMessage('');
-              }}
-              keyboardType="email-address"
-              autoCapitalize="none"
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.email && styles.inputError]}
+                  placeholder="e.g. priyanthi@example.com"
+                  placeholderTextColor={ThemeColors.textMuted}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              )}
             />
+            {errors.email && (
+              <AppText size="xs" color={ThemeColors.error} style={styles.fieldError}>
+                ⚠ {errors.email.message}
+              </AppText>
+            )}
           </View>
 
+          {/* Password */}
           <View style={styles.inputGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
               Password
             </AppText>
             <View style={styles.passwordWrapper}>
-              <TextInput
-                style={[styles.input, { paddingRight: 44 }]}
-                placeholder="At least 6 characters"
-                placeholderTextColor={ThemeColors.textMuted}
-                value={password}
-                onChangeText={(val) => {
-                  setPassword(val);
-                  if (errorMessage) setErrorMessage('');
-                }}
-                secureTextEntry={!showPassword}
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={[styles.input, { paddingRight: 44 }, errors.password && styles.inputError]}
+                    placeholder="Min 8 chars, A-Z, a-z, 0-9, !@#$%"
+                    placeholderTextColor={ThemeColors.textMuted}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    secureTextEntry={!showPassword}
+                  />
+                )}
               />
               <TouchableOpacity
                 style={styles.eyeBtn}
@@ -244,23 +255,38 @@ export default function RegisterScreen() {
                 <AppText size="sm">{showPassword ? '👁️' : '🙈'}</AppText>
               </TouchableOpacity>
             </View>
+            {errors.password && (
+              <AppText size="xs" color={ThemeColors.error} style={styles.fieldError}>
+                ⚠ {errors.password.message}
+              </AppText>
+            )}
           </View>
 
+          {/* Confirm Password */}
           <View style={styles.inputGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
               Confirm Password
             </AppText>
-            <TextInput
-              style={styles.input}
-              placeholder="Re-enter password"
-              placeholderTextColor={ThemeColors.textMuted}
-              value={confirmPassword}
-              onChangeText={(val) => {
-                setConfirmPassword(val);
-                if (errorMessage) setErrorMessage('');
-              }}
-              secureTextEntry={!showPassword}
+            <Controller
+              control={control}
+              name="confirmPassword"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.confirmPassword && styles.inputError]}
+                  placeholder="Re-enter password"
+                  placeholderTextColor={ThemeColors.textMuted}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  secureTextEntry={!showPassword}
+                />
+              )}
             />
+            {errors.confirmPassword && (
+              <AppText size="xs" color={ThemeColors.error} style={styles.fieldError}>
+                ⚠ {errors.confirmPassword.message}
+              </AppText>
+            )}
           </View>
 
           {/* ── SECTION 2: CHILD PROFILE ── */}
@@ -268,20 +294,30 @@ export default function RegisterScreen() {
             2. Child / Student Profile
           </AppText>
 
+          {/* Child Name */}
           <View style={styles.inputGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
               Child's Name
             </AppText>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Nimasha"
-              placeholderTextColor={ThemeColors.textMuted}
-              value={childName}
-              onChangeText={(val) => {
-                setChildName(val);
-                if (errorMessage) setErrorMessage('');
-              }}
+            <Controller
+              control={control}
+              name="childName"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.childName && styles.inputError]}
+                  placeholder="e.g. Nimasha"
+                  placeholderTextColor={ThemeColors.textMuted}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                />
+              )}
             />
+            {errors.childName && (
+              <AppText size="xs" color={ThemeColors.error} style={styles.fieldError}>
+                ⚠ {errors.childName.message}
+              </AppText>
+            )}
           </View>
 
           {/* Grade Selector */}
@@ -295,10 +331,7 @@ export default function RegisterScreen() {
                 return (
                   <TouchableOpacity
                     key={g}
-                    style={[
-                      styles.gradeChip,
-                      isSelected && styles.gradeChipSelected,
-                    ]}
+                    style={[styles.gradeChip, isSelected && styles.gradeChipSelected]}
                     onPress={() => setSelectedGrade(g)}
                     activeOpacity={0.8}
                   >
@@ -316,27 +349,46 @@ export default function RegisterScreen() {
           </View>
 
           {/* Terms Checkbox */}
-          <TouchableOpacity
-            style={styles.termsRow}
-            onPress={() => setAgreeTerms(!agreeTerms)}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.checkbox, agreeTerms && styles.checkboxActive]}>
-              {agreeTerms && (
-                <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-                  ✓
+          <Controller
+            control={control}
+            name="agreeTerms"
+            render={({ field: { onChange, value } }) => (
+              <TouchableOpacity
+                style={styles.termsRow}
+                onPress={() => onChange(!value)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.checkbox, value && styles.checkboxActive]}>
+                  {value && (
+                    <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
+                      ✓
+                    </AppText>
+                  )}
+                </View>
+                <AppText size="xs" color={ThemeColors.textSecondary} style={{ flex: 1 }}>
+                  I agree to the{' '}
+                  <AppText size="xs" weight="bold" color={ThemeColors.accentDark}>
+                    Terms of Service
+                  </AppText>{' '}
+                  and{' '}
+                  <AppText size="xs" weight="bold" color={ThemeColors.accentDark}>
+                    Privacy Policy
+                  </AppText>
+                  .
                 </AppText>
-              )}
-            </View>
-            <AppText size="xs" color={ThemeColors.textSecondary} style={{ flex: 1 }}>
-              I agree to the <AppText size="xs" weight="bold" color={ThemeColors.accentDark}>Terms of Service</AppText> and <AppText size="xs" weight="bold" color={ThemeColors.accentDark}>Privacy Policy</AppText>.
+              </TouchableOpacity>
+            )}
+          />
+          {errors.agreeTerms && (
+            <AppText size="xs" color={ThemeColors.error} style={[styles.fieldError, { marginTop: 4 }]}>
+              ⚠ {errors.agreeTerms.message}
             </AppText>
-          </TouchableOpacity>
+          )}
 
           {/* Create Account CTA */}
           <Button
             label={isSubmitting ? 'Setting up profile...' : 'Create Account & Start 🚀'}
-            onPress={handleRegister}
+            onPress={handleSubmit(onSubmit)}
             loading={isSubmitting}
             disabled={isSubmitting}
             fullWidth
@@ -427,6 +479,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: ThemeColors.textPrimary,
     minHeight: 48,
+  },
+  inputError: {
+    borderColor: ThemeColors.error,
+    backgroundColor: '#FFF5F5',
+  },
+  fieldError: {
+    marginTop: 4,
+    marginLeft: 2,
   },
   passwordWrapper: {
     position: 'relative',

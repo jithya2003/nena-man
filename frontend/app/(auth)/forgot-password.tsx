@@ -19,6 +19,7 @@ import AppText from '@/components/AppText';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import NavBar from '@/components/NavBar';
+import { authService } from '@/services/authService';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function ForgotPasswordScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!email.trim() || !email.includes('@')) {
       setErrorMessage('Please enter a valid email address.');
       return;
@@ -36,10 +37,14 @@ export default function ForgotPasswordScreen() {
     setErrorMessage('');
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await authService.sendPasswordResetEmail(email.trim());
       setIsSubmitted(true);
-    }, 500);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to send reset email. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -58,16 +63,19 @@ export default function ForgotPasswordScreen() {
       >
         <View style={styles.content}>
           {!isSubmitted ? (
-            <View>
+            <View style={styles.cardWrapper}>
+              <View style={styles.iconWrap}>
+                <AppText style={styles.icon}>🔐</AppText>
+              </View>
               <View style={styles.headerInfo}>
-                <AppText size="display" style={{ marginBottom: ThemeSpacing.xs }}>
-                  🔐
+                <AppText size="xl" weight="extrabold" color="#172B20" align="center">
+                  මුරපදය නැවත සකසන්න
                 </AppText>
-                <AppText size="xxl" weight="extrabold" color={ThemeColors.textPrimary}>
+                <AppText size="xs" weight="bold" color="#0B7A44" align="center" style={{ marginTop: 2 }}>
                   Forgot your password?
                 </AppText>
-                <AppText size="sm" color={ThemeColors.textSecondary} style={{ marginTop: ThemeSpacing.xs }}>
-                  Enter your registered email address and we'll send you instructions to reset your password or child PIN.
+                <AppText size="sm" color={ThemeColors.textSecondary} align="center" style={{ marginTop: ThemeSpacing.xs, lineHeight: 20 }}>
+                  ලියාපදිංචි විද්‍යුත් තැපෑල ඇතුළත් කරන්න. ඔබට මුරපදය නැවත සැකසීමේ සබැඳියක් ලැබෙනු ඇත.
                 </AppText>
               </View>
 
@@ -81,8 +89,8 @@ export default function ForgotPasswordScreen() {
               ) : null}
 
               <View style={styles.inputGroup}>
-                <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-                  Registered Email Address
+                <AppText size="xs" weight="bold" color="#172B20" style={styles.inputLabel}>
+                  Registered Email Address (විද්‍යුත් තැපෑල)
                 </AppText>
                 <TextInput
                   style={styles.input}
@@ -102,9 +110,11 @@ export default function ForgotPasswordScreen() {
               <Button
                 label={isSubmitting ? 'Sending instructions...' : 'Send Reset Instructions ✉️'}
                 onPress={handleSubmit}
+                loading={isSubmitting}
+                disabled={isSubmitting}
                 fullWidth
                 size="lg"
-                style={{ marginTop: ThemeSpacing.lg }}
+                style={{ marginTop: ThemeSpacing.md, backgroundColor: '#0B7A44' }}
               />
 
               <Button
@@ -116,32 +126,37 @@ export default function ForgotPasswordScreen() {
               />
             </View>
           ) : (
-            <Card variant="elevated" style={styles.successCard}>
-              <AppText size="display" style={{ marginBottom: ThemeSpacing.sm }}>
-                ✉️
+            <View style={styles.cardWrapper}>
+              <View style={styles.iconWrap}>
+                <AppText style={styles.icon}>✉️</AppText>
+              </View>
+              <AppText size="xl" weight="extrabold" color="#172B20" align="center">
+                උපදෙස් යවන ලදී!
               </AppText>
-              <AppText size="xl" weight="extrabold" color={ThemeColors.textPrimary} align="center">
+              <AppText size="xs" weight="bold" color="#0B7A44" align="center" style={{ marginTop: 2 }}>
                 Instructions Sent!
               </AppText>
-              <AppText
-                size="sm"
-                color={ThemeColors.textSecondary}
-                align="center"
-                style={{ marginVertical: ThemeSpacing.md, lineHeight: 22 }}
-              >
-                We've sent password reset instructions to{' '}
-                <AppText size="sm" weight="bold" color={ThemeColors.textPrimary}>
-                  {email}
+              <View style={styles.infoBox}>
+                <AppText
+                  size="sm"
+                  color={ThemeColors.textSecondary}
+                  align="center"
+                  style={{ lineHeight: 22 }}
+                >
+                  We've sent password reset instructions to{' '}
+                  <AppText size="sm" weight="bold" color="#172B20">
+                    {email}
+                  </AppText>
+                  .{'\n'}කරුණාකර ඔබගේ inbox හෝ spam ෆෝල්ඩරය පරීක්ෂා කරන්න.
                 </AppText>
-                . Please check your inbox and spam folder.
-              </AppText>
+              </View>
 
               <Button
                 label="Return to Sign In →"
                 onPress={() => router.replace('/(auth)/login')}
                 fullWidth
                 size="lg"
-                style={{ marginTop: ThemeSpacing.sm }}
+                style={{ marginTop: ThemeSpacing.sm, backgroundColor: '#0B7A44' }}
               />
 
               <Button
@@ -151,7 +166,7 @@ export default function ForgotPasswordScreen() {
                 fullWidth
                 style={{ marginTop: ThemeSpacing.xs }}
               />
-            </Card>
+            </View>
           )}
         </View>
       </KeyboardAvoidingView>
@@ -162,7 +177,7 @@ export default function ForgotPasswordScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ThemeColors.background,
+    backgroundColor: '#F0FDF4', // Calming light green background
     ...(Platform.OS === 'web' ? { minHeight: '100vh' as any, height: '100vh' as any } : {}),
   },
   flex: {
@@ -170,28 +185,65 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: ThemeSpacing.xl,
+    padding: ThemeSpacing.lg,
     justifyContent: 'center',
+    maxWidth: 440,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  cardWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: ThemeSpacing.xl,
+    borderWidth: 1.5,
+    borderColor: '#BCE6CB', // Soft mint border
+    alignItems: 'center',
+    ...ThemeShadow.md,
+  },
+  iconWrap: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#DCFCE7', // Calming light green badge
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: ThemeSpacing.md,
+  },
+  icon: {
+    fontSize: 34,
   },
   headerInfo: {
-    marginBottom: ThemeSpacing.xl,
+    marginBottom: ThemeSpacing.md,
+    alignItems: 'center',
   },
   inputGroup: {
+    width: '100%',
     marginBottom: ThemeSpacing.sm,
   },
   inputLabel: {
     marginBottom: ThemeSpacing.xs,
   },
   input: {
-    backgroundColor: ThemeColors.surface,
+    backgroundColor: '#F4FAF6', // Soft cooling mint surface
     borderWidth: 1.5,
-    borderColor: ThemeColors.border,
+    borderColor: '#BCE6CB',
     borderRadius: ThemeRadius.md,
     paddingHorizontal: ThemeSpacing.md,
     paddingVertical: ThemeSpacing.sm + 2,
     fontSize: 16,
-    color: ThemeColors.textPrimary,
+    color: '#172B20',
     minHeight: 48,
+  },
+  infoBox: {
+    backgroundColor: '#EAF7EE', // Calming light green info box
+    borderRadius: ThemeRadius.md,
+    padding: ThemeSpacing.md,
+    borderWidth: 1,
+    borderColor: '#BCE6CB',
+    width: '100%',
+    marginVertical: ThemeSpacing.md,
   },
   errorAlert: {
     flexDirection: 'row',
@@ -203,9 +255,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: ThemeColors.errorBorder,
     marginBottom: ThemeSpacing.md,
-  },
-  successCard: {
-    alignItems: 'center',
-    padding: ThemeSpacing.xl,
+    width: '100%',
   },
 });
