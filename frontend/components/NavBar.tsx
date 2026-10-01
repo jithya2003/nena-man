@@ -9,6 +9,7 @@ import {
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 
 export interface NavBarProps {
   title?: string;
@@ -39,6 +40,7 @@ export default function NavBar({
 }: NavBarProps) {
   const router = useRouter();
   const { logout } = useAuth();
+  const { t } = useLanguage();
 
   const handleBack = () => {
     if (onBack) {
@@ -121,7 +123,7 @@ export default function NavBar({
           >
             <AppText size="xs">⚙️</AppText>
             <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-              Font
+              {t('navbar.font')}
             </AppText>
           </TouchableOpacity>
         )}
@@ -133,7 +135,7 @@ export default function NavBar({
             activeOpacity={0.7}
           >
             <AppText size="xs" weight="bold" color={ThemeColors.error}>
-              Exit
+              {t('common.exit')}
             </AppText>
           </TouchableOpacity>
         )}
@@ -158,9 +160,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: ThemeSpacing.xs + 2,
     flex: 1,
+    minWidth: 0,
   },
   titleWrap: {
     flex: 1,
+    minWidth: 0,
     marginLeft: ThemeSpacing.xs,
   },
   iconBtn: {
@@ -177,6 +181,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: ThemeSpacing.xs,
+    flexShrink: 0,
   },
   actionChip: {
     flexDirection: 'row',
@@ -188,5 +193,6 @@ const styles = StyleSheet.create({
     paddingVertical: ThemeSpacing.xs,
     borderWidth: 1,
     borderColor: ThemeColors.border,
+    flexShrink: 0,
   },
 });

@@ -1,11 +1,12 @@
 /**
  * nena-man · frontend/services/firebase.ts
  * Client-side Firebase SDK initialization (Auth & Firestore).
+ * Safely handles missing or invalid API keys during development.
  */
 
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -17,10 +18,17 @@ const firebaseConfig = {
   measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase once
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+let app: FirebaseApp | undefined;
+let auth: Auth | any = { currentUser: null };
+let db: Firestore | any = {};
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+try {
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  auth = getAuth(app);
+  db = getFirestore(app);
+} catch (err) {
+  console.warn('[Firebase] Warning: Initialized in fallback mode due to missing/invalid API credentials.', err);
+}
 
+export { auth, db };
 export default app;

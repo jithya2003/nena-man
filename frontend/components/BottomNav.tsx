@@ -9,6 +9,7 @@ import {
   ThemeShadow,
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
+import { useLanguage } from '@/context/LanguageContext';
 
 export interface BottomNavProps {
   role?: 'child' | 'parent';
@@ -21,11 +22,12 @@ export default function BottomNav({
 }: BottomNavProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { t } = useLanguage();
 
   const childTabs = [
     {
       key: 'home',
-      label: 'මුල් පිටුව',
+      label: t('nav.home'),
       route: '/(child)/home',
       renderIcon: (active: boolean) => (
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -38,7 +40,7 @@ export default function BottomNav({
     },
     {
       key: 'learning',
-      label: 'ඉගෙනුම',
+      label: t('nav.learning'),
       route: '/(child)/reading',
       renderIcon: (active: boolean) => (
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -51,7 +53,7 @@ export default function BottomNav({
     },
     {
       key: 'games',
-      label: 'ක්‍රීඩා',
+      label: t('nav.games'),
       route: '/(child)/cooldown',
       renderIcon: (active: boolean) => (
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -78,7 +80,7 @@ export default function BottomNav({
     },
     {
       key: 'progress',
-      label: 'ප්‍රගතිය',
+      label: t('nav.progress'),
       route: '/(child)/progress',
       renderIcon: (active: boolean) => (
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -94,7 +96,7 @@ export default function BottomNav({
     },
     {
       key: 'profile',
-      label: 'මගේ ගිණුම',
+      label: t('nav.profile'),
       route: '/(child)/profile',
       renderIcon: (active: boolean) => (
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -138,7 +140,7 @@ export default function BottomNav({
                 weight={isActive ? 'bold' : 'medium'}
                 color={isActive ? '#FFFFFF' : ThemeColors.textSecondary}
                 style={[styles.tabLabel, isActive ? styles.activeTabLabel : undefined]}
-                numberOfLines={1}
+                numberOfLines={2}
               >
                 {tab.label}
               </AppText>
@@ -165,19 +167,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: ThemeSpacing.xs,
   },
   tabBtn: {
+    flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 8,
-    minWidth: 58,
+    paddingHorizontal: 2,
     borderRadius: ThemeRadius.md,
   },
   tabBtnActive: {
     backgroundColor: ThemeColors.primary,
     borderRadius: ThemeRadius.full,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    minWidth: 64,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
   iconWrap: {
     marginBottom: 2,
@@ -187,6 +189,7 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 10,
     marginTop: 1,
+    textAlign: 'center',
   },
   activeTabLabel: {
     color: '#FFFFFF',

@@ -19,9 +19,13 @@ import {
 import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
+import { useLanguage } from '@/context/LanguageContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { language, setLanguage, t } = useLanguage();
+  const { isAuthenticated } = useAuth();
 
   const [fontSizeChoice, setFontSizeChoice] = useState<'small' | 'medium' | 'large'>('medium');
   const [lineSpacingChoice, setLineSpacingChoice] = useState<'normal' | 'wide'>('normal');
@@ -50,7 +54,7 @@ export default function SettingsScreen() {
         <View style={styles.headerTitleWrap}>
           <AppText size="md">⚙️</AppText>
           <AppText size="md" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
-            සැකසුම්
+            {t('settings.title')}
           </AppText>
         </View>
 
@@ -66,12 +70,59 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
+        {/* ── SECTION 0: 🌐 භාෂාව (Language) ── */}
+        <View style={[styles.card, ThemeShadow.sm]}>
+          <View style={styles.sectionHeaderRow}>
+            <AppText size="sm">🌐</AppText>
+            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6, flexShrink: 1 }}>
+              {t('settings.language.section')}
+            </AppText>
+          </View>
+
+          <View style={styles.settingGroup}>
+            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.settingLabel}>
+              {t('settings.language.label')}
+            </AppText>
+            <View style={styles.pillsRow}>
+              <TouchableOpacity
+                style={[styles.pillOption, language === 'si' && styles.pillOptionActive]}
+                onPress={() => setLanguage('si')}
+                activeOpacity={0.8}
+              >
+                <AppText
+                  size="xs"
+                  weight={language === 'si' ? 'bold' : 'regular'}
+                  color={language === 'si' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  numberOfLines={1}
+                >
+                  {t('settings.language.sinhala')}
+                </AppText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.pillOption, language === 'en' && styles.pillOptionActive]}
+                onPress={() => setLanguage('en')}
+                activeOpacity={0.8}
+              >
+                <AppText
+                  size="xs"
+                  weight={language === 'en' ? 'bold' : 'regular'}
+                  color={language === 'en' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  numberOfLines={1}
+                >
+                  {t('settings.language.english')}
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
         {/* ── SECTION 1: 👤 ගිණුම (Account) ── */}
         <View style={[styles.card, ThemeShadow.sm]}>
           <View style={styles.sectionHeaderRow}>
             <AppText size="sm">👤</AppText>
-            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
-              ගිණුම
+            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6, flexShrink: 1 }}>
+              {t('settings.account')}
             </AppText>
           </View>
 
@@ -80,8 +131,8 @@ export default function SettingsScreen() {
             onPress={() => router.push('/(child)/profile')}
             activeOpacity={0.8}
           >
-            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-              මගේ පැතිකඩ
+            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.menuRowText}>
+              {t('settings.profile')}
             </AppText>
             <AppText size="xs" color={ThemeColors.textMuted}>
               ›
@@ -89,12 +140,12 @@ export default function SettingsScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.menuRowItem, { borderBottomWidth: 0 }]}
+            style={[styles.menuRowItem, { marginBottom: 0 }]}
             onPress={() => router.push('/(auth)/forgot-password')}
             activeOpacity={0.8}
           >
-            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-              මුරපදය වෙනස් කරන්න
+            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.menuRowText}>
+              {t('settings.changePassword')}
             </AppText>
             <AppText size="xs" color={ThemeColors.textMuted}>
               ›
@@ -106,15 +157,15 @@ export default function SettingsScreen() {
         <View style={[styles.card, ThemeShadow.sm]}>
           <View style={styles.sectionHeaderRow}>
             <AppText size="sm">♿</AppText>
-            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
-              ඉගෙනුම් පහසුකම්
+            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6, flexShrink: 1 }}>
+              {t('settings.accessibility')}
             </AppText>
           </View>
 
           {/* 1. අකුරු ප්‍රමාණය (Font Size) */}
           <View style={styles.settingGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.settingLabel}>
-              අකුරු ප්‍රමාණය
+              {t('settings.fontSize')}
             </AppText>
             <View style={styles.pillsRow}>
               <TouchableOpacity
@@ -126,8 +177,9 @@ export default function SettingsScreen() {
                   size="xs"
                   weight={fontSizeChoice === 'small' ? 'bold' : 'regular'}
                   color={fontSizeChoice === 'small' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  numberOfLines={1}
                 >
-                  කුඩා
+                  {t('settings.small')}
                 </AppText>
               </TouchableOpacity>
 
@@ -140,8 +192,9 @@ export default function SettingsScreen() {
                   size="xs"
                   weight={fontSizeChoice === 'medium' ? 'bold' : 'regular'}
                   color={fontSizeChoice === 'medium' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  numberOfLines={1}
                 >
-                  මධ්‍යම
+                  {t('settings.medium')}
                 </AppText>
               </TouchableOpacity>
 
@@ -154,8 +207,9 @@ export default function SettingsScreen() {
                   size="xs"
                   weight={fontSizeChoice === 'large' ? 'bold' : 'regular'}
                   color={fontSizeChoice === 'large' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  numberOfLines={1}
                 >
-                  විශාල
+                  {t('settings.large')}
                 </AppText>
               </TouchableOpacity>
             </View>
@@ -164,7 +218,7 @@ export default function SettingsScreen() {
           {/* 2. පේළි පරතරය (Line Spacing) */}
           <View style={styles.settingGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.settingLabel}>
-              පේළි පරතරය
+              {t('settings.lineSpacing')}
             </AppText>
             <View style={styles.pillsRow}>
               <TouchableOpacity
@@ -176,8 +230,9 @@ export default function SettingsScreen() {
                   size="xs"
                   weight={lineSpacingChoice === 'normal' ? 'bold' : 'regular'}
                   color={lineSpacingChoice === 'normal' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  numberOfLines={1}
                 >
-                  සාමාන්‍ය
+                  {t('settings.normal')}
                 </AppText>
               </TouchableOpacity>
 
@@ -190,8 +245,9 @@ export default function SettingsScreen() {
                   size="xs"
                   weight={lineSpacingChoice === 'wide' ? 'bold' : 'regular'}
                   color={lineSpacingChoice === 'wide' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  numberOfLines={1}
                 >
-                  පුළුල්
+                  {t('settings.wide')}
                 </AppText>
               </TouchableOpacity>
             </View>
@@ -201,8 +257,8 @@ export default function SettingsScreen() {
           <View style={styles.settingToggleCard}>
             <View style={styles.toggleLabelLeft}>
               <AppText size="sm">🔊</AppText>
-              <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={{ marginLeft: 8 }}>
-                ශබ්ද සහාය
+              <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={{ marginLeft: 8, flexShrink: 1 }}>
+                {t('settings.audioAssistance')}
               </AppText>
             </View>
             <Switch
@@ -216,7 +272,7 @@ export default function SettingsScreen() {
           {/* 4. කියවීමේ වේගය (Reading Speed) */}
           <View style={styles.settingGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.settingLabel}>
-              කියවීමේ වේගය
+              {t('settings.readingSpeed')}
             </AppText>
             {/* Custom Slider Simulation */}
             <View style={styles.sliderTrackWrap}>
@@ -233,7 +289,7 @@ export default function SettingsScreen() {
                   color={readingSpeed === 0 ? ThemeColors.primary : ThemeColors.textMuted}
                   weight={readingSpeed === 0 ? 'bold' : 'regular'}
                 >
-                  මන්දගාමී
+                  {t('settings.slow')}
                 </AppText>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setReadingSpeed(1)}>
@@ -242,7 +298,7 @@ export default function SettingsScreen() {
                   color={readingSpeed === 1 ? ThemeColors.primary : ThemeColors.textMuted}
                   weight={readingSpeed === 1 ? 'bold' : 'regular'}
                 >
-                  සාමාන්‍ය
+                  {t('settings.normal')}
                 </AppText>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setReadingSpeed(2)}>
@@ -251,7 +307,7 @@ export default function SettingsScreen() {
                   color={readingSpeed === 2 ? ThemeColors.primary : ThemeColors.textMuted}
                   weight={readingSpeed === 2 ? 'bold' : 'regular'}
                 >
-                  වේගවත්
+                  {t('settings.fast')}
                 </AppText>
               </TouchableOpacity>
             </View>
@@ -262,8 +318,8 @@ export default function SettingsScreen() {
         <View style={[styles.card, ThemeShadow.sm]}>
           <View style={styles.sectionHeaderRow}>
             <AppText size="sm">🔊</AppText>
-            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
-              ශබ්ද
+            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6, flexShrink: 1 }}>
+              {t('settings.sound')}
             </AppText>
           </View>
 
@@ -281,9 +337,11 @@ export default function SettingsScreen() {
 
           {/* Sound Feedback Toggle */}
           <View style={styles.settingToggleCard}>
-            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-              ශබ්ද ප්‍රතිචාර
-            </AppText>
+            <View style={styles.toggleLabelLeft}>
+              <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={{ flexShrink: 1 }}>
+                {t('settings.soundFeedback')}
+              </AppText>
+            </View>
             <Switch
               value={soundFeedback}
               onValueChange={setSoundFeedback}
@@ -296,8 +354,8 @@ export default function SettingsScreen() {
         <View style={{ height: ThemeSpacing.xl }} />
       </ScrollView>
 
-      {/* 5-Tab Bottom Navigation with Settings Active */}
-      <BottomNav role="child" activeTab="settings" />
+      {/* 5-Tab Bottom Navigation with Settings Active (if authenticated) */}
+      {isAuthenticated && <BottomNav role="child" activeTab="settings" />}
     </SafeAreaView>
   );
 }
@@ -328,6 +386,7 @@ const styles = StyleSheet.create({
   headerTitleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
   },
   scroll: {
     paddingHorizontal: ThemeSpacing.md,
@@ -357,6 +416,11 @@ const styles = StyleSheet.create({
     paddingVertical: ThemeSpacing.sm + 2,
     marginBottom: ThemeSpacing.xs + 2,
   },
+  menuRowText: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
+  },
   settingGroup: {
     marginBottom: ThemeSpacing.md,
   },
@@ -369,9 +433,11 @@ const styles = StyleSheet.create({
   },
   pillOption: {
     flex: 1,
+    minWidth: 0,
     backgroundColor: '#E8F1F8',
     borderRadius: 10,
     paddingVertical: 10,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -391,6 +457,9 @@ const styles = StyleSheet.create({
   toggleLabelLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
   },
   sliderTrackWrap: {
     height: 30,

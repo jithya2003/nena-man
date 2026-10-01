@@ -19,10 +19,12 @@ import AppText from '@/components/AppText';
 import NenaManLogo from '@/components/NenaManLogo';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function ParentDashboardScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'insights'>('overview');
 
   const handleLogout = async () => {
@@ -72,9 +74,9 @@ export default function ParentDashboardScreen() {
             <NenaManLogo size="sm" showText={false} />
           </TouchableOpacity>
 
-          <View style={{ marginLeft: 10 }}>
+          <View style={{ marginLeft: 10, flexShrink: 1 }}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
-              දෙමාපිය & ගුරු පුවරුව
+              {t('dashboard.parentTitle')}
             </AppText>
             <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
               {user?.displayName || 'සුභ උදෑසනක්!'} 👏
