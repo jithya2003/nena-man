@@ -26,6 +26,32 @@ export interface ParentUser {
   children: Child[];
 }
 
+export interface LinkedPerson {
+  uid: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  grade?: number;
+  relationship?: string;
+  linkedAt: string;
+}
+
+export interface ConnectionRequest {
+  id: string;
+  senderUid: string;
+  senderName: string;
+  senderEmail: string;
+  senderRole: 'parent' | 'teacher';
+  childEmail: string;
+  childUid: string;
+  childName: string;
+  childGrade?: number;
+  relationship?: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: string;
+  respondedAt?: string;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -37,6 +63,9 @@ export interface UserProfile {
   createdAt?: string;
   childProfile?: Child;
   emailVerified?: boolean;
+  studentCode?: string;
+  linkedChildren?: LinkedPerson[];
+  linkedGuardians?: LinkedPerson[];
 }
 
 export interface RegisterData {
