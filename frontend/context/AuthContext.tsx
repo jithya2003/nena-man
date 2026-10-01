@@ -8,6 +8,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, UserRole, RegisterData } from '@/types';
 import { AppStorage } from '@/utils/storage';
 import { authService } from '@/services/authService';
+import { useAuthStoreBase } from '@/store/authStore';
 
 const STORAGE_KEYS = {
   USER: '@nena_man_auth_user',
@@ -41,6 +42,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const storeSetUser = useAuthStoreBase((s) => s.setUser);
+  const storeLogout  = useAuthStoreBase((s) => s.logout);
 
   // Restore persisted session on startup
   useEffect(() => {
@@ -50,9 +53,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const storedToken = await AppStorage.getItem(STORAGE_KEYS.TOKEN);
 
         if (storedUser && storedToken) {
-          const parsedUser = JSON.parse(storedUser);
+          const parsedUser: UserProfile = JSON.parse(storedUser);
           setUser(parsedUser);
           setToken(storedToken);
+          // Sync authStore so child/session stores can read the user on restore
+          storeSetUser({
+            uid: parsedUser.uid,
+            name: parsedUser.displayName,
+            email: parsedUser.email,
+            role: parsedUser.role,
+          });
         }
       } catch (err) {
         console.error('[AuthContext] Failed to restore session:', err);
@@ -73,9 +83,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await authService.login(identifier, password, role);
 
-      // Block unverified parent/teacher accounts from establishing an active session
-      const isAdultAccount = res.user.role === 'parent' || res.user.role === 'teacher';
-      if (isAdultAccount && !res.user.emailVerified) {
+      // Block unverified accounts (Children, Parents, and Teachers) from establishing an active session
+      if (!res.user.emailVerified) {
         setIsLoading(false);
         return {
           success: false,
@@ -90,6 +99,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       await AppStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(res.user));
       await AppStorage.setItem(STORAGE_KEYS.TOKEN, res.token);
+
+      // Sync authStore so sibling stores (childStore, sessionStore) have the user
+      storeSetUser({
+        uid: res.user.uid,
+        name: res.user.displayName,
+        email: res.user.email,
+        role: res.user.role,
+      });
+
       return { success: true, role: res.user.role };
     } catch (err) {
       console.error('[AuthContext] Login error:', err);
@@ -103,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       const res = await authService.register(data);
-      // Do NOT persist session yet — user must verify email first
+      // All users (including children) must verify email before establishing an active session
       return { success: true, email: data.email };
     } catch (err) {
       console.error('[AuthContext] Registration error:', err);
@@ -121,6 +139,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(null);
       await AppStorage.removeItem(STORAGE_KEYS.USER);
       await AppStorage.removeItem(STORAGE_KEYS.TOKEN);
+      // Clear authStore — which also cascades to childStore + sessionStore
+      storeLogout();
     } finally {
       setIsLoading(false);
     }
@@ -131,6 +151,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(authToken);
     await AppStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userProfile));
     await AppStorage.setItem(STORAGE_KEYS.TOKEN, authToken);
+    storeSetUser({
+      uid: userProfile.uid,
+      name: userProfile.displayName,
+      email: userProfile.email,
+      role: userProfile.role,
+    });
   };
 
   const switchRole = (newRole: UserRole) => {
@@ -138,6 +164,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const updated = { ...user, role: newRole };
       setUser(updated);
       AppStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updated));
+      storeSetUser({
+        uid: updated.uid,
+        name: updated.displayName,
+        email: updated.email,
+        role: updated.role,
+      });
     }
   };
 
