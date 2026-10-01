@@ -17,9 +17,17 @@ import {
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
 import NenaManLogo from '@/components/NenaManLogo';
+import { useAuth } from '@/context/AuthContext';
+import { useChildStoreBase } from '@/store/childStore';
 
 export default function ActivityResultScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const currentChild = useChildStoreBase((s) => s.currentChild);
+  const childName =
+    currentChild?.name?.split(' ')[0] ||
+    (user?.role === 'child' ? user?.displayName?.split(' ')[0] : null) ||
+    'පුංචි යාළුවා';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -55,7 +63,7 @@ export default function ActivityResultScreen() {
 
           <View style={styles.subtitleRow}>
             <AppText size="xs" color={ThemeColors.textSecondary}>
-              හොඳ උත්සාහයක්, සෙනුලි!
+              හොඳ උත්සාහයක්, {childName}!
             </AppText>
             <AppText size="xs" style={{ marginLeft: 4 }}>
               🌟
