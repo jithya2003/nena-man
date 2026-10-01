@@ -37,8 +37,8 @@ export default function RegisterScreen() {
   const params = useLocalSearchParams<{ role?: string }>();
   const { register } = useAuth();
 
-  const [accountType, setAccountType] = useState<'parent' | 'educator'>(
-    params.role === 'educator' ? 'educator' : 'parent'
+  const [accountType, setAccountType] = useState<'child' | 'parent' | 'educator'>(
+    params.role === 'child' ? 'child' : params.role === 'educator' ? 'educator' : 'parent'
   );
   const [showPassword, setShowPassword] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState('Grade 2');
@@ -67,17 +67,20 @@ export default function RegisterScreen() {
     setIsSubmitting(true);
     try {
       const parsedGrade = parseInt(selectedGrade.replace(/\D/g, ''), 10) || 2;
+      const targetRole = accountType === 'child' ? 'child' : accountType === 'educator' ? 'teacher' : 'parent';
+
       const result = await register({
-        email: data.email,
+        email: data.email.trim(),
         password: data.password,
-        displayName: data.fullName,
-        role: accountType === 'educator' ? 'teacher' : 'parent',
-        childName: data.childName,
+        displayName: data.fullName.trim(),
+        role: targetRole,
+        childName: accountType === 'child' ? undefined : (data.childName?.trim() || undefined),
         age: 7,
         grade: parsedGrade,
       });
 
       if (result.success) {
+        // All accounts (Children, Parents, Teachers) must verify their email before accessing the app
         router.replace({
           pathname: '/(auth)/verify-email',
           params: { email: result.email },
@@ -114,12 +117,32 @@ export default function RegisterScreen() {
               Join Nena-Man 🌟
             </AppText>
             <AppText size="sm" color={ThemeColors.textSecondary} style={{ marginTop: 2 }}>
-              Personalized Sinhala reading assistance powered by AI
+              {accountType === 'child'
+                ? 'ශිෂ්‍ය ගිණුමක් සාදා විනෝදයෙන් සිංහල කියවන්න!'
+                : 'Personalized Sinhala reading assistance powered by AI'}
             </AppText>
           </View>
 
-          {/* Account Type Selector */}
+          {/* Account Type Selector — 3 Roles */}
           <View style={styles.accountTypeRow}>
+            <TouchableOpacity
+              style={[
+                styles.accountTypeBtn,
+                accountType === 'child' && styles.accountTypeBtnActive,
+              ]}
+              onPress={() => setAccountType('child')}
+              activeOpacity={0.8}
+            >
+              <AppText size="sm">🌟</AppText>
+              <AppText
+                size="xs"
+                weight={accountType === 'child' ? 'bold' : 'medium'}
+                color={ThemeColors.textPrimary}
+              >
+                Student
+              </AppText>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[
                 styles.accountTypeBtn,
@@ -130,7 +153,7 @@ export default function RegisterScreen() {
             >
               <AppText size="sm">🏡</AppText>
               <AppText
-                size="sm"
+                size="xs"
                 weight={accountType === 'parent' ? 'bold' : 'medium'}
                 color={ThemeColors.textPrimary}
               >
@@ -148,11 +171,11 @@ export default function RegisterScreen() {
             >
               <AppText size="sm">👩‍🏫</AppText>
               <AppText
-                size="sm"
+                size="xs"
                 weight={accountType === 'educator' ? 'bold' : 'medium'}
                 color={ThemeColors.textPrimary}
               >
-                Teacher / Specialist
+                Teacher
               </AppText>
             </TouchableOpacity>
           </View>
@@ -169,13 +192,13 @@ export default function RegisterScreen() {
 
           {/* ── SECTION 1: YOUR INFORMATION ── */}
           <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
-            1. Your Information
+            {accountType === 'child' ? '1. ශිෂ්‍ය තොරතුරු (Student Information)' : '1. Your Information'}
           </AppText>
 
           {/* Full Name */}
           <View style={styles.inputGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-              Full Name
+              {accountType === 'child' ? "Student's Full Name (ශිෂ්‍යයාගේ සම්පූර්ණ නම)" : 'Full Name'}
             </AppText>
             <Controller
               control={control}
@@ -183,7 +206,7 @@ export default function RegisterScreen() {
               render={({ field: { onChange, onBlur, value } }) => (
                 <TextInput
                   style={[styles.input, errors.fullName && styles.inputError]}
-                  placeholder="e.g. Priyanthi Perera"
+                  placeholder={accountType === 'child' ? 'e.g. සෙනුලි පෙරේරා' : 'e.g. Priyanthi Perera'}
                   placeholderTextColor={ThemeColors.textMuted}
                   value={value}
                   onChangeText={onChange}
@@ -198,10 +221,40 @@ export default function RegisterScreen() {
             )}
           </View>
 
-          {/* Email */}
+          {/* If Child account, place Grade selector right in Section 1 */}
+          {accountType === 'child' && (
+            <View style={styles.inputGroup}>
+              <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
+                ශ්‍රේණිය (Grade Level)
+              </AppText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gradeRow}>
+                {GRADES.map((g) => {
+                  const isSelected = selectedGrade === g;
+                  return (
+                    <TouchableOpacity
+                      key={g}
+                      style={[styles.gradeChip, isSelected && styles.gradeChipSelected]}
+                      onPress={() => setSelectedGrade(g)}
+                      activeOpacity={0.8}
+                    >
+                      <AppText
+                        size="xs"
+                        weight={isSelected ? 'bold' : 'medium'}
+                        color={isSelected ? ThemeColors.accentDark : ThemeColors.textPrimary}
+                      >
+                        {g}
+                      </AppText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Email / Username */}
           <View style={styles.inputGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-              Email Address
+              {accountType === 'child' ? 'Student Email Address (ශිෂ්‍ය විද්‍යුත් තැපෑල)' : 'Email Address (විද්‍යුත් තැපෑල)'}
             </AppText>
             <Controller
               control={control}
@@ -209,7 +262,7 @@ export default function RegisterScreen() {
               render={({ field: { onChange, onBlur, value } }) => (
                 <TextInput
                   style={[styles.input, errors.email && styles.inputError]}
-                  placeholder="e.g. priyanthi@example.com"
+                  placeholder={accountType === 'child' ? 'e.g. student@example.com' : 'e.g. priyanthi@example.com'}
                   placeholderTextColor={ThemeColors.textMuted}
                   value={value}
                   onChangeText={onChange}
@@ -289,64 +342,68 @@ export default function RegisterScreen() {
             )}
           </View>
 
-          {/* ── SECTION 2: CHILD PROFILE ── */}
-          <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
-            2. Child / Student Profile
-          </AppText>
-
-          {/* Child Name */}
-          <View style={styles.inputGroup}>
-            <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-              Child's Name
-            </AppText>
-            <Controller
-              control={control}
-              name="childName"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  style={[styles.input, errors.childName && styles.inputError]}
-                  placeholder="e.g. Nimasha"
-                  placeholderTextColor={ThemeColors.textMuted}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                />
-              )}
-            />
-            {errors.childName && (
-              <AppText size="xs" color={ThemeColors.error} style={styles.fieldError}>
-                ⚠ {errors.childName.message}
+          {/* ── SECTION 2: CHILD PROFILE (Shown only for Parent / Educator accounts) ── */}
+          {accountType !== 'child' && (
+            <>
+              <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
+                2. Child / Student Profile
               </AppText>
-            )}
-          </View>
 
-          {/* Grade Selector */}
-          <View style={styles.inputGroup}>
-            <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-              Grade Level
-            </AppText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gradeRow}>
-              {GRADES.map((g) => {
-                const isSelected = selectedGrade === g;
-                return (
-                  <TouchableOpacity
-                    key={g}
-                    style={[styles.gradeChip, isSelected && styles.gradeChipSelected]}
-                    onPress={() => setSelectedGrade(g)}
-                    activeOpacity={0.8}
-                  >
-                    <AppText
-                      size="xs"
-                      weight={isSelected ? 'bold' : 'medium'}
-                      color={isSelected ? ThemeColors.accentDark : ThemeColors.textPrimary}
-                    >
-                      {g}
-                    </AppText>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
+              {/* Child Name */}
+              <View style={styles.inputGroup}>
+                <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
+                  Child's Name
+                </AppText>
+                <Controller
+                  control={control}
+                  name="childName"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <TextInput
+                      style={[styles.input, errors.childName && styles.inputError]}
+                      placeholder="e.g. Nimasha"
+                      placeholderTextColor={ThemeColors.textMuted}
+                      value={value}
+                      onChangeText={onChange}
+                      onBlur={onBlur}
+                    />
+                  )}
+                />
+                {errors.childName && (
+                  <AppText size="xs" color={ThemeColors.error} style={styles.fieldError}>
+                    ⚠ {errors.childName.message}
+                  </AppText>
+                )}
+              </View>
+
+              {/* Grade Selector */}
+              <View style={styles.inputGroup}>
+                <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
+                  Grade Level
+                </AppText>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gradeRow}>
+                  {GRADES.map((g) => {
+                    const isSelected = selectedGrade === g;
+                    return (
+                      <TouchableOpacity
+                        key={g}
+                        style={[styles.gradeChip, isSelected && styles.gradeChipSelected]}
+                        onPress={() => setSelectedGrade(g)}
+                        activeOpacity={0.8}
+                      >
+                        <AppText
+                          size="xs"
+                          weight={isSelected ? 'bold' : 'medium'}
+                          color={isSelected ? ThemeColors.accentDark : ThemeColors.textPrimary}
+                        >
+                          {g}
+                        </AppText>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </>
+          )}
 
           {/* Terms Checkbox */}
           <Controller
@@ -387,7 +444,13 @@ export default function RegisterScreen() {
 
           {/* Create Account CTA */}
           <Button
-            label={isSubmitting ? 'Setting up profile...' : 'Create Account & Start 🚀'}
+            label={
+              isSubmitting
+                ? 'Setting up profile...'
+                : accountType === 'child'
+                  ? 'Create Student Account & Start 🚀'
+                  : 'Create Account & Start 🚀'
+            }
             onPress={handleSubmit(onSubmit)}
             loading={isSubmitting}
             disabled={isSubmitting}

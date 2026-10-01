@@ -71,21 +71,25 @@ export default function VerifyEmailScreen() {
           console.warn('[VerifyEmail] Firestore update warning:', e);
         }
 
+        let userRole: UserRole = 'parent';
+
         // Establish active authenticated session now that email is verified
         try {
           const token = await currentUser.getIdToken();
           const snap = await getDoc(doc(db, 'users', currentUser.uid));
           const docData = snap.exists() ? snap.data() : {};
+          userRole = (docData.role as UserRole) || 'parent';
           const profile: UserProfile = {
             uid: currentUser.uid,
             email: currentUser.email || email,
-            displayName: docData.displayName || currentUser.displayName || 'පෙරේරා මහතා',
-            role: (docData.role as UserRole) || 'parent',
+            displayName: docData.displayName || currentUser.displayName || (userRole === 'child' ? 'ශිෂ්‍යයා' : 'දෙමාපියන්'),
+            role: userRole,
             age: docData.age,
             grade: docData.grade,
             schoolName: docData.schoolName,
             createdAt: docData.createdAt || new Date().toISOString(),
             emailVerified: true,
+            childProfile: docData.childProfile,
           };
           await setUserSession(profile, token);
         } catch (sessionErr) {
@@ -94,9 +98,13 @@ export default function VerifyEmailScreen() {
 
         setStatusType('success');
         setStatusMessage('විද්‍යුත් තැපෑල සාර්ථකව සත්‍යාපනය කරන ලදී! (Email verified successfully!)');
-        // Navigate to parent dashboard after a short delay
+        // Navigate to appropriate home after a short delay
         setTimeout(() => {
-          router.replace('/(parent)/dashboard');
+          if (userRole === 'child') {
+            router.replace('/(child)/home');
+          } else {
+            router.replace('/(parent)/dashboard');
+          }
         }, 1200);
       } else {
         setStatusType('error');

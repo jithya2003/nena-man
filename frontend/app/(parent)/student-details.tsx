@@ -18,9 +18,11 @@ import {
 import AppText from '@/components/AppText';
 import NenaManLogo from '@/components/NenaManLogo';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
+import { useChildStoreBase } from '@/store/childStore';
 
 export default function TeacherStudentDetailsScreen() {
   const router = useRouter();
+  const currentChild = useChildStoreBase((s) => s.currentChild);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -88,10 +90,10 @@ export default function TeacherStudentDetailsScreen() {
               <StudentAvatarPhoto size={60} showEditBadge={false} />
               <View style={{ marginLeft: 16 }}>
                 <AppText size="lg" weight="extrabold" color={ThemeColors.textPrimary}>
-                  සෙනුලි පෙරේරා
+                  {currentChild?.name || 'ශිෂ්‍ය විස්තර'}
                 </AppText>
                 <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 2 }}>
-                  Grade 5
+                  {currentChild?.grade ? `Grade ${currentChild.grade}` : 'Grade 2'}
                 </AppText>
                 <View style={styles.statusPillWrap}>
                   <AppText size="xs" weight="bold" color="#16A34A">
@@ -101,15 +103,28 @@ export default function TeacherStudentDetailsScreen() {
               </View>
             </View>
 
-            <TouchableOpacity
-              style={styles.viewReportBtn}
-              onPress={() => router.push('/(parent)/reports')}
-              activeOpacity={0.85}
-            >
-              <AppText size="xs" weight="bold" color="#FFFFFF">
-                වාර්තාව බලන්න
-              </AppText>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              {currentChild && (
+                <TouchableOpacity
+                  style={[styles.viewReportBtn, { backgroundColor: ThemeColors.primary }]}
+                  onPress={() => router.replace('/(child)/home')}
+                  activeOpacity={0.85}
+                >
+                  <AppText size="xs" weight="bold" color="#FFFFFF">
+                    ඉගෙනුමට 🚀
+                  </AppText>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={styles.viewReportBtn}
+                onPress={() => router.push('/(parent)/reports')}
+                activeOpacity={0.85}
+              >
+                <AppText size="xs" weight="bold" color="#FFFFFF">
+                  වාර්තාව බලන්න
+                </AppText>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* 4 Metric Summary Cards */}

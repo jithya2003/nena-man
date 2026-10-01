@@ -5,14 +5,15 @@
  */
 
 import React, { useEffect } from 'react';
-import { Stack } from 'expo-router';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter, usePathname } from 'expo-router';
 import { ThemeColors } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
+import { connectionService } from '@/services/connectionService';
 
 export default function ChildLayout() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading) {
@@ -27,9 +28,18 @@ export default function ChildLayout() {
           pathname: '/(auth)/verify-email',
           params: { email: user.email, unverified: 'true' },
         });
+      } else if (user && (user.role === 'parent' || user.role === 'teacher')) {
+        // Parents/teachers can always access their account profile
+        if (!pathname?.includes('profile')) {
+          connectionService.getLinkedChildren(user.uid, user.email).then((linked) => {
+            if (!linked || linked.length === 0) {
+              router.replace('/(parent)/dashboard');
+            }
+          });
+        }
       }
     }
-  }, [isAuthenticated, isLoading, user]);
+  }, [isAuthenticated, isLoading, user, pathname]);
 
   // Render nothing while the auth state is loading or redirect is in progress
   if (

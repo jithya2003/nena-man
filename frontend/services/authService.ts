@@ -51,13 +51,16 @@ export const authService = {
   async register(data: RegisterData): Promise<{ user: UserProfile; token: string }> {
     try {
       const password = data.password || 'password123';
-      const userCred = await createUserWithEmailAndPassword(auth, data.email.trim(), password);
+      const email = data.email.includes('@') ? data.email.trim() : `${data.email.trim()}@nenaman.lk`;
+      const isChild = data.role === 'child';
+
+      const userCred = await createUserWithEmailAndPassword(auth, email, password);
       const fbUser = userCred.user;
 
       // Update Firebase Auth profile display name
       await updateProfile(fbUser, { displayName: data.displayName });
 
-      // Send email verification — user must click the link before accessing the dashboard
+      // Send email verification — mandatory for ALL accounts (Children, Parents, Teachers)
       try {
         await sendEmailVerification(fbUser);
       } catch (verifyErr) {
@@ -67,7 +70,7 @@ export const authService = {
       // Save user profile in Cloud Firestore
       const userProfile: UserProfile = {
         uid: fbUser.uid,
-        email: fbUser.email || data.email,
+        email: fbUser.email || email,
         displayName: data.displayName,
         role: data.role,
         age: data.age || (data.role === 'child' ? 7 : undefined),
@@ -76,6 +79,20 @@ export const authService = {
         createdAt: new Date().toISOString(),
         emailVerified: false,
       };
+
+      if (data.childName) {
+        userProfile.childProfile = {
+          id: `child_${fbUser.uid.slice(0, 6)}`,
+          name: data.childName,
+          age: data.age || 7,
+          grade: data.grade || 2,
+          readingLevel: 'medium',
+          streak: 1,
+          stars: 10,
+          totalSessions: 0,
+          avatarColor: '#4F46E5',
+        };
+      }
 
       try {
         await setDoc(doc(db, 'users', fbUser.uid), {
@@ -144,16 +161,21 @@ export const authService = {
         const snap = await getDoc(doc(db, 'users', fbUser.uid));
         if (snap.exists()) {
           const docData = snap.data();
+          const userRole = (docData.role as UserRole) || role;
           userProfile = {
             uid: fbUser.uid,
             email: fbUser.email || email,
-            displayName: docData.displayName || fbUser.displayName || (role === 'child' ? 'සෙනුලි' : 'පෙරේරා මහතා'),
-            role: (docData.role as UserRole) || role,
+            displayName: docData.displayName || fbUser.displayName || (userRole === 'child' ? 'ශිෂ්‍යයා' : 'දෙමාපියන්'),
+            role: userRole,
             age: docData.age,
             grade: docData.grade,
             schoolName: docData.schoolName,
             createdAt: docData.createdAt,
             emailVerified: fbUser.emailVerified,
+            childProfile: docData.childProfile,
+            studentCode: docData.studentCode,
+            linkedChildren: docData.linkedChildren,
+            linkedGuardians: docData.linkedGuardians,
           };
         }
       } catch (firestoreErr) {
@@ -165,7 +187,7 @@ export const authService = {
         userProfile = {
           uid: fbUser.uid,
           email: fbUser.email || email,
-          displayName: fbUser.displayName || (role === 'child' ? 'සෙනුලි ද සිල්වා' : 'පෙරේරා මහතා'),
+          displayName: fbUser.displayName || (role === 'child' ? 'ශිෂ්‍යයා' : 'දෙමාපියන්'),
           role,
           age: role === 'child' ? 7 : undefined,
           grade: role === 'child' ? 2 : undefined,

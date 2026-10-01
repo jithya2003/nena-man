@@ -17,9 +17,17 @@ import {
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
+import { useAuth } from '@/context/AuthContext';
+import { useChildStoreBase } from '@/store/childStore';
 
 export default function AdaptiveRecommendationsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const currentChild = useChildStoreBase((s) => s.currentChild);
+  const childName =
+    currentChild?.name?.split(' ')[0] ||
+    (user?.role === 'child' ? user?.displayName?.split(' ')[0] : null) ||
+    'පුංචි යාළුවා';
 
   const levels = [
     { num: 1, label: 'ආරම්භක', active: true },
@@ -64,7 +72,7 @@ export default function AdaptiveRecommendationsScreen() {
         {/* Welcome Notice Card */}
         <View style={[styles.welcomeNoticeCard, ThemeShadow.sm]}>
           <AppText size="xs" color={ThemeColors.textPrimary} style={styles.welcomeNoticeText}>
-            සෙනුලි, ඔබ වෙනුවෙන් අපි ක්‍රියාකාරකම් කිහිපයක් තෝරාගෙන තිබෙනවා 💚
+            {childName}, ඔබ වෙනුවෙන් අපි ක්‍රියාකාරකම් කිහිපයක් තෝරාගෙන තිබෙනවා 💚
           </AppText>
         </View>
 

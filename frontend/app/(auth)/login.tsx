@@ -35,21 +35,17 @@ import { auth } from "@/services/firebase";
 export default function LoginScreen() {
   const router = useRouter();
   const { role: initialRole } = useLocalSearchParams<{ role: string }>();
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
 
   // If user just registered (Firebase keeps them signed in) and email is unverified,
-  // redirect straight to verify-email — don't show the login form.
+  // redirect straight to verify-email for all users (children, parents, teachers).
   useEffect(() => {
     const currentUser = auth.currentUser;
     if (currentUser && !currentUser.emailVerified) {
-      // Only block adult accounts (children don't require email verification)
-      const isAdultRole = !currentUser.email?.endsWith('@nenaman.lk');
-      if (isAdultRole) {
-        router.replace({
-          pathname: '/(auth)/verify-email',
-          params: { email: currentUser.email || '', unverified: 'true' },
-        });
-      }
+      router.replace({
+        pathname: '/(auth)/verify-email',
+        params: { email: currentUser.email || '', unverified: 'true' },
+      });
     }
   }, []);
 
@@ -96,11 +92,34 @@ export default function LoginScreen() {
       }
 
       if (result.success) {
-        // Route according to the account's real role from the database
-        if (result.role === "parent" || result.role === "teacher") {
-          router.replace("/(parent)/dashboard");
-        } else {
+        // Enforce strict portal-to-role matching:
+        // Case 1: Logging in on Parent/Teacher portal (currentRole === "parent") with Child credentials
+        if (currentRole === "parent" && result.role === "child") {
+          await logout();
+          setServerError(
+            selectedLanguage === "si"
+              ? "මෙම ගිණුම ශිෂ්‍ය ගිණුමකි. දෙමාපිය/ගුරු පුවරුවෙන් පිවිසිය නොහැක. කරුණාකර 'ශිෂ්‍ය පිවිසුම' (Student Login) තෝරන්න."
+              : "This is a Student account and cannot access the Parent/Teacher portal. Please switch to 'Student Login'."
+          );
+          return;
+        }
+
+        // Case 2: Logging in on Student portal (currentRole === "child") with Parent/Teacher credentials
+        if (currentRole === "child" && (result.role === "parent" || result.role === "teacher")) {
+          await logout();
+          setServerError(
+            selectedLanguage === "si"
+              ? "මෙම ගිණුම දෙමාපිය/ගුරු ගිණුමකි. ශිෂ්‍ය පුවරුවෙන් පිවිසිය නොහැක. කරුණාකර 'දෙමාපිය / ගුරු පිවිසුම' (Parent/Teacher Login) තෝරන්න."
+              : "This is a Parent/Teacher account and cannot access the Student portal. Please switch to 'Parent/Teacher Login'."
+          );
+          return;
+        }
+
+        // Roles match properly:
+        if (result.role === "child") {
           router.replace("/(child)/home");
+        } else {
+          router.replace("/(parent)/dashboard");
         }
       } else {
         setServerError(
@@ -315,8 +334,8 @@ export default function LoginScreen() {
                 style={styles.inputLabel}
               >
                 {isParent
-                  ? "විද්‍යුත් තැපෑල හෝ දුරකථන අංකය"
-                  : "ශිෂ්‍ය අංකය හෝ විද්‍යුත් තැපෑල"}
+                  ? "විද්‍යුත් තැපෑල (Email Address)"
+                  : "ශිෂ්‍ය විද්‍යුත් තැපෑල (Student Email)"}
               </AppText>
               <Controller
                 control={control}
@@ -346,10 +365,11 @@ export default function LoginScreen() {
                       onChangeText={onChange}
                       onBlur={onBlur}
                       placeholder={
-                        isParent ? "parent@example.com" : "ශිෂ්‍ය අංකය ඇතුළත් කරන්න"
+                        isParent ? "parent@example.com" : "student@example.com"
                       }
                       placeholderTextColor={ThemeColors.textMuted}
                       autoCapitalize="none"
+                      keyboardType="email-address"
                     />
                   </View>
                 )}
