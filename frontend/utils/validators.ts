@@ -10,14 +10,10 @@ import { z } from 'zod';
 export const loginSchema = z.object({
   identifier: z
     .string()
-    .min(1, 'විද්‍යුත් තැපෑල හෝ ID ඇතුළත් කරන්න. (Email or ID is required.)')
-    .refine(
-      (val) => {
-        // Allow plain student IDs (no @ required) OR valid emails
-        if (!val.includes('@')) return true;
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
-      },
-      'නිවැරදි විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න. (Invalid email address.)'
+    .min(1, 'විද්‍යුත් තැපෑල ඇතුළත් කරන්න. (Email is required.)')
+    .regex(
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+      'නිවැරදි විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න. (Please enter a valid email address.)'
     ),
   password: z
     .string()
@@ -38,7 +34,7 @@ export const registerSchema = z
       .min(1, 'විද්‍යුත් තැපෑල ඇතුළත් කරන්න. (Email is required.)')
       .regex(
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-        'නිවැරදි විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න. (Invalid email address.)'
+        'නිවැරදි විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න. (Please enter a valid email address.)'
       ),
     password: z
       .string()
@@ -50,9 +46,7 @@ export const registerSchema = z
     confirmPassword: z
       .string()
       .min(1, 'මුරපදය නැවත ඇතුළත් කරන්න. (Please confirm your password.)'),
-    childName: z
-      .string()
-      .min(2, "දරුවාගේ නම ඇතුළත් කරන්න. (Child's name is required.)"),
+    childName: z.string().optional(),
     agreeTerms: z.boolean().refine((val) => val === true, {
       message: 'කරුණාකර නියම සහ ප්‍රතිපත්තිය පිළිගන්න. (You must agree to the Terms of Service.)',
     }),

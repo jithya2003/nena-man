@@ -17,9 +17,14 @@ import {
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
+import { useChildStoreBase } from '@/store/childStore';
 
 export default function ParentMobileDashboard() {
   const router = useRouter();
+  const currentChild = useChildStoreBase((s) => s.currentChild);
+  const childFirstName = currentChild?.name?.split(' ')[0] || 'දරුවා';
+  const childFullName = currentChild?.name || 'ශිෂ්‍ය ගිණුම';
+  const childGrade = currentChild?.grade ? `${currentChild.grade} ශ්‍රේණිය` : '2 ශ්‍රේණිය';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -52,10 +57,10 @@ export default function ParentMobileDashboard() {
           <StudentAvatarPhoto size={48} showEditBadge={false} />
           <View style={{ marginLeft: 12 }}>
             <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
-              සෙනුලි පෙරේරා
+              {childFullName}
             </AppText>
             <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 2 }}>
-              5 ශ්‍රේණිය
+              {childGrade}
             </AppText>
           </View>
         </View>
@@ -255,7 +260,7 @@ export default function ParentMobileDashboard() {
           <View style={[styles.recSpeechBubble, ThemeShadow.sm]}>
             <AppText size="md">💬</AppText>
             <AppText size="xs" color={ThemeColors.textPrimary} style={styles.recSpeechText}>
-              සෙනුලිට වාක්‍ය කියවීමේ ක්‍රියාකාරකම් තවදුරටත් පුහුණු කිරීම සුදුසුයි.
+              {childFirstName}ට වාක්‍ය කියවීමේ ක්‍රියාකාරකම් තවදුරටත් පුහුණු කිරීම සුදුසුයි.
             </AppText>
           </View>
         </View>

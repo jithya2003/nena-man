@@ -7,34 +7,39 @@ import { StyleSheet, Platform } from 'react-native';
 import { ThemeColors } from '@/constants/theme';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
-import { LanguageProvider } from '@/context/LanguageContext';
+import { useNetworkStatus } from '@/store/hooks';
+
+/** Mounts the NetInfo / browser-event listener once for the app's lifetime. */
+function NetworkListener() {
+  useNetworkStatus();
+  return null;
+}
 
 export default function RootLayout() {
   return (
-    <LanguageProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <SafeAreaProvider>
-            <GestureHandlerRootView style={styles.root}>
-              <StatusBar style="dark" backgroundColor={ThemeColors.background} />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  animation: 'fade',
-                  contentStyle: { backgroundColor: ThemeColors.background },
-                }}
-              >
-                <Stack.Screen name="index" options={{ headerShown: false }} />
-                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                <Stack.Screen name="(child)" options={{ headerShown: false }} />
-                <Stack.Screen name="(parent)" options={{ headerShown: false }} />
-                <Stack.Screen name="(settings)" options={{ headerShown: false }} />
-              </Stack>
-            </GestureHandlerRootView>
-          </SafeAreaProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </LanguageProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <SafeAreaProvider>
+          <GestureHandlerRootView style={styles.root}>
+            <NetworkListener />
+            <StatusBar style="dark" backgroundColor={ThemeColors.background} />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: 'fade',
+                contentStyle: { backgroundColor: ThemeColors.background },
+              }}
+            >
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+              <Stack.Screen name="(child)" options={{ headerShown: false }} />
+              <Stack.Screen name="(parent)" options={{ headerShown: false }} />
+              <Stack.Screen name="(settings)" options={{ headerShown: false }} />
+            </Stack>
+          </GestureHandlerRootView>
+        </SafeAreaProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

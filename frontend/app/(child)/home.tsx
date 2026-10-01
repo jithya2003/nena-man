@@ -4,9 +4,11 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
   Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { connectionService } from "@/services/connectionService";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path, Circle } from "react-native-svg";
 import {
@@ -24,7 +26,7 @@ import {
 } from "@/components/Illustrations";
 import { useRouter as useRouterM2 } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
-import { useLanguage } from "@/context/LanguageContext";
+import { useChildStoreBase } from "@/store/childStore";
 
 // ── M2 AI Simplification Card ─────────────────────────────────────────────────
 function M2SimplificationCard() {
@@ -251,9 +253,67 @@ export default function StudentDashboard() {
     router.replace("/(auth)/role-select");
   };
 
-  const greetingName = user?.displayName
-    ? user.displayName.split(" ")[0]
-    : "සෙනුලි";
+  const handleSwitchToParent = async () => {
+    // If current logged-in account is parent/teacher previewing child mode, return to parent dashboard directly
+    if (user?.role === 'parent' || user?.role === 'teacher') {
+      router.replace('/(parent)/dashboard');
+      return;
+    }
+
+    try {
+      const guardians = user?.uid ? await connectionService.getLinkedGuardians(user.uid, user.email) : [];
+      if (guardians.length === 0) {
+        if (Platform.OS === 'web') {
+          const confirm = window.confirm(
+            'තවමත් ඔබගේ ගිණුමට කිසිදු දෙමාපිය හෝ ගුරු ගිණුමක් සම්බන්ධ කර නැත.\n\nදෙමාපියන්ට ලබාදීමට ඔබගේ ශිෂ්‍ය කේතය (Student Code) බැලීමට පැතිකඩ වෙත යන්නද?'
+          );
+          if (confirm) {
+            router.push('/(child)/profile');
+          }
+        } else {
+          Alert.alert(
+            'දෙමාපිය ගිණුමක් නැත',
+            'තවමත් ඔබගේ ගිණුමට කිසිදු දෙමාපිය හෝ ගුරු ගිණුමක් සම්බන්ධ කර නැත. කරුණාකර ඔබගේ ශිෂ්‍ය කේතය දෙමාපියන්ට ලබාදී සම්බන්ධ වීමේ ඉල්ලීමක් එවන්න.',
+            [
+              { text: 'හරි' },
+              { text: 'ශිෂ්‍ය කේතය බලන්න', onPress: () => router.push('/(child)/profile') },
+            ]
+          );
+        }
+        return;
+      }
+
+      // Set the active guardian to switch into
+      const activeGuardian = guardians[0];
+      useChildStoreBase.getState().setCurrentGuardian(activeGuardian);
+
+      // Make sure currentChild is preserved as this child
+      if (user) {
+        useChildStoreBase.getState().setCurrentChild({
+          id: user.uid,
+          name: user.displayName || 'ශිෂ්‍යයා',
+          age: user.age || 7,
+          grade: user.grade || 2,
+          readingLevel: 'medium',
+          streak: 1,
+          stars: 10,
+          totalSessions: 0,
+          avatarColor: '#4F46E5',
+        });
+      }
+
+      router.replace('/(parent)/dashboard');
+    } catch (err) {
+      console.warn('[HomeScreen] Switch error:', err);
+    }
+  };
+
+  const currentChild = useChildStoreBase((s) => s.currentChild);
+  const greetingName = (user?.role === 'child' ? user.displayName : currentChild?.name)
+    ? (user?.role === 'child' ? user.displayName : currentChild?.name)!.split(" ")[0]
+    : user?.displayName
+      ? user.displayName.split(" ")[0]
+      : "ශිෂ්‍යයා";
 
   return (
     <SafeAreaView style={styles.container}>
@@ -300,16 +360,15 @@ export default function StudentDashboard() {
             <StudentAvatarPhoto size={36} showEditBadge={false} />
           </TouchableOpacity>
 
-          {/* Back to Parent Dashboard — shown when a parent/teacher is viewing child mode */}
-          {(user?.role === 'parent' || user?.role === 'teacher') && (
-            <TouchableOpacity
-              style={styles.parentBackBtn}
-              onPress={() => router.replace("/(parent)/dashboard")}
-              activeOpacity={0.75}
-            >
-              <AppText size="xs" weight="bold" color="#0369A1">👨‍👩‍👧‍👦</AppText>
-            </TouchableOpacity>
-          )}
+          {/* One-button switch between Child Account and related Parent/Teacher Dashboard */}
+          <TouchableOpacity
+            style={styles.parentBackBtn}
+            onPress={handleSwitchToParent}
+            activeOpacity={0.75}
+            accessibilityLabel="Switch to Parent / Educator Dashboard"
+          >
+            <AppText size="xs" weight="bold" color="#0369A1">👨‍👩‍👧‍👦</AppText>
+          </TouchableOpacity>
 
           {/* Log Out Button (Exit Icon Only) */}
           <TouchableOpacity

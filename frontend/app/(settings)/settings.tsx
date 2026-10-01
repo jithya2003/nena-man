@@ -19,13 +19,12 @@ import {
 import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
-import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { language, setLanguage, t } = useLanguage();
-  const { isAuthenticated } = useAuth();
+  const { user } = useAuth();
+  const isParentOrTeacher = user?.role === 'parent' || user?.role === 'teacher';
 
   const [fontSizeChoice, setFontSizeChoice] = useState<'small' | 'medium' | 'large'>('medium');
   const [lineSpacingChoice, setLineSpacingChoice] = useState<'normal' | 'wide'>('normal');
@@ -39,7 +38,7 @@ export default function SettingsScreen() {
       {/* Top Header */}
       <View style={styles.topBar}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => (isParentOrTeacher ? router.replace('/(parent)/dashboard') : router.back())}
           style={styles.navIconBtn}
           activeOpacity={0.7}
         >
@@ -62,7 +61,22 @@ export default function SettingsScreen() {
           onPress={() => router.push('/(child)/profile')}
           activeOpacity={0.8}
         >
-          <StudentAvatarPhoto size={34} showEditBadge={false} />
+          {isParentOrTeacher ? (
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                backgroundColor: '#E0F2FE',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <AppText size="sm">{user?.role === 'teacher' ? '👩‍🏫' : '👨‍👩‍👧'}</AppText>
+            </View>
+          ) : (
+            <StudentAvatarPhoto size={34} showEditBadge={false} />
+          )}
         </TouchableOpacity>
       </View>
 
@@ -354,8 +368,8 @@ export default function SettingsScreen() {
         <View style={{ height: ThemeSpacing.xl }} />
       </ScrollView>
 
-      {/* 5-Tab Bottom Navigation with Settings Active (if authenticated) */}
-      {isAuthenticated && <BottomNav role="child" activeTab="settings" />}
+      {/* 5-Tab Bottom Navigation for Child Only */}
+      {!isParentOrTeacher && <BottomNav role="child" activeTab="settings" />}
     </SafeAreaView>
   );
 }
