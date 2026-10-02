@@ -23,12 +23,21 @@ interface SettingsState {
   /** Visual accessibility overrides. */
   accessibility: AccessibilitySettings;
 
+  // ── Daily Reminder Settings ──────────────────────────────────────────────────
+
+  /** Whether daily reading reminders are enabled. Default false. */
+  remindersEnabled: boolean;
+  /** Scheduled time for daily reminder in 24-hour "HH:mm" format. Default 17:00. */
+  reminderTime: string;
+
   // ── Actions ─────────────────────────────────────────────────────────────────
 
   setLanguage: (language: 'si' | 'en') => void;
   setFontSize: (size: number) => void;
   /** Partial update — only the fields you pass get overwritten. */
   setAccessibility: (patch: Partial<AccessibilitySettings>) => void;
+  setRemindersEnabled: (enabled: boolean) => void;
+  setReminderTime: (time: string) => void;
 }
 
 export const useSettingsStoreBase = create<SettingsState>()(
@@ -40,6 +49,8 @@ export const useSettingsStoreBase = create<SettingsState>()(
         highContrast: false,
         dyslexiaFont: false,
       },
+      remindersEnabled: false,
+      reminderTime: '17:00',
 
       setLanguage: (language) => set({ language }),
 
@@ -49,6 +60,10 @@ export const useSettingsStoreBase = create<SettingsState>()(
         set((state) => ({
           accessibility: { ...state.accessibility, ...patch },
         })),
+
+      setRemindersEnabled: (remindersEnabled) => set({ remindersEnabled }),
+
+      setReminderTime: (reminderTime) => set({ reminderTime }),
     }),
     {
       name: '@nena_man_settings_store',

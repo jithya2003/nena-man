@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Switch,
   Platform,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,11 +21,21 @@ import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
 import { useAuth } from '@/context/AuthContext';
+import { useReminderSettings } from '@/hooks/useReminderSettings';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const isParentOrTeacher = user?.role === 'parent' || user?.role === 'teacher';
+
+  const {
+    remindersEnabled,
+    reminderTime,
+    permissionBlocked,
+    isTogglingReminder,
+    toggleReminders,
+    updateReminderTime,
+  } = useReminderSettings();
 
   const [fontSizeChoice, setFontSizeChoice] = useState<'small' | 'medium' | 'large'>('medium');
   const [lineSpacingChoice, setLineSpacingChoice] = useState<'normal' | 'wide'>('normal');
@@ -311,6 +322,99 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* ── SECTION 4: 🔔 දෛනික මතක් කිරීම (Daily Reminders) ── */}
+        <View style={[styles.card, ThemeShadow.sm]}>
+          <View style={styles.sectionHeaderRow}>
+            <AppText size="sm">🔔</AppText>
+            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
+              දෛනික කියවීමේ මතක් කිරීම
+            </AppText>
+          </View>
+
+          {/* Enable / Disable Toggle */}
+          <View style={styles.settingToggleCard}>
+            <View style={styles.toggleLabelLeft}>
+              <AppText size="sm">{remindersEnabled ? '🔔' : '🔕'}</AppText>
+              <View style={{ marginLeft: 8 }}>
+                <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
+                  {remindersEnabled ? 'මතක් කිරීම් සක්‍රීයයි' : 'මතක් කිරීම් අක්‍රීයයි'}
+                </AppText>
+                <AppText size="xs" color={ThemeColors.textMuted}>
+                  සෑම දිනකම කියවීමට මතක් කරයි
+                </AppText>
+              </View>
+            </View>
+            <Switch
+              value={remindersEnabled}
+              onValueChange={toggleReminders}
+              disabled={isTogglingReminder}
+              trackColor={{ false: '#CBD5E1', true: ThemeColors.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          {/* Permission Blocked Warning */}
+          {permissionBlocked && (
+            <View style={styles.permissionWarningBox}>
+              <AppText size="xs" weight="bold" color="#B45309">
+                ⚠️ දැනුම්දීම් අවසර නොමැත
+              </AppText>
+              <AppText size="xs" color="#92400E" style={{ marginTop: 4, lineHeight: 18 }}>
+                දුරකතනයේ සැකසුම් (Settings) → යෙදුම් (Apps) → Nena Man → දැනුම්දීම් (Notifications) යටතේ සක්‍රීය කරන්න.
+              </AppText>
+            </View>
+          )}
+
+          {/* Time Picker — only show when reminders are enabled */}
+          {remindersEnabled && (
+            <View style={styles.timePickerSection}>
+              <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={{ marginBottom: 8 }}>
+                මතක් කිරීමේ වේලාව:
+              </AppText>
+
+              {/* Quick time selection buttons */}
+              <View style={styles.timeButtonsGrid}>
+                {[
+                  { label: 'උදේ 7:00', value: '07:00' },
+                  { label: 'දහවල් 12:00', value: '12:00' },
+                  { label: 'හවස 5:00', value: '17:00' },
+                  { label: 'රාත්‍රී 8:00', value: '20:00' },
+                ].map((opt) => {
+                  const isSelected = reminderTime === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[
+                        styles.timeBtn,
+                        isSelected && styles.timeBtnActive,
+                      ]}
+                      onPress={() => updateReminderTime(opt.value)}
+                      activeOpacity={0.8}
+                    >
+                      <AppText
+                        size="xs"
+                        weight={isSelected ? 'bold' : 'medium'}
+                        color={isSelected ? '#FFFFFF' : ThemeColors.textSecondary}
+                      >
+                        {opt.label}
+                      </AppText>
+                      {isSelected && (
+                        <AppText size="xs" color="#FFFFFF" style={{ marginTop: 2 }}>
+                          ✓
+                        </AppText>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <AppText size="xs" color={ThemeColors.textMuted} style={{ marginTop: 8, textAlign: 'center' }}>
+                📅 {reminderTime} ට සෑම දිනකම මතක් කිරීමක් ලැබේ
+              </AppText>
+            </View>
+          )}
+        </View>
+
         <View style={{ height: ThemeSpacing.xl }} />
       </ScrollView>
 
@@ -467,5 +571,39 @@ const styles = StyleSheet.create({
     height: 6,
     backgroundColor: ThemeColors.primary,
     borderRadius: 3,
+  },
+  permissionWarningBox: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 12,
+    padding: ThemeSpacing.sm + 4,
+    marginTop: 10,
+  },
+  timePickerSection: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: ThemeColors.borderLight,
+  },
+  timeButtonsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  timeBtn: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: ThemeColors.borderLight,
+  },
+  timeBtnActive: {
+    backgroundColor: ThemeColors.primary,
+    borderColor: ThemeColors.primaryDark,
   },
 });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -8,10 +8,22 @@ import { ThemeColors } from '@/constants/theme';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { useNetworkStatus } from '@/store/hooks';
+import { syncReminderOnStartup } from '@/notifications/scheduler';
 
 /** Mounts the NetInfo / browser-event listener once for the app's lifetime. */
 function NetworkListener() {
   useNetworkStatus();
+  return null;
+}
+
+/**
+ * Re-syncs the daily reading reminder on every app launch.
+ * Covers cases where the OS cleared scheduled notifications (e.g. after reboot).
+ */
+function ReminderSyncListener() {
+  useEffect(() => {
+    syncReminderOnStartup();
+  }, []);
   return null;
 }
 
@@ -22,6 +34,7 @@ export default function RootLayout() {
         <SafeAreaProvider>
         <GestureHandlerRootView style={styles.root}>
           <NetworkListener />
+          <ReminderSyncListener />
           <StatusBar style="dark" backgroundColor={ThemeColors.background} />
           <Stack
             screenOptions={{
