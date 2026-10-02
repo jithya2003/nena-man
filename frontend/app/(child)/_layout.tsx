@@ -29,8 +29,8 @@ export default function ChildLayout() {
           params: { email: user.email, unverified: 'true' },
         });
       } else if (user && (user.role === 'parent' || user.role === 'teacher')) {
-        // Parents/teachers can always access their account profile
-        if (!pathname?.includes('profile')) {
+        // Parents/teachers can always access their account profile & settings
+        if (!pathname?.includes('profile') && !pathname?.includes('settings')) {
           connectionService.getLinkedChildren(user.uid, user.email).then((linked) => {
             if (!linked || linked.length === 0) {
               router.replace('/(parent)/dashboard');

@@ -1,18 +1,28 @@
-/**
- * nena-man · frontend/utils/storage.ts
- * Safe cross-platform local storage helper.
- * Uses window.localStorage on Web and in-memory map on Native.
- */
-
 import { Platform } from 'react-native';
 
 const memoryStore = new Map<string, string>();
+
+function getAsyncStorage() {
+  if (Platform.OS === 'web') return null;
+  try {
+    const mod = require('@react-native-async-storage/async-storage');
+    return mod.default || mod;
+  } catch {
+    return null;
+  }
+}
 
 export const AppStorage = {
   async getItem(key: string): Promise<string | null> {
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-        return window.localStorage.getItem(key);
+        const value = window.localStorage.getItem(key);
+        return value !== null ? value : memoryStore.get(key) || null;
+      }
+      const storage = getAsyncStorage();
+      if (storage) {
+        const value = await storage.getItem(key);
+        return value !== null ? value : memoryStore.get(key) || null;
       }
       return memoryStore.get(key) || null;
     } catch {
@@ -24,6 +34,11 @@ export const AppStorage = {
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(key, value);
+      } else {
+        const storage = getAsyncStorage();
+        if (storage) {
+          await storage.setItem(key, value);
+        }
       }
       memoryStore.set(key, value);
     } catch {
@@ -35,6 +50,11 @@ export const AppStorage = {
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.removeItem(key);
+      } else {
+        const storage = getAsyncStorage();
+        if (storage) {
+          await storage.removeItem(key);
+        }
       }
       memoryStore.delete(key);
     } catch {

@@ -26,6 +26,7 @@ import {
 } from "@/components/Illustrations";
 import { useRouter as useRouterM2 } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { useChildStoreBase } from "@/store/childStore";
 
 // ── M2 AI Simplification Card ─────────────────────────────────────────────────
@@ -242,6 +243,7 @@ const m2Styles = StyleSheet.create({
 export default function StudentDashboard() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
 
   const handleLogout = async () => {
     try {
@@ -311,8 +313,8 @@ export default function StudentDashboard() {
   const greetingName = (user?.role === 'child' ? user.displayName : currentChild?.name)
     ? (user?.role === 'child' ? user.displayName : currentChild?.name)!.split(" ")[0]
     : user?.displayName
-    ? user.displayName.split(" ")[0]
-    : "ශිෂ්‍යයා";
+      ? user.displayName.split(" ")[0]
+      : "ශිෂ්‍යයා";
 
   return (
     <SafeAreaView style={styles.container}>
@@ -325,9 +327,9 @@ export default function StudentDashboard() {
             </AppText>
           </View>
 
-          <View style={{ marginLeft: 8 }}>
+          <View style={{ marginLeft: 8, flexShrink: 1 }}>
             <AppText size="xs" weight="extrabold" color={ThemeColors.primary}>
-              ආයුබෝවන්,
+              {t('dashboard.greeting')},
             </AppText>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <AppText size="sm" weight="extrabold" color={ThemeColors.primary}>
