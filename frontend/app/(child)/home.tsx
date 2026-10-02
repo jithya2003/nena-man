@@ -19,7 +19,6 @@ import {
 } from "@/constants/theme";
 import AppText from "@/components/AppText";
 import BottomNav from "@/components/BottomNav";
-import NenaManLogo from "@/components/NenaManLogo";
 import {
   StudentAvatarPhoto,
   RelaxTreeIllustration,
@@ -44,7 +43,7 @@ function M2SimplificationCard() {
     setTimeout(() => {
       setProcessing(false);
       setSimplified(true);
-    }, 700);
+    }, 600);
   }, [simplified]);
 
   const original = "මම මගේ රටට ගොඩාක් ආදරෙයි";
@@ -56,32 +55,31 @@ function M2SimplificationCard() {
       <View style={m2Styles.headerRow}>
         <View style={m2Styles.moduleTag}>
           <View style={m2Styles.moduleDot} />
-          <AppText size="xs" weight="bold" color={ThemeColors.accent}>
-            ✨ AI ස්මාර්ට් වාක්‍ය සරල කිරීම
+          <AppText size="sm" weight="extrabold" color="#92400E">
+            🪄 AI මැජික් සහායකයා
           </AppText>
         </View>
-        <AppText size="xs" color={ThemeColors.textMuted}>
-          ස්වයංක්‍රීය සහායක
-        </AppText>
+        <View style={m2Styles.badgePill}>
+          <AppText size="xs" weight="bold" color="#B45309">
+            ✨ පහසු කියවීම
+          </AppText>
+        </View>
       </View>
 
-      {/* Original Sentence */}
-      <View style={m2Styles.sentenceBlock}>
-        <AppText
-          size="xs"
-          weight="bold"
-          color={ThemeColors.textMuted}
-          style={{ marginBottom: 4 }}
-        >
-          📖 අද කියවිය යුතු වාක්‍යය:
-        </AppText>
+      {/* Original Sentence Block */}
+      <View style={[m2Styles.sentenceBlock, simplified && m2Styles.sentenceBlockFaded]}>
+        <View style={m2Styles.labelRow}>
+          <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
+            📖 අද කියවිය යුතු වාක්‍යය:
+          </AppText>
+        </View>
         <AppText
           size="xxl"
           weight="extrabold"
           color={ThemeColors.textPrimary}
           style={[
             m2Styles.sentenceText,
-            simplified && { textDecorationLine: "line-through", opacity: 0.45 },
+            simplified && m2Styles.originalTextStriked,
           ]}
         >
           {original}
@@ -92,33 +90,31 @@ function M2SimplificationCard() {
       {simplified && (
         <View style={m2Styles.simplifiedBlock}>
           <View style={m2Styles.simplifiedArrowRow}>
-            <AppText size="xs" weight="bold" color={ThemeColors.accent}>
-              ⬇ AI සරල කිරීම: 'ගොඩාක්' ඉවත් කර වඩාත් පහසු කළා
-            </AppText>
+            <View style={m2Styles.magicPill}>
+              <AppText size="xs" weight="extrabold" color="#047857">
+                ⬇️ 'ගොඩාක්' ඉවත් කර වඩාත් පහසු කළා!
+              </AppText>
+            </View>
           </View>
           <View style={m2Styles.simplifiedSentenceBox}>
-            <AppText
-              size="xs"
-              weight="bold"
-              color={ThemeColors.accent}
-              style={{ marginBottom: 4 }}
-            >
-              ✨ සරල කළ වාක්‍යය:
-            </AppText>
+            <View style={m2Styles.labelRow}>
+              <AppText size="xs" weight="extrabold" color="#047857">
+                ✨ සරල කළ වාක්‍යය:
+              </AppText>
+            </View>
             <AppText
               size="xxl"
               weight="extrabold"
               color={ThemeColors.textPrimary}
+              style={m2Styles.simplifiedText}
             >
               {simplifiedText}
             </AppText>
-            <AppText
-              size="xs"
-              color={ThemeColors.textSecondary}
-              style={{ marginTop: 4 }}
-            >
-              I love my country
-            </AppText>
+            <View style={m2Styles.translationRow}>
+              <AppText size="xs" color="#64748B" weight="medium">
+                🇬🇧 "I love my country"
+              </AppText>
+            </View>
           </View>
         </View>
       )}
@@ -131,27 +127,27 @@ function M2SimplificationCard() {
             simplified && m2Styles.simplifyBtnActive,
           ]}
           onPress={handleSimplify}
-          activeOpacity={0.85}
+          activeOpacity={0.8}
         >
           <AppText
-            size="xs"
-            weight="bold"
-            color={simplified ? ThemeColors.accent : "#FFFFFF"}
+            size="sm"
+            weight="extrabold"
+            color={simplified ? "#92400E" : "#FFFFFF"}
           >
             {processing
               ? "⏳ AI සකසමින්..."
               : simplified
-                ? "↩ මුල් වාක්‍යය"
-                : "✨ AI මගින් සරල කරන්න"}
+                ? "↩️ මුල් වාක්‍යය"
+                : "✨ සරල කරමු"}
           </AppText>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={m2Styles.practiceBtn}
           onPress={() => router.push("/(child)/m1-session")}
-          activeOpacity={0.85}
+          activeOpacity={0.8}
         >
-          <AppText size="xs" weight="bold" color="#FFFFFF">
+          <AppText size="sm" weight="extrabold" color="#FFFFFF">
             🎙️ ශබ්ද නගා කියවමු
           </AppText>
         </TouchableOpacity>
@@ -162,16 +158,14 @@ function M2SimplificationCard() {
 
 const m2Styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: ThemeSpacing.md,
+    backgroundColor: "#FFFDF7",
+    borderRadius: 24,
+    padding: ThemeSpacing.md + 2,
     borderWidth: 1.5,
-    borderColor: "#EED9BE",
-    shadowColor: "#0B381E",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: "#FDE68A",
+    borderBottomWidth: 4,
+    borderBottomColor: "#F59E0B",
+    ...ThemeShadow.sm,
   },
   headerRow: {
     flexDirection: "row",
@@ -182,60 +176,113 @@ const m2Styles = StyleSheet.create({
   moduleTag: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
   },
   moduleDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: ThemeColors.accent,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#F59E0B",
+  },
+  badgePill: {
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: ThemeRadius.full,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  labelRow: {
+    marginBottom: 6,
   },
   sentenceBlock: {
-    backgroundColor: ThemeColors.backgroundMuted,
-    padding: ThemeSpacing.sm,
-    borderRadius: ThemeRadius.md,
+    backgroundColor: "#FFFFFF",
+    padding: ThemeSpacing.md,
+    borderRadius: 18,
     marginBottom: ThemeSpacing.sm,
+    borderWidth: 1,
+    borderColor: "#E2ECE6",
+  },
+  sentenceBlockFaded: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#E2E8F0",
   },
   sentenceText: {
-    lineHeight: 36,
+    lineHeight: 38,
+    letterSpacing: 0.5,
+  },
+  originalTextStriked: {
+    textDecorationLine: "line-through",
+    opacity: 0.45,
   },
   simplifiedBlock: {
     marginBottom: ThemeSpacing.sm,
   },
   simplifiedArrowRow: {
-    paddingVertical: ThemeSpacing.xs,
+    paddingVertical: 4,
     alignItems: "center",
   },
-  simplifiedSentenceBox: {
-    backgroundColor: "#FDF4E9",
+  magicPill: {
+    backgroundColor: "#ECFDF5",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: ThemeRadius.full,
     borderWidth: 1,
-    borderColor: "#EED9BE",
-    borderRadius: ThemeRadius.md,
-    padding: ThemeSpacing.sm,
+    borderColor: "#A7F3D0",
+  },
+  simplifiedSentenceBox: {
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1.5,
+    borderColor: "#86EFAC",
+    borderRadius: 18,
+    padding: ThemeSpacing.md,
+  },
+  simplifiedText: {
+    lineHeight: 38,
+    letterSpacing: 0.5,
+    color: "#065F46",
+  },
+  translationRow: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: "#DCFCE7",
   },
   actionRow: {
     flexDirection: "row",
     gap: ThemeSpacing.sm,
-    marginTop: ThemeSpacing.xs,
+    marginTop: 4,
   },
   simplifyBtn: {
     flex: 1,
-    backgroundColor: ThemeColors.accent,
-    borderRadius: ThemeRadius.md,
-    paddingVertical: ThemeSpacing.sm,
+    backgroundColor: "#F59E0B",
+    borderRadius: ThemeRadius.full,
+    paddingVertical: ThemeSpacing.sm + 4,
     alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: ThemeColors.accentDark,
+    borderColor: "#D97706",
+    borderBottomWidth: 4,
+    borderBottomColor: "#B45309",
+    minHeight: 48,
   },
   simplifyBtnActive: {
-    backgroundColor: "#FDF4E9",
+    backgroundColor: "#FEF3C7",
+    borderColor: "#FCD34D",
+    borderBottomColor: "#F59E0B",
   },
   practiceBtn: {
     flex: 1,
     backgroundColor: ThemeColors.primary,
-    borderRadius: ThemeRadius.md,
-    paddingVertical: ThemeSpacing.sm,
+    borderRadius: ThemeRadius.full,
+    paddingVertical: ThemeSpacing.sm + 4,
     alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: ThemeColors.primaryDark,
+    borderBottomWidth: 4,
+    borderBottomColor: "#064E2A",
+    minHeight: 48,
   },
 });
 // ─────────────────────────────────────────────────────────────────────────────
@@ -255,7 +302,6 @@ export default function StudentDashboard() {
   };
 
   const handleSwitchToParent = async () => {
-    // If current logged-in account is parent/teacher previewing child mode, return to parent dashboard directly
     if (user?.role === 'parent' || user?.role === 'teacher') {
       router.replace('/(parent)/dashboard');
       return;
@@ -284,11 +330,9 @@ export default function StudentDashboard() {
         return;
       }
 
-      // Set the active guardian to switch into
       const activeGuardian = guardians[0];
       useChildStoreBase.getState().setCurrentGuardian(activeGuardian);
 
-      // Make sure currentChild is preserved as this child
       if (user) {
         useChildStoreBase.getState().setCurrentChild({
           id: user.uid,
@@ -322,28 +366,36 @@ export default function StudentDashboard() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.logoBadgeCircle}>
-            <AppText size="xs" weight="extrabold" color={ThemeColors.primary}>
-              නැණ මං
+            <AppText size="sm" weight="extrabold" color={ThemeColors.primary}>
+              නැණ
             </AppText>
           </View>
 
-          <View style={{ marginLeft: 8, flexShrink: 1 }}>
-            <AppText size="xs" weight="extrabold" color={ThemeColors.primary}>
+          <View style={{ marginLeft: 10, flexShrink: 1 }}>
+            <AppText size="xs" weight="bold" color="#64748B">
               {t('dashboard.greeting')},
             </AppText>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <AppText size="sm" weight="extrabold" color={ThemeColors.primary}>
+              <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
                 {greetingName}!
               </AppText>
-              <AppText size="sm" style={{ marginLeft: 3 }}>
-                👏
+              <AppText size="md" style={{ marginLeft: 4 }}>
+                👋
               </AppText>
             </View>
           </View>
         </View>
 
         <View style={styles.headerRight}>
-          {/* Notification Bell in soft blue pill */}
+          {/* Star Counter Pill */}
+          <View style={styles.scorePill}>
+            <AppText size="xs">⭐</AppText>
+            <AppText size="xs" weight="extrabold" color="#92400E" style={{ marginLeft: 3 }}>
+              120
+            </AppText>
+          </View>
+
+          {/* Notification Bell */}
           <TouchableOpacity
             style={styles.bellBtn}
             onPress={() => router.push("/(child)/notifications")}
@@ -357,11 +409,12 @@ export default function StudentDashboard() {
           <TouchableOpacity
             onPress={() => router.push("/(child)/profile")}
             activeOpacity={0.8}
+            style={styles.avatarWrap}
           >
             <StudentAvatarPhoto size={36} showEditBadge={false} />
           </TouchableOpacity>
 
-          {/* One-button switch between Child Account and related Parent/Teacher Dashboard */}
+          {/* Switch between Child Account and related Parent/Teacher Dashboard */}
           <TouchableOpacity
             style={styles.parentBackBtn}
             onPress={handleSwitchToParent}
@@ -371,7 +424,7 @@ export default function StudentDashboard() {
             <AppText size="xs" weight="bold" color="#0369A1">👨‍👩‍👧‍👦</AppText>
           </TouchableOpacity>
 
-          {/* Log Out Button (Exit Icon Only) */}
+          {/* Log Out Button */}
           <TouchableOpacity
             style={styles.logoutBtn}
             onPress={handleLogout}
@@ -394,28 +447,30 @@ export default function StudentDashboard() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-        {/* ── SECTION 1: ✨ M2 AI Sentence Simplification — First Impression ── */}
+        {/* ── SECTION 1: ✨ M2 AI Sentence Simplification ── */}
         <M2SimplificationCard />
 
         {/* ── CARD 2: ⭐ අද ඔබේ ඉලක්කය (Today's Goal) ── */}
-        <View style={[styles.goalCard, ThemeShadow.sm]}>
+        <View style={styles.goalCard}>
           <View style={styles.starWatermark}>
             <AppText
               size="display"
-              color="#F3F4F6"
-              style={{ fontSize: 64, opacity: 0.5 }}
+              color="#F1F5F9"
+              style={{ fontSize: 72, opacity: 0.6 }}
             >
               ⭐
             </AppText>
           </View>
 
           <View style={styles.goalTitleRow}>
-            <AppText size="sm">⭐</AppText>
+            <View style={styles.goalIconCircle}>
+              <AppText size="sm">🎯</AppText>
+            </View>
             <AppText
               size="md"
               weight="extrabold"
               color={ThemeColors.primary}
-              style={{ marginLeft: 6 }}
+              style={{ marginLeft: 8 }}
             >
               අද ඔබේ ඉලක්කය
             </AppText>
@@ -423,13 +478,13 @@ export default function StudentDashboard() {
 
           {/* Donut Chart 72% */}
           <View style={styles.donutContainer}>
-            <Svg width={110} height={110} viewBox="0 0 100 100">
+            <Svg width={120} height={120} viewBox="0 0 100 100">
               <Circle
                 cx="50"
                 cy="50"
                 r="40"
                 stroke="#E2E8F0"
-                strokeWidth="8"
+                strokeWidth="9"
                 fill="none"
               />
               <Circle
@@ -437,7 +492,7 @@ export default function StudentDashboard() {
                 cy="50"
                 r="40"
                 stroke="#10B981"
-                strokeWidth="8"
+                strokeWidth="9"
                 strokeDasharray="181, 251.3"
                 strokeDashoffset="62.8"
                 strokeLinecap="round"
@@ -446,17 +501,21 @@ export default function StudentDashboard() {
             </Svg>
             <View style={styles.donutCenter}>
               <AppText
-                size="xl"
+                size="xxl"
                 weight="extrabold"
                 color={ThemeColors.textPrimary}
               >
                 72%
               </AppText>
+              <AppText size="xs" color="#10B981" weight="bold">
+                ජයග්‍රාහීයි!
+              </AppText>
             </View>
           </View>
 
           <AppText
-            size="xs"
+            size="sm"
+            weight="semibold"
             color={ThemeColors.textPrimary}
             align="center"
             style={styles.goalEncouragement}
@@ -466,11 +525,11 @@ export default function StudentDashboard() {
 
           {/* Streak Flame Pill */}
           <View style={styles.streakPill}>
-            <AppText size="xs">🔥</AppText>
+            <AppText size="sm">🔥</AppText>
             <AppText
               size="xs"
               color="#92400E"
-              weight="bold"
+              weight="extrabold"
               style={{ marginLeft: 6 }}
             >
               දින 5ක අඛණ්ඩ ඉගෙනුම් ගමනක්
@@ -478,8 +537,8 @@ export default function StudentDashboard() {
           </View>
         </View>
 
-        {/* ── CARD 2: 🎮 නැණ මං අභියෝගය (Nena Man Challenge - Pink Theme) ── */}
-        <View style={[styles.challengeCard, ThemeShadow.sm]}>
+        {/* ── CARD 3: 🎮 නැණ මං අභියෝගය (Nena Man Challenge) ── */}
+        <View style={styles.challengeCard}>
           <View style={styles.challengeHeaderRow}>
             <View style={styles.challengeIconCircle}>
               <AppText size="sm">🎮</AppText>
@@ -495,50 +554,50 @@ export default function StudentDashboard() {
           </View>
 
           <View style={styles.challengeInnerCard}>
-            <AppText
-              size="md"
-              weight="extrabold"
-              color={ThemeColors.textPrimary}
-              style={{ marginBottom: 4 }}
-            >
-              සරල වාක්‍ය කියවීම
-            </AppText>
-
-            <View style={styles.easyBadgePill}>
-              <AppText size="xs" color="#047857" weight="bold">
-                • පහසු මට්ටම
+            <View style={styles.challengeMetaRow}>
+              <AppText
+                size="md"
+                weight="extrabold"
+                color={ThemeColors.textPrimary}
+              >
+                සරල වාක්‍ය කියවීම
               </AppText>
+              <View style={styles.easyBadgePill}>
+                <AppText size="xs" color="#047857" weight="extrabold">
+                  ⭐ පහසු මට්ටම
+                </AppText>
+              </View>
             </View>
 
             <AppText
-              size="xs"
+              size="sm"
               color={ThemeColors.textSecondary}
-              style={{ marginVertical: 6 }}
+              style={{ marginVertical: 8, lineHeight: 22 }}
             >
-              සෙල්ලම් කරමින් අකුරු ඉගෙන ගනිමු! 🎲
+              සෙල්ලම් කරමින් අලුත් අකුරු ඉගෙන ගනිමු! 🎲
             </AppText>
 
             <TouchableOpacity
               style={styles.challengeActionBtn}
               onPress={() => router.push("/(child)/reading-comprehension")}
-              activeOpacity={0.85}
+              activeOpacity={0.8}
             >
-              <AppText size="sm" weight="bold" color="#FFFFFF">
-                ආරම්භ කරන්න
+              <AppText size="md" weight="extrabold" color="#FFFFFF">
+                ආරම්භ කරමු
               </AppText>
               <AppText
-                size="sm"
-                weight="bold"
+                size="md"
+                weight="extrabold"
                 color="#FFFFFF"
                 style={{ marginLeft: 6 }}
               >
-                →
+                🚀
               </AppText>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* ── SECTION 3: 🎓 ඔබේ දක්ශතා (Your Skills) ── */}
+        {/* ── SECTION 4: 🎓 ඔබේ දක්ශතා (Your Skills) ── */}
         <View style={styles.sectionWrap}>
           <View style={styles.sectionHeaderRow}>
             <AppText size="sm">🎓</AppText>
@@ -553,22 +612,26 @@ export default function StudentDashboard() {
           </View>
 
           {/* Skill 1: අකුරු හඳුනාගැනීම */}
-          <View style={[styles.skillCardBox, ThemeShadow.sm]}>
+          <View style={styles.skillCardBox}>
             <View style={styles.skillHeaderLine}>
               <View style={styles.skillTitleWithIcon}>
-                <AppText size="xs">💠</AppText>
+                <View style={[styles.skillIconCircle, { backgroundColor: '#ECFDF5' }]}>
+                  <AppText size="xs">🔤</AppText>
+                </View>
                 <AppText
-                  size="xs"
+                  size="sm"
                   weight="bold"
                   color={ThemeColors.textPrimary}
-                  style={{ marginLeft: 6 }}
+                  style={{ marginLeft: 8 }}
                 >
                   අකුරු හඳුනාගැනීම
                 </AppText>
               </View>
-              <AppText size="xs" weight="extrabold" color="#10B981">
-                88%
-              </AppText>
+              <View style={[styles.skillBadge, { backgroundColor: '#ECFDF5' }]}>
+                <AppText size="xs" weight="extrabold" color="#059669">
+                  88%
+                </AppText>
+              </View>
             </View>
             <View style={styles.skillTrackLine}>
               <View
@@ -581,22 +644,26 @@ export default function StudentDashboard() {
           </View>
 
           {/* Skill 2: ශබ්ද හඳුනාගැනීම */}
-          <View style={[styles.skillCardBox, ThemeShadow.sm]}>
+          <View style={styles.skillCardBox}>
             <View style={styles.skillHeaderLine}>
               <View style={styles.skillTitleWithIcon}>
-                <AppText size="xs">👥</AppText>
+                <View style={[styles.skillIconCircle, { backgroundColor: '#FEF3C7' }]}>
+                  <AppText size="xs">👂</AppText>
+                </View>
                 <AppText
-                  size="xs"
+                  size="sm"
                   weight="bold"
                   color={ThemeColors.textPrimary}
-                  style={{ marginLeft: 6 }}
+                  style={{ marginLeft: 8 }}
                 >
                   ශබ්ද හඳුනාගැනීම
                 </AppText>
               </View>
-              <AppText size="xs" weight="extrabold" color="#F59E0B">
-                80%
-              </AppText>
+              <View style={[styles.skillBadge, { backgroundColor: '#FEF3C7' }]}>
+                <AppText size="xs" weight="extrabold" color="#D97706">
+                  80%
+                </AppText>
+              </View>
             </View>
             <View style={styles.skillTrackLine}>
               <View
@@ -609,22 +676,26 @@ export default function StudentDashboard() {
           </View>
 
           {/* Skill 3: වචන කියවීම */}
-          <View style={[styles.skillCardBox, ThemeShadow.sm]}>
+          <View style={styles.skillCardBox}>
             <View style={styles.skillHeaderLine}>
               <View style={styles.skillTitleWithIcon}>
-                <AppText size="xs">📖</AppText>
+                <View style={[styles.skillIconCircle, { backgroundColor: '#FFE4E6' }]}>
+                  <AppText size="xs">📖</AppText>
+                </View>
                 <AppText
-                  size="xs"
+                  size="sm"
                   weight="bold"
                   color={ThemeColors.textPrimary}
-                  style={{ marginLeft: 6 }}
+                  style={{ marginLeft: 8 }}
                 >
                   වචන කියවීම
                 </AppText>
               </View>
-              <AppText size="xs" weight="extrabold" color="#F43F5E">
-                65%
-              </AppText>
+              <View style={[styles.skillBadge, { backgroundColor: '#FFE4E6' }]}>
+                <AppText size="xs" weight="extrabold" color="#E11D48">
+                  65%
+                </AppText>
+              </View>
             </View>
             <View style={styles.skillTrackLine}>
               <View
@@ -637,22 +708,26 @@ export default function StudentDashboard() {
           </View>
 
           {/* Skill 4: වාක්‍ය කියවීම */}
-          <View style={[styles.skillCardBox, ThemeShadow.sm]}>
+          <View style={styles.skillCardBox}>
             <View style={styles.skillHeaderLine}>
               <View style={styles.skillTitleWithIcon}>
-                <AppText size="xs">🗂️</AppText>
+                <View style={[styles.skillIconCircle, { backgroundColor: '#E0F2FE' }]}>
+                  <AppText size="xs">🗂️</AppText>
+                </View>
                 <AppText
-                  size="xs"
+                  size="sm"
                   weight="bold"
                   color={ThemeColors.textPrimary}
-                  style={{ marginLeft: 6 }}
+                  style={{ marginLeft: 8 }}
                 >
                   වාක්‍ය කියවීම
                 </AppText>
               </View>
-              <AppText size="xs" weight="extrabold" color="#0284C7">
-                36%
-              </AppText>
+              <View style={[styles.skillBadge, { backgroundColor: '#E0F2FE' }]}>
+                <AppText size="xs" weight="extrabold" color="#0284C7">
+                  36%
+                </AppText>
+              </View>
             </View>
             <View style={styles.skillTrackLine}>
               <View
@@ -665,19 +740,21 @@ export default function StudentDashboard() {
           </View>
         </View>
 
-        {/* ── SECTION 4: 🌿 විවේකයක් ගමු (Mindful Break) ── */}
+        {/* ── SECTION 5: 🌿 විවේකයක් ගමු (Mindful Break) ── */}
         <TouchableOpacity
-          style={[styles.breakCard, ThemeShadow.sm]}
+          style={styles.breakCard}
           onPress={() => router.push("/(child)/cooldown")}
           activeOpacity={0.85}
         >
           <View style={styles.breakHeaderRow}>
-            <AppText size="sm">🔔</AppText>
+            <View style={styles.breakIconCircle}>
+              <AppText size="sm">🌿</AppText>
+            </View>
             <AppText
               size="md"
               weight="extrabold"
               color={ThemeColors.primary}
-              style={{ marginLeft: 6 }}
+              style={{ marginLeft: 8 }}
             >
               විවේකයක් ගමු
             </AppText>
@@ -688,12 +765,21 @@ export default function StudentDashboard() {
           </View>
 
           <AppText
+            size="sm"
+            color={ThemeColors.textPrimary}
+            weight="bold"
+            align="center"
+            style={{ marginTop: 6 }}
+          >
+            මනසට පොඩි විවේකයක් දෙමු 🌳
+          </AppText>
+          <AppText
             size="xs"
             color={ThemeColors.textSecondary}
             align="center"
-            style={{ marginTop: 4 }}
+            style={{ marginTop: 2 }}
           >
-            මනසට පොඩි විවේකයක් දෙමු. 🌳
+            සන්සුන්ව හුස්ම ගනිමින් විනෝද වෙමු!
           </AppText>
         </TouchableOpacity>
 
@@ -709,7 +795,7 @@ export default function StudentDashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ThemeColors.background,
+    backgroundColor: "#F7FAF8",
     ...(Platform.OS === "web"
       ? { minHeight: "100vh" as any, height: "100vh" as any }
       : {}),
@@ -719,22 +805,23 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: ThemeSpacing.md,
-    paddingVertical: ThemeSpacing.xs + 2,
+    paddingVertical: ThemeSpacing.xs + 4,
     backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: ThemeColors.borderLight,
+    borderBottomWidth: 1.5,
+    borderBottomColor: "#E2ECE6",
   },
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
   logoBadgeCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#EAF7EE",
-    borderWidth: 1.5,
-    borderColor: "#C7EBD2",
+    borderWidth: 2,
+    borderColor: "#A7F3D0",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -742,6 +829,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+  scorePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: ThemeRadius.full,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
   },
   bellBtn: {
     position: "relative",
@@ -751,6 +848,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#E0F2FE",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#BAE6FD",
+  },
+  avatarWrap: {
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: "#10B981",
   },
   logoutBtn: {
     width: 36,
@@ -774,11 +878,11 @@ const styles = StyleSheet.create({
   },
   redDot: {
     position: "absolute",
-    top: 8,
-    right: 8,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    top: 7,
+    right: 7,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     backgroundColor: "#EF4444",
   },
   scroll: {
@@ -790,25 +894,36 @@ const styles = StyleSheet.create({
   goalCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
-    padding: ThemeSpacing.md,
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
+    padding: ThemeSpacing.md + 2,
+    borderWidth: 1.5,
+    borderColor: "#E2ECE6",
+    borderBottomWidth: 4,
+    borderBottomColor: "#CBD5E1",
     position: "relative",
     overflow: "hidden",
+    ...ThemeShadow.sm,
   },
   starWatermark: {
     position: "absolute",
-    top: 4,
-    right: 4,
+    top: -8,
+    right: -8,
   },
   goalTitleRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: ThemeSpacing.sm,
   },
+  goalIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#DCFCE7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   donutContainer: {
-    width: 110,
-    height: 110,
+    width: 120,
+    height: 120,
     position: "relative",
     alignItems: "center",
     justifyContent: "center",
@@ -817,10 +932,11 @@ const styles = StyleSheet.create({
   },
   donutCenter: {
     position: "absolute",
+    alignItems: "center",
   },
   goalEncouragement: {
     marginTop: 8,
-    lineHeight: 18,
+    lineHeight: 22,
   },
   streakPill: {
     flexDirection: "row",
@@ -828,18 +944,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#FEF3C7",
     borderRadius: ThemeRadius.full,
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: ThemeSpacing.md,
     marginTop: ThemeSpacing.sm,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: "#FDE68A",
+    borderBottomWidth: 3,
+    borderBottomColor: "#F59E0B",
   },
   challengeCard: {
     backgroundColor: "#FFF1F2",
     borderRadius: 24,
-    padding: ThemeSpacing.md,
-    borderWidth: 1,
-    borderColor: "#FFE4E6",
+    padding: ThemeSpacing.md + 2,
+    borderWidth: 1.5,
+    borderColor: "#FECDD3",
+    borderBottomWidth: 4,
+    borderBottomColor: "#FDA4AF",
+    ...ThemeShadow.sm,
   },
   challengeHeaderRow: {
     flexDirection: "row",
@@ -847,9 +968,9 @@ const styles = StyleSheet.create({
     marginBottom: ThemeSpacing.sm,
   },
   challengeIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: "#FDA4AF",
     alignItems: "center",
     justifyContent: "center",
@@ -861,25 +982,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#FECDD3",
   },
+  challengeMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   easyBadgePill: {
     backgroundColor: "#DCFCE7",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     borderRadius: ThemeRadius.full,
-    alignSelf: "flex-start",
-    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
   },
   challengeActionBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#E11D48",
-    borderRadius: ThemeRadius.md,
-    height: 44,
-    marginTop: 6,
+    borderRadius: ThemeRadius.full,
+    minHeight: 48,
+    marginTop: 8,
+    borderWidth: 1.5,
+    borderColor: "#BE123C",
+    borderBottomWidth: 4,
+    borderBottomColor: "#9F1239",
   },
   sectionWrap: {
-    gap: ThemeSpacing.xs + 2,
+    gap: ThemeSpacing.sm,
   },
   sectionHeaderRow: {
     flexDirection: "row",
@@ -888,39 +1018,57 @@ const styles = StyleSheet.create({
   },
   skillCardBox: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    borderRadius: 20,
     padding: ThemeSpacing.md,
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
+    borderWidth: 1.5,
+    borderColor: "#E2ECE6",
+    borderBottomWidth: 3,
+    borderBottomColor: "#CBD5E1",
+    ...ThemeShadow.sm,
   },
   skillHeaderLine: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   skillTitleWithIcon: {
     flexDirection: "row",
     alignItems: "center",
   },
+  skillIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  skillBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: ThemeRadius.full,
+  },
   skillTrackLine: {
     width: "100%",
-    height: 7,
-    backgroundColor: "#E5E7EB",
+    height: 10,
+    backgroundColor: "#E2E8F0",
     borderRadius: ThemeRadius.full,
     overflow: "hidden",
   },
   skillFillLine: {
-    height: 7,
+    height: 10,
     borderRadius: ThemeRadius.full,
   },
   breakCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
-    padding: ThemeSpacing.md,
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
+    padding: ThemeSpacing.md + 2,
+    borderWidth: 1.5,
+    borderColor: "#D1E7DD",
+    borderBottomWidth: 4,
+    borderBottomColor: "#A3D1BE",
     alignItems: "center",
+    ...ThemeShadow.sm,
   },
   breakHeaderRow: {
     flexDirection: "row",
@@ -928,13 +1076,23 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     marginBottom: ThemeSpacing.xs,
   },
+  breakIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#EAF7EE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   breakIllustrationBox: {
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: "#E0F2FE",
+    backgroundColor: "#F0FDF4",
     alignItems: "center",
     justifyContent: "center",
     marginVertical: 4,
+    borderWidth: 2,
+    borderColor: "#DCFCE7",
   },
 });
