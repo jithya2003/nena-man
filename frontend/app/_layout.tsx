@@ -9,11 +9,8 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { useNetworkStatus } from '@/store/hooks';
-<<<<<<< HEAD
 import { syncReminderOnStartup } from '@/notifications/scheduler';
-=======
 import OfflineBanner from '@/components/OfflineBanner';
->>>>>>> develop
 
 /** Mounts the NetInfo / browser-event listener once for the app's lifetime. */
 function NetworkListener() {
@@ -34,32 +31,6 @@ function ReminderSyncListener() {
 
 export default function RootLayout() {
   return (
-<<<<<<< HEAD
-    <ThemeProvider>
-      <AuthProvider>
-        <SafeAreaProvider>
-        <GestureHandlerRootView style={styles.root}>
-          <NetworkListener />
-          <ReminderSyncListener />
-          <StatusBar style="dark" backgroundColor={ThemeColors.background} />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              animation: 'fade',
-              contentStyle: { backgroundColor: ThemeColors.background },
-            }}
-          >
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="(child)" options={{ headerShown: false }} />
-            <Stack.Screen name="(parent)" options={{ headerShown: false }} />
-            <Stack.Screen name="(settings)" options={{ headerShown: false }} />
-          </Stack>
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
-      </AuthProvider>
-    </ThemeProvider>
-=======
     <LanguageProvider>
       <ThemeProvider>
         <AuthProvider>
@@ -67,6 +38,7 @@ export default function RootLayout() {
             <GestureHandlerRootView style={styles.root}>
               <NetworkListener />
               <OfflineBanner />
+              <ReminderSyncListener />
               <StatusBar style="dark" backgroundColor={ThemeColors.background} />
               <Stack
                 screenOptions={{
@@ -86,7 +58,6 @@ export default function RootLayout() {
         </AuthProvider>
       </ThemeProvider>
     </LanguageProvider>
->>>>>>> develop
   );
 }
 

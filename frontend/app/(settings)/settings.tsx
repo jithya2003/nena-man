@@ -21,12 +21,9 @@ import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
 import { useAuth } from '@/context/AuthContext';
-<<<<<<< HEAD
 import { useReminderSettings } from '@/hooks/useReminderSettings';
-=======
 import { useLanguage } from '@/context/LanguageContext';
 import { useDyslexiaTheme } from '@/context/ThemeContext';
->>>>>>> develop
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -45,7 +42,6 @@ export default function SettingsScreen() {
     setReadingSpeed,
   } = useDyslexiaTheme();
 
-<<<<<<< HEAD
   const {
     remindersEnabled,
     reminderTime,
@@ -55,13 +51,7 @@ export default function SettingsScreen() {
     updateReminderTime,
   } = useReminderSettings();
 
-  const [fontSizeChoice, setFontSizeChoice] = useState<'small' | 'medium' | 'large'>('medium');
-  const [lineSpacingChoice, setLineSpacingChoice] = useState<'normal' | 'wide'>('normal');
-  const [audioAssistance, setAudioAssistance] = useState(true);
-  const [readingSpeed, setReadingSpeed] = useState(1); // 0 = slow, 1 = normal, 2 = fast
-=======
   const isParentOrTeacher = user?.role === 'parent' || user?.role === 'teacher';
->>>>>>> develop
   const [volumeLevel, setVolumeLevel] = useState(0.7);
 
   return (
@@ -663,7 +653,6 @@ const styles = StyleSheet.create({
     backgroundColor: ThemeColors.primary,
     borderRadius: 3,
   },
-<<<<<<< HEAD
   permissionWarningBox: {
     backgroundColor: '#FEF3C7',
     borderWidth: 1,
@@ -697,7 +686,7 @@ const styles = StyleSheet.create({
   timeBtnActive: {
     backgroundColor: ThemeColors.primary,
     borderColor: ThemeColors.primaryDark,
-=======
+  },
   langNoteBox: {
     marginTop: ThemeSpacing.md,
     backgroundColor: '#F0FDF4',
@@ -705,6 +694,5 @@ const styles = StyleSheet.create({
     borderColor: '#BBF7D0',
     borderRadius: ThemeRadius.md,
     padding: ThemeSpacing.md,
->>>>>>> develop
   },
 });
