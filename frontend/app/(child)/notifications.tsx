@@ -21,6 +21,7 @@ import { useAuth } from '@/context/AuthContext';
 import { connectionService } from '@/services/connectionService';
 import { useChildStoreBase } from '@/store/childStore';
 import { ConnectionRequest } from '@/types';
+import { LoadingView } from '@/components/shared-states';
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -122,12 +123,11 @@ export default function NotificationsScreen() {
       >
         {/* ── PRIORITY SECTION: නව සම්බන්ධතා ඉල්ලීම් (PENDING CONNECTION REQUESTS) ── */}
         {isLoadingRequests ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="small" color={ThemeColors.primary} />
-            <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginLeft: 8 }}>
-              දැනුම්දීම් පරීක්ෂා කරමින්...
-            </AppText>
-          </View>
+          <LoadingView
+            variant="inline"
+            message="දැනුම්දීම් පරීක්ෂා කරමින්..."
+            style={styles.loadingBox}
+          />
         ) : pendingRequests.length > 0 ? (
           <View style={styles.prioritySection}>
             <View style={styles.priorityHeaderRow}>

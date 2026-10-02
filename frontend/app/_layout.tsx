@@ -9,6 +9,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { useNetworkStatus } from '@/store/hooks';
+import OfflineBanner from '@/components/OfflineBanner';
 
 /** Mounts the NetInfo / browser-event listener once for the app's lifetime. */
 function NetworkListener() {
@@ -24,6 +25,7 @@ export default function RootLayout() {
           <SafeAreaProvider>
             <GestureHandlerRootView style={styles.root}>
               <NetworkListener />
+              <OfflineBanner />
               <StatusBar style="dark" backgroundColor={ThemeColors.background} />
               <Stack
                 screenOptions={{

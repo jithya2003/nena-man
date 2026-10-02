@@ -18,6 +18,7 @@ import {
 import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { WelcomeStudentIllustration } from '@/components/Illustrations';
+import { EmptyView } from '@/components/shared-states';
 
 type ActivityFilter = 'all' | 'letters' | 'sounds' | 'words';
 
@@ -95,6 +96,14 @@ export default function LearningActivitiesScreen() {
       route: '/(child)/m1-session',
     },
   ];
+
+  const filteredActivities = activities.filter((act) => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'letters') return act.category === 'අකුරු';
+    if (activeFilter === 'sounds') return act.category === 'ශබ්ද';
+    if (activeFilter === 'words') return act.category === 'වචන';
+    return true;
+  });
 
   return (
     <SafeAreaView style={styles.container}>
@@ -274,7 +283,15 @@ export default function LearningActivitiesScreen() {
           </View>
 
           <View style={styles.activitiesListWrap}>
-            {activities.map((act) => (
+            {filteredActivities.length === 0 ? (
+              <EmptyView
+                compact
+                title="ක්‍රියාකාරකම් හමු නොවීය"
+                message="මෙම වර්ගය යටතේ ක්‍රියාකාරකම් තවම නැත."
+                actionLabel="සියල්ල බලන්න"
+                onAction={() => setActiveFilter('all')}
+              />
+            ) : filteredActivities.map((act) => (
               <TouchableOpacity
                 key={act.id}
                 style={[

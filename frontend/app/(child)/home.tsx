@@ -1093,6 +1093,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginVertical: 4,
     borderWidth: 2,
-    borderColor: "#DCFCE7",
   },
 });

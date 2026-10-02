@@ -136,6 +136,24 @@ export const translations: Record<Language, Record<string, string>> = {
     'progress.title': 'කියවීමේ ප්‍රගතිය',
     'games.title': 'කියවීමේ ක්‍රීඩා',
     'learning.title': 'ඉගෙනුම් මොඩියුල',
+
+    // Shared UI States
+    'state.loading.default': 'මඳක් රැඳෙන්න... දත්ත සූදානම් වෙමින් පවතී',
+    'state.loading.reading': 'කතාව ගෙන එමින්...',
+    'state.loading.ai': 'AI ගුරු හාමිනේ කල්පනා කරනවා... 🤔',
+    'state.loading.upload': 'ඔබේ හඬ upload කරමින්...',
+    'state.error.title': 'අයියෝ! පුංචි ගැටලුවක්',
+    'state.error.default': 'කිසියම් දෝෂයක් සිදුවුණා. ඒකට කමක් නෑ, අපි ආයෙත් උත්සාහ කරමු!',
+    'state.error.network': 'අන්තර්ජාලය සම්බන්ධ නෑ. නැවත check කරමු!',
+    'state.error.retry': 'නැවත කරමු 🚀',
+    'state.error.close': 'වසන්න',
+    'state.empty.title': 'තවමත් කිසිවක් නැත!',
+    'state.empty.default': 'ඔබ තවමත් කිසිදු කියවීමක් සිදුකර නැත. අදම අලුත් ලස්සන කතාවක් කියවා තරු එකතු කරමු!',
+    'state.empty.sessions': 'තවම සැසි නෑ. අදම ආරම්භ කරමු!',
+    'state.empty.action': 'කතාවක් කියවමු 📖',
+    'state.offline.message': 'අන්තර්ජාලය නෑ. සම්බන්ධ වූ විට දත්ත යාවත්කාලීන වේ.',
+    'state.offline.retry': 'නැවත සම්බන්ධ කරන්න',
+    'state.skeleton.caption': 'කියවමින් ඉන්නවා... 📚',
   },
   en: {
     // Common interface labels
@@ -272,5 +290,23 @@ export const translations: Record<Language, Record<string, string>> = {
     'progress.title': 'Reading Progress',
     'games.title': 'Reading Games',
     'learning.title': 'Learning Modules',
+
+    // Shared UI States
+    'state.loading.default': 'Just a moment... getting things ready',
+    'state.loading.reading': 'Loading your story...',
+    'state.loading.ai': 'AI is thinking... 🤔',
+    'state.loading.upload': 'Uploading your voice...',
+    'state.error.title': 'Oops! A small hiccup',
+    'state.error.default': "Something went wrong. Don't worry, let's try again!",
+    'state.error.network': 'No internet connection. Please check!',
+    'state.error.retry': 'Try Again 🚀',
+    'state.error.close': 'Close',
+    'state.empty.title': 'Nothing here yet!',
+    'state.empty.default': "You haven't read any stories yet. Let's read a fun story and collect stars today!",
+    'state.empty.sessions': "No sessions yet. Let's start today!",
+    'state.empty.action': 'Read a story 📖',
+    'state.offline.message': "You're offline. Data will sync when back online.",
+    'state.offline.retry': 'Reconnect',
+    'state.skeleton.caption': 'Reading stories... 📚',
   },
 };
