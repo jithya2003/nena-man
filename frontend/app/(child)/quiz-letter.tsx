@@ -59,7 +59,7 @@ const QUESTIONS = [
 export default function LetterRecognitionQuiz() {
   const router = useRouter();
 
-  const [currentIndex, setCurrentIndex] = useState(1); // start on question 2 like mockup
+  const [currentIndex, setCurrentIndex] = useState(1); // start on question 2
   const [selectedOption, setSelectedOption] = useState<number | null>(0); // option 'ක' selected
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [feedbackState, setFeedbackState] = useState<'idle' | 'correct' | 'incorrect'>('idle');
@@ -110,14 +110,14 @@ export default function LetterRecognitionQuiz() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header */}
+      {/* ── Top Header ── */}
       <View style={styles.topBar}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.navIconBtn}
           activeOpacity={0.7}
         >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
             <Path
               d="M 20 11 L 7.83 11 L 13.42 5.41 L 12 4 L 4 12 L 12 20 L 13.41 18.59 L 7.83 13 L 20 13 Z"
               fill={ThemeColors.primary}
@@ -125,20 +125,34 @@ export default function LetterRecognitionQuiz() {
           </Svg>
         </TouchableOpacity>
 
-        <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
-          අකුරු හඳුනාගැනීම
-        </AppText>
+        <View style={styles.headerTitleWrap}>
+          <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
+            අකුරු හඳුනාගැනීම
+          </AppText>
+          <AppText size="md" style={{ marginLeft: 6 }}>
+            🔤
+          </AppText>
+        </View>
 
-        <View style={{ width: 36 }} />
+        <View style={styles.pointsBadge}>
+          <AppText size="xs">⭐</AppText>
+          <AppText size="xs" weight="extrabold" color="#92400E" style={{ marginLeft: 4 }}>
+            10
+          </AppText>
+        </View>
       </View>
 
-      {/* Progress Bar & Question Step */}
+      {/* ── Progress Bar & Question Step ── */}
       <View style={styles.progressHeader}>
         <View style={styles.progressLabelRow}>
-          <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
+          <AppText size="xs" weight="extrabold" color="#64748B">
             ප්‍රශ්නය {currentIndex + 1} / {QUESTIONS.length}
           </AppText>
-          <AppText size="sm">⭐</AppText>
+          <View style={styles.levelTag}>
+            <AppText size="xs" weight="bold" color="#047857">
+              🟢 පහසු මට්ටම
+            </AppText>
+          </View>
         </View>
 
         <View style={styles.progressBarTrack}>
@@ -156,12 +170,19 @@ export default function LetterRecognitionQuiz() {
         contentContainerStyle={styles.scroll}
       >
         {/* Question Prompt */}
-        <AppText size="sm" weight="bold" color={ThemeColors.textPrimary} align="center" style={styles.promptText}>
-          මෙම අකුර හඳුනාගන්න.
-        </AppText>
+        <View style={styles.promptWrap}>
+          <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} align="center">
+            මෙම අකුර හොඳින් බලා හඳුනාගන්න:
+          </AppText>
+        </View>
 
-        {/* Big Letter Card */}
-        <View style={[styles.letterCard, ThemeShadow.md]}>
+        {/* Big 3D Tactile Letter Card */}
+        <View style={styles.letterCard}>
+          <View style={styles.letterBadgeTag}>
+            <AppText size="xs" weight="extrabold" color="#92400E">
+              {currentQ.soundLabel}
+            </AppText>
+          </View>
           <AppText size="display" weight="extrabold" color={ThemeColors.primary} style={styles.bigLetter}>
             {currentQ.letter}
           </AppText>
@@ -175,9 +196,9 @@ export default function LetterRecognitionQuiz() {
             onPress={handlePlaySound}
             activeOpacity={0.8}
           >
-            <AppText size="sm">🔊</AppText>
-            <AppText size="xs" weight="bold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
-              {isPlayingAudio ? 'වාදනය වේ...' : 'ශබ්දය අසන්න'}
+            <AppText size="md">🔊</AppText>
+            <AppText size="sm" weight="extrabold" color={isPlayingAudio ? '#047857' : ThemeColors.primary} style={{ marginLeft: 6 }}>
+              {isPlayingAudio ? 'වාදනය වේ...' : 'ශබ්දයට සවන් දෙමු'}
             </AppText>
           </TouchableOpacity>
 
@@ -187,12 +208,28 @@ export default function LetterRecognitionQuiz() {
             onPress={() => setShowVoiceModal(true)}
             activeOpacity={0.8}
           >
-            <AppText size="sm">🎙️</AppText>
-            <AppText size="xs" weight="bold" color="#FFFFFF" style={{ marginLeft: 6 }}>
-              ශබ්දය කියන්න
+            <AppText size="md">🎙️</AppText>
+            <AppText size="sm" weight="extrabold" color="#FFFFFF" style={{ marginLeft: 6 }}>
+              ශබ්දය කියමු
             </AppText>
           </TouchableOpacity>
         </View>
+
+        {/* Feedback Banner */}
+        {feedbackState === 'correct' && (
+          <View style={styles.feedbackBannerCorrect}>
+            <AppText size="sm" weight="extrabold" color="#047857">
+              🎉 නියමයි! නිවැරදි පිළිතුර! ⭐
+            </AppText>
+          </View>
+        )}
+        {feedbackState === 'incorrect' && (
+          <View style={styles.feedbackBannerIncorrect}>
+            <AppText size="sm" weight="extrabold" color="#BE123C">
+              💪 තව පාරක් උත්සාහ කරමු! ඔබට පුළුවන්!
+            </AppText>
+          </View>
+        )}
 
         {/* Options List */}
         <View style={styles.optionsWrap}>
@@ -209,24 +246,29 @@ export default function LetterRecognitionQuiz() {
                   isSelected && styles.optionCardSelected,
                   isConfirmedCorrect && styles.optionCardCorrect,
                   isConfirmedIncorrect && styles.optionCardIncorrect,
-                  ThemeShadow.sm,
                 ]}
                 onPress={() => setSelectedOption(idx)}
                 activeOpacity={0.8}
               >
                 <AppText
-                  size="xl"
-                  weight="bold"
+                  size="xxl"
+                  weight="extrabold"
                   color={
-                    isConfirmedCorrect
+                    isConfirmedCorrect || isConfirmedIncorrect
                       ? '#FFFFFF'
                       : isSelected
-                      ? ThemeColors.primary
+                      ? '#065F46'
                       : ThemeColors.textPrimary
                   }
+                  style={styles.optionText}
                 >
                   {opt}
                 </AppText>
+                {isSelected && !isConfirmedCorrect && !isConfirmedIncorrect && (
+                  <View style={styles.selectedCheckCircle}>
+                    <AppText size="xs" weight="bold" color="#FFFFFF">✓</AppText>
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -234,11 +276,9 @@ export default function LetterRecognitionQuiz() {
 
         {/* Friendly Helper Note */}
         <View style={styles.helperRow}>
-          <AppText size="xs" color={ThemeColors.textSecondary}>
-            හොඳින් බලලා තෝරන්න
-          </AppText>
-          <AppText size="xs" style={{ marginLeft: 4 }}>
-            😉
+          <AppText size="sm">💡</AppText>
+          <AppText size="xs" color="#64748B" weight="semibold" style={{ marginLeft: 6 }}>
+            සන්සුන්ව, හොඳින් බලලා නිවැරදි අකුර තෝරන්න.
           </AppText>
         </View>
 
@@ -252,12 +292,15 @@ export default function LetterRecognitionQuiz() {
           disabled={selectedOption === null}
           activeOpacity={0.85}
         >
-          <AppText size="md" weight="bold" color="#FFFFFF">
+          <AppText size="md" weight="extrabold" color="#FFFFFF">
             පිළිතුර තහවුරු කරන්න
+          </AppText>
+          <AppText size="md" color="#FFFFFF" style={{ marginLeft: 6 }}>
+            ✅
           </AppText>
         </TouchableOpacity>
 
-        <View style={{ height: ThemeSpacing.lg }} />
+        <View style={{ height: ThemeSpacing.xl }} />
       </ScrollView>
 
       {/* Voice Assessment & Phoneme Analysis Modal */}
@@ -275,7 +318,7 @@ export default function LetterRecognitionQuiz() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ThemeColors.background,
+    backgroundColor: '#F7FAF8',
     ...(Platform.OS === 'web' ? { minHeight: '100vh' as any, height: '100vh' as any } : {}),
   },
   topBar: {
@@ -283,39 +326,66 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: ThemeSpacing.md,
-    paddingVertical: ThemeSpacing.xs + 2,
+    paddingVertical: ThemeSpacing.xs + 4,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: ThemeColors.borderLight,
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#E2ECE6',
+  },
+  headerTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   navIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F0FDF4',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#DCFCE7',
+  },
+  pointsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: ThemeRadius.full,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
   },
   progressHeader: {
     paddingHorizontal: ThemeSpacing.lg,
-    paddingVertical: ThemeSpacing.sm,
+    paddingVertical: ThemeSpacing.sm + 2,
     backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2ECE6',
   },
   progressLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+  },
+  levelTag: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: ThemeRadius.full,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
   },
   progressBarTrack: {
     width: '100%',
-    height: 6,
-    backgroundColor: '#E5E7EB',
+    height: 10,
+    backgroundColor: '#E2E8F0',
     borderRadius: ThemeRadius.full,
     overflow: 'hidden',
   },
   progressBarFill: {
-    height: 6,
-    backgroundColor: '#F97316',
+    height: 10,
+    backgroundColor: '#10B981',
     borderRadius: ThemeRadius.full,
   },
   scroll: {
@@ -324,78 +394,137 @@ const styles = StyleSheet.create({
     paddingBottom: ThemeSpacing.xl,
     alignItems: 'center',
   },
-  promptText: {
+  promptWrap: {
     marginBottom: ThemeSpacing.md,
   },
   letterCard: {
-    width: 140,
-    height: 140,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    width: 160,
+    height: 160,
+    backgroundColor: '#FFFDF7',
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
+    borderWidth: 2,
+    borderColor: '#FDE68A',
+    borderBottomWidth: 6,
+    borderBottomColor: '#F59E0B',
     marginBottom: ThemeSpacing.md,
+    position: 'relative',
+    ...ThemeShadow.sm,
+  },
+  letterBadgeTag: {
+    position: 'absolute',
+    top: 8,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: ThemeRadius.full,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
   bigLetter: {
-    fontSize: 54,
+    fontSize: 64,
+    lineHeight: 74,
   },
   audioActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: ThemeSpacing.lg,
+    gap: 10,
+    marginBottom: ThemeSpacing.md,
   },
   listenSoundBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F1F8',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: ThemeSpacing.md,
-    paddingVertical: ThemeSpacing.xs + 4,
+    paddingVertical: ThemeSpacing.sm,
     borderRadius: ThemeRadius.full,
-    borderWidth: 1,
-    borderColor: '#D4E2EE',
+    borderWidth: 1.5,
+    borderColor: '#C7EBD2',
+    borderBottomWidth: 3,
+    borderBottomColor: '#A3D1BE',
   },
   listenSoundBtnPlaying: {
     backgroundColor: '#DCFCE7',
     borderColor: '#86EFAC',
+    borderBottomColor: '#4ADE80',
   },
   micActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#059669',
     paddingHorizontal: ThemeSpacing.md,
-    paddingVertical: ThemeSpacing.xs + 4,
+    paddingVertical: ThemeSpacing.sm,
     borderRadius: ThemeRadius.full,
+    borderWidth: 1.5,
+    borderColor: '#047857',
+    borderBottomWidth: 3,
+    borderBottomColor: '#064E2A',
+  },
+  feedbackBannerCorrect: {
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    borderRadius: ThemeRadius.full,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginBottom: ThemeSpacing.sm,
+  },
+  feedbackBannerIncorrect: {
+    backgroundColor: '#FFE4E6',
+    borderWidth: 1.5,
+    borderColor: '#FDA4AF',
+    borderRadius: ThemeRadius.full,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginBottom: ThemeSpacing.sm,
   },
   optionsWrap: {
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 340,
     gap: ThemeSpacing.sm,
     marginBottom: ThemeSpacing.md,
   },
   optionCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    height: 52,
+    borderRadius: 20,
+    minHeight: 58,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: ThemeColors.borderLight,
+    borderWidth: 2,
+    borderColor: '#E2ECE6',
+    borderBottomWidth: 4,
+    borderBottomColor: '#CBD5E1',
+    position: 'relative',
+    ...ThemeShadow.sm,
   },
   optionCardSelected: {
-    borderColor: ThemeColors.primary,
-    borderWidth: 2,
-    backgroundColor: '#F0FDF4',
+    borderColor: '#059669',
+    borderBottomColor: '#047857',
+    backgroundColor: '#ECFDF5',
   },
   optionCardCorrect: {
-    backgroundColor: ThemeColors.primary,
-    borderColor: ThemeColors.primary,
+    backgroundColor: '#10B981',
+    borderColor: '#059669',
+    borderBottomColor: '#047857',
   },
   optionCardIncorrect: {
-    backgroundColor: '#F87171',
-    borderColor: '#EF4444',
+    backgroundColor: '#F43F5E',
+    borderColor: '#E11D48',
+    borderBottomColor: '#BE123C',
+  },
+  optionText: {
+    letterSpacing: 1,
+  },
+  selectedCheckCircle: {
+    position: 'absolute',
+    right: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#059669',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   helperRow: {
     flexDirection: 'row',
@@ -406,13 +535,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#10B981',
-    borderRadius: ThemeRadius.md,
+    backgroundColor: '#059669',
+    borderRadius: ThemeRadius.full,
     width: '100%',
-    maxWidth: 320,
-    height: 48,
+    maxWidth: 340,
+    minHeight: 52,
+    borderWidth: 1.5,
+    borderColor: '#047857',
+    borderBottomWidth: 4,
+    borderBottomColor: '#064E2A',
   },
   confirmBtnDisabled: {
-    opacity: 0.6,
+    backgroundColor: '#CBD5E1',
+    borderColor: '#94A3B8',
+    borderBottomColor: '#64748B',
+    opacity: 0.7,
   },
 });

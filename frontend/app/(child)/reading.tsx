@@ -49,7 +49,7 @@ export default function LearningActivitiesScreen() {
       iconBg: '#FFEDD5',
       barColor: '#F97316',
       progress: 65,
-      cardBg: '#FFF7ED',
+      cardBg: '#FFFDF7',
       badge: null,
       route: '/(child)/quiz-letter',
     },
@@ -73,7 +73,7 @@ export default function LearningActivitiesScreen() {
       level: 'පහසු',
       icon: '📖',
       iconBg: '#F3E8FF',
-      barColor: '#9333EA',
+      barColor: '#8B5CF6',
       progress: 30,
       cardBg: '#FAF5FF',
       badge: '⭐ නිර්දේශිතයි',
@@ -87,9 +87,9 @@ export default function LearningActivitiesScreen() {
       level: 'මධ්‍යම',
       icon: '🎙️',
       iconBg: '#DCFCE7',
-      barColor: '#0B7A44',
+      barColor: '#059669',
       progress: 55,
-      cardBg: '#F0FDF4',
+      cardBg: '#ECFDF5',
       badge: '🧠 ක්ෂණික විශ්ලේෂණය',
       badgePos: 'right',
       route: '/(child)/m1-session',
@@ -105,7 +105,7 @@ export default function LearningActivitiesScreen() {
           style={styles.navIconBtn}
           activeOpacity={0.7}
         >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
             <Path
               d="M 20 11 L 7.83 11 L 13.42 5.41 L 12 4 L 4 12 L 12 20 L 13.41 18.59 L 7.83 13 L 20 13 Z"
               fill={ThemeColors.primary}
@@ -113,13 +113,21 @@ export default function LearningActivitiesScreen() {
           </Svg>
         </TouchableOpacity>
 
-        <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
-          ඉගෙනුම් ක්‍රියාකාරකම්
-        </AppText>
+        <View style={styles.headerTitleWrap}>
+          <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
+            ඉගෙනුම් ක්‍රියාකාරකම්
+          </AppText>
+          <AppText size="md" style={{ marginLeft: 6 }}>
+            📚
+          </AppText>
+        </View>
 
         {/* Circular Fire Streak Meter */}
         <View style={styles.fireRingBadge}>
           <AppText size="xs">🔥</AppText>
+          <AppText size="xs" weight="extrabold" color="#92400E" style={{ marginLeft: 3 }}>
+            5
+          </AppText>
         </View>
       </View>
 
@@ -136,8 +144,8 @@ export default function LearningActivitiesScreen() {
           >
             <AppText
               size="xs"
-              weight={activeFilter === 'all' ? 'bold' : 'regular'}
-              color={activeFilter === 'all' ? '#FFFFFF' : ThemeColors.textPrimary}
+              weight="extrabold"
+              color={activeFilter === 'all' ? '#FFFFFF' : '#475569'}
             >
               සියල්ල
             </AppText>
@@ -154,10 +162,10 @@ export default function LearningActivitiesScreen() {
           >
             <AppText
               size="xs"
-              weight={activeFilter === 'letters' ? 'bold' : 'regular'}
-              color={activeFilter === 'letters' ? '#FFFFFF' : ThemeColors.textPrimary}
+              weight="extrabold"
+              color={activeFilter === 'letters' ? '#FFFFFF' : '#0369A1'}
             >
-              අකුරු
+              🔤 අකුරු
             </AppText>
           </TouchableOpacity>
 
@@ -172,10 +180,10 @@ export default function LearningActivitiesScreen() {
           >
             <AppText
               size="xs"
-              weight={activeFilter === 'sounds' ? 'bold' : 'regular'}
-              color={activeFilter === 'sounds' ? '#FFFFFF' : ThemeColors.textPrimary}
+              weight="extrabold"
+              color={activeFilter === 'sounds' ? '#FFFFFF' : '#C2410C'}
             >
-              ශබ්ද
+              👂 ශබ්ද
             </AppText>
           </TouchableOpacity>
 
@@ -190,10 +198,10 @@ export default function LearningActivitiesScreen() {
           >
             <AppText
               size="xs"
-              weight={activeFilter === 'words' ? 'bold' : 'regular'}
-              color={activeFilter === 'words' ? '#FFFFFF' : ThemeColors.textPrimary}
+              weight="extrabold"
+              color={activeFilter === 'words' ? '#FFFFFF' : '#B45309'}
             >
-              වචන
+              📖 වචන
             </AppText>
           </TouchableOpacity>
         </View>
@@ -203,17 +211,17 @@ export default function LearningActivitiesScreen() {
           <View style={styles.sectionHeaderRow}>
             <AppText size="sm">✨</AppText>
             <AppText size="md" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
-              අද ඔබට
+              අද ඔබට විශේෂයි
             </AppText>
           </View>
 
-          <View style={[styles.heroCard, ThemeShadow.sm]}>
+          <View style={styles.heroCard}>
             {/* Student Illustration */}
             <View style={styles.heroIllustrationWrap}>
               <WelcomeStudentIllustration size={130} />
             </View>
 
-            <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} align="center" style={styles.heroTitle}>
+            <AppText size="lg" weight="extrabold" color={ThemeColors.textPrimary} align="center" style={styles.heroTitle}>
               සරල වාක්‍ය කියවීම
             </AppText>
 
@@ -221,48 +229,49 @@ export default function LearningActivitiesScreen() {
             <View style={styles.heroSpecsRow}>
               <View style={styles.specPill}>
                 <AppText size="xs">⏱️</AppText>
-                <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginLeft: 3 }}>
+                <AppText size="xs" color="#334155" weight="bold" style={{ marginLeft: 4 }}>
                   මිනිත්තු 5
                 </AppText>
               </View>
 
               <View style={[styles.specPill, { backgroundColor: '#DCFCE7' }]}>
-                <AppText size="xs" color="#15803D" weight="bold">
+                <AppText size="xs" color="#15803D" weight="extrabold">
                   🟢 පහසු
                 </AppText>
               </View>
 
-              <View style={[styles.specPill, { backgroundColor: '#F59E0B' }]}>
+              <View style={[styles.specPill, { backgroundColor: '#FEF3C7' }]}>
                 <AppText size="xs">⭐</AppText>
-                <AppText size="xs" weight="bold" color="#FFFFFF" style={{ marginLeft: 3 }}>
-                  10
+                <AppText size="xs" weight="extrabold" color="#92400E" style={{ marginLeft: 4 }}>
+                  +10 ලකුණු
                 </AppText>
               </View>
             </View>
 
-            {/* Green Action CTA */}
+            {/* Tactile 3D Action CTA */}
             <TouchableOpacity
               style={styles.heroActionBtn}
               onPress={() => router.push('/(child)/reading-comprehension')}
-              activeOpacity={0.85}
+              activeOpacity={0.8}
             >
-              <AppText size="md" weight="bold" color="#FFFFFF">
+              <AppText size="md" weight="extrabold" color="#FFFFFF">
                 ආරම්භ කරන්න
               </AppText>
-              <View style={styles.heroPlayIcon}>
-                <AppText size="xs" color="#FFFFFF">
-                  ▷
-                </AppText>
-              </View>
+              <AppText size="md" color="#FFFFFF" style={{ marginLeft: 6 }}>
+                🚀
+              </AppText>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* ── SECTION 2: ක්‍රියාකාරීත්ව ගමන (Activity Journey) ── */}
+        {/* ── SECTION 2: 🗺️ ඉගෙනුම් මාවත (Learning Journey) ── */}
         <View style={styles.sectionWrap}>
-          <AppText size="md" weight="extrabold" color={ThemeColors.primary} align="center" style={styles.journeyHeaderTitle}>
-            ක්‍රියාකාරීත්ව ගමන
-          </AppText>
+          <View style={styles.sectionHeaderRow}>
+            <AppText size="sm">🗺️</AppText>
+            <AppText size="md" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
+              ක්‍රියාකාරකම් පෙළගැස්ම
+            </AppText>
+          </View>
 
           <View style={styles.activitiesListWrap}>
             {activities.map((act) => (
@@ -271,55 +280,69 @@ export default function LearningActivitiesScreen() {
                 style={[
                   styles.activityJourneyCard,
                   { backgroundColor: act.cardBg },
-                  ThemeShadow.sm,
                 ]}
                 onPress={() => router.push(act.route as any)}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
               >
-                {/* Floating Tag if present */}
                 {act.badge && (
-                  <View
-                    style={[
-                      styles.floatingBadgeTag,
-                      act.badgePos === 'right' ? { right: 12 } : { left: 12 },
-                    ]}
-                  >
+                  <View style={[styles.floatingBadgeTag, act.badgePos === 'right' ? { right: 14 } : { left: 14 }]}>
                     <AppText size="xs" weight="extrabold" color="#FFFFFF">
                       {act.badge}
                     </AppText>
                   </View>
                 )}
 
-                {/* Big Circle Icon */}
-                <View style={[styles.actCircleIcon, { backgroundColor: act.iconBg }]}>
-                  <AppText size="xl">{act.icon}</AppText>
-                </View>
+                <View style={styles.activityContentRow}>
+                  <View style={[styles.actCircleIcon, { backgroundColor: act.iconBg }]}>
+                    <AppText size="xl">{act.icon}</AppText>
+                  </View>
 
-                {/* Subtitle / Category */}
-                <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 6 }}>
-                  {act.category} • {act.level}
-                </AppText>
+                  <View style={styles.activityTextWrap}>
+                    <View style={styles.activityMetaRow}>
+                      <View style={styles.categoryPill}>
+                        <AppText size="xs" color="#64748B" weight="bold">
+                          {act.category}
+                        </AppText>
+                      </View>
+                      <AppText size="xs" weight="extrabold" color={act.barColor}>
+                        {act.progress}%
+                      </AppText>
+                    </View>
 
-                {/* Title */}
-                <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginVertical: 4 }}>
-                  {act.title}
-                </AppText>
+                    <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginVertical: 4 }}>
+                      {act.title}
+                    </AppText>
 
-                {/* Progress Bar with circle thumb */}
-                <View style={styles.progressBarTrackWrap}>
-                  <View style={[styles.progressBarFillLine, { width: `${act.progress}%`, backgroundColor: act.barColor }]} />
-                  <View style={[styles.progressThumbCircle, { left: `${act.progress - 3}%`, borderColor: act.barColor }]} />
+                    {/* Candy Progress Bar Track */}
+                    <View style={styles.progressBarTrackWrap}>
+                      <View
+                        style={[
+                          styles.progressBarFillLine,
+                          { width: `${act.progress}%`, backgroundColor: act.barColor },
+                        ]}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.arrowCircleBtn}>
+                    <AppText size="sm" weight="bold" color={ThemeColors.primary}>
+                      →
+                    </AppText>
+                  </View>
                 </View>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* Encouraging Footer Card */}
-        <View style={[styles.encouragingFooterCard, ThemeShadow.sm]}>
-          <AppText size="md">⭐</AppText>
-          <AppText size="xs" color={ThemeColors.textPrimary} align="center" style={{ marginTop: 4, lineHeight: 18 }}>
-            ටිකෙන් ටික ඉගෙන ගමු.{'\n'}ඔබේ ගමන අප සමඟින්! 🌱
+        {/* ── Encouraging Footer Card ── */}
+        <View style={styles.encouragingFooterCard}>
+          <AppText size="lg">🌟</AppText>
+          <AppText size="sm" weight="extrabold" color={ThemeColors.primary} align="center" style={{ marginTop: 4 }}>
+            නියමයි! දිනපතා පුහුණුවෙන් ඔබ තවත් දක්ෂ වෙනවා!
+          </AppText>
+          <AppText size="xs" color={ThemeColors.textSecondary} align="center" style={{ marginTop: 2 }}>
+            සෙමින්, සන්සුන්ව කියවමු. ඔබට මෙය පහසුවෙන්ම කරන්න පුළුවන්!
           </AppText>
         </View>
 
@@ -335,35 +358,44 @@ export default function LearningActivitiesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ThemeColors.background,
-    ...(Platform.OS === 'web' ? { minHeight: '100vh' as any, height: '100vh' as any } : {}),
+    backgroundColor: '#F7FAF8',
+    ...(Platform.OS === 'web'
+      ? { minHeight: '100vh' as any, height: '100vh' as any }
+      : {}),
   },
   topBar: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: ThemeSpacing.md,
-    paddingVertical: ThemeSpacing.xs + 2,
+    paddingVertical: ThemeSpacing.xs + 4,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: ThemeColors.borderLight,
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#E2ECE6',
+  },
+  headerTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   navIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F0FDF4',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#DCFCE7',
   },
   fireRingBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FEF3C7',
-    borderWidth: 1.5,
-    borderColor: '#F59E0B',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: ThemeRadius.full,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
   },
   scroll: {
     paddingHorizontal: ThemeSpacing.md,
@@ -373,28 +405,40 @@ const styles = StyleSheet.create({
   },
   filterPillsRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
     marginVertical: ThemeSpacing.xs,
   },
   filterPill: {
     flex: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
     borderRadius: ThemeRadius.full,
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#E2ECE6',
+    borderBottomWidth: 3,
+    borderBottomColor: '#CBD5E1',
   },
   filterPillActive: {
     backgroundColor: ThemeColors.primary,
+    borderColor: ThemeColors.primaryDark,
+    borderBottomColor: '#064E2A',
   },
   filterPillBlue: {
-    backgroundColor: '#E0F2FE',
+    backgroundColor: '#F0F9FF',
+    borderColor: '#BAE6FD',
+    borderBottomColor: '#7DD3FC',
   },
   filterPillOrange: {
-    backgroundColor: '#FFEDD5',
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FED7AA',
+    borderBottomColor: '#FDBA74',
   },
   filterPillYellow: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FEFCE8',
+    borderColor: '#FEF08A',
+    borderBottomColor: '#FDE047',
   },
   sectionWrap: {
     gap: ThemeSpacing.xs + 2,
@@ -402,15 +446,18 @@ const styles = StyleSheet.create({
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   heroCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: ThemeSpacing.md,
+    padding: ThemeSpacing.md + 2,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
+    borderWidth: 1.5,
+    borderColor: '#E2ECE6',
+    borderBottomWidth: 4,
+    borderBottomColor: '#CBD5E1',
+    ...ThemeShadow.sm,
   },
   heroIllustrationWrap: {
     width: 140,
@@ -420,7 +467,7 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     marginTop: 4,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   heroSpecsRow: {
     flexDirection: 'row',
@@ -430,42 +477,36 @@ const styles = StyleSheet.create({
   specPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E2E8F0',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: ThemeRadius.full,
   },
   heroActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#065F46',
-    borderRadius: ThemeRadius.md,
+    backgroundColor: ThemeColors.primary,
+    borderRadius: ThemeRadius.full,
     width: '100%',
-    height: 46,
-    gap: 8,
-  },
-  heroPlayIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#047857',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  journeyHeaderTitle: {
-    marginVertical: ThemeSpacing.xs,
+    height: 50,
+    borderWidth: 1.5,
+    borderColor: ThemeColors.primaryDark,
+    borderBottomWidth: 4,
+    borderBottomColor: '#064E2A',
   },
   activitiesListWrap: {
-    gap: ThemeSpacing.md,
+    gap: ThemeSpacing.sm + 2,
   },
   activityJourneyCard: {
-    borderRadius: 20,
+    borderRadius: 22,
     padding: ThemeSpacing.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
+    borderWidth: 1.5,
+    borderColor: '#E2ECE6',
+    borderBottomWidth: 4,
+    borderBottomColor: '#D1E0D7',
     position: 'relative',
+    ...ThemeShadow.sm,
   },
   floatingBadgeTag: {
     position: 'absolute',
@@ -474,43 +515,67 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: ThemeRadius.full,
+    borderWidth: 1,
+    borderColor: '#D97706',
+    zIndex: 10,
+  },
+  activityContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   actCircleIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+  },
+  activityTextWrap: {
+    flex: 1,
+  },
+  activityMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  categoryPill: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: ThemeRadius.full,
   },
   progressBarTrackWrap: {
-    width: '80%',
-    height: 6,
-    backgroundColor: '#E5E7EB',
+    width: '100%',
+    height: 8,
+    backgroundColor: '#E2E8F0',
     borderRadius: ThemeRadius.full,
-    position: 'relative',
-    marginVertical: 6,
+    overflow: 'hidden',
+    marginTop: 4,
   },
   progressBarFillLine: {
-    height: 6,
+    height: 8,
     borderRadius: ThemeRadius.full,
   },
-  progressThumbCircle: {
-    position: 'absolute',
-    top: -3,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
+  arrowCircleBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#EAF7EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
   },
   encouragingFooterCard: {
     backgroundColor: '#EAF7EE',
-    borderRadius: 20,
-    padding: ThemeSpacing.md,
+    borderRadius: 24,
+    padding: ThemeSpacing.md + 2,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#C7EBD2',
+    borderWidth: 1.5,
+    borderColor: '#A7F3D0',
+    borderBottomWidth: 4,
+    borderBottomColor: '#6EE7B7',
     marginTop: ThemeSpacing.xs,
   },
 });
