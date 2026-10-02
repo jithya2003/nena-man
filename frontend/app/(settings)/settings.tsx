@@ -20,18 +20,28 @@ import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { useDyslexiaTheme } from '@/context/ThemeContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const isParentOrTeacher = user?.role === 'parent' || user?.role === 'teacher';
+  const { language, setLanguage, t } = useLanguage();
+  const {
+    fontSizeScale,
+    setFontSizeScale,
+    increasedSpacing,
+    setIncreasedSpacing,
+    audioAssistance,
+    setAudioAssistance,
+    soundFeedback,
+    setSoundFeedback,
+    readingSpeed,
+    setReadingSpeed,
+  } = useDyslexiaTheme();
 
-  const [fontSizeChoice, setFontSizeChoice] = useState<'small' | 'medium' | 'large'>('medium');
-  const [lineSpacingChoice, setLineSpacingChoice] = useState<'normal' | 'wide'>('normal');
-  const [audioAssistance, setAudioAssistance] = useState(true);
-  const [readingSpeed, setReadingSpeed] = useState(1); // 0 = slow, 1 = normal, 2 = fast
+  const isParentOrTeacher = user?.role === 'parent' || user?.role === 'teacher';
   const [volumeLevel, setVolumeLevel] = useState(0.7);
-  const [soundFeedback, setSoundFeedback] = useState(true);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -128,6 +138,12 @@ export default function SettingsScreen() {
                 </AppText>
               </TouchableOpacity>
             </View>
+
+            <View style={styles.langNoteBox}>
+              <AppText size="xs" color="#166534" weight="medium" style={{ lineHeight: 18 }}>
+                {t('settings.language.note')}
+              </AppText>
+            </View>
           </View>
         </View>
 
@@ -183,14 +199,14 @@ export default function SettingsScreen() {
             </AppText>
             <View style={styles.pillsRow}>
               <TouchableOpacity
-                style={[styles.pillOption, fontSizeChoice === 'small' && styles.pillOptionActive]}
-                onPress={() => setFontSizeChoice('small')}
+                style={[styles.pillOption, fontSizeScale === 'normal' && styles.pillOptionActive]}
+                onPress={() => setFontSizeScale('normal')}
                 activeOpacity={0.8}
               >
                 <AppText
                   size="xs"
-                  weight={fontSizeChoice === 'small' ? 'bold' : 'regular'}
-                  color={fontSizeChoice === 'small' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  weight={fontSizeScale === 'normal' ? 'bold' : 'regular'}
+                  color={fontSizeScale === 'normal' ? '#FFFFFF' : ThemeColors.textPrimary}
                   numberOfLines={1}
                 >
                   {t('settings.small')}
@@ -198,14 +214,14 @@ export default function SettingsScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.pillOption, fontSizeChoice === 'medium' && styles.pillOptionActive]}
-                onPress={() => setFontSizeChoice('medium')}
+                style={[styles.pillOption, fontSizeScale === 'large' && styles.pillOptionActive]}
+                onPress={() => setFontSizeScale('large')}
                 activeOpacity={0.8}
               >
                 <AppText
                   size="xs"
-                  weight={fontSizeChoice === 'medium' ? 'bold' : 'regular'}
-                  color={fontSizeChoice === 'medium' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  weight={fontSizeScale === 'large' ? 'bold' : 'regular'}
+                  color={fontSizeScale === 'large' ? '#FFFFFF' : ThemeColors.textPrimary}
                   numberOfLines={1}
                 >
                   {t('settings.medium')}
@@ -213,14 +229,14 @@ export default function SettingsScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.pillOption, fontSizeChoice === 'large' && styles.pillOptionActive]}
-                onPress={() => setFontSizeChoice('large')}
+                style={[styles.pillOption, fontSizeScale === 'extra-large' && styles.pillOptionActive]}
+                onPress={() => setFontSizeScale('extra-large')}
                 activeOpacity={0.8}
               >
                 <AppText
                   size="xs"
-                  weight={fontSizeChoice === 'large' ? 'bold' : 'regular'}
-                  color={fontSizeChoice === 'large' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  weight={fontSizeScale === 'extra-large' ? 'bold' : 'regular'}
+                  color={fontSizeScale === 'extra-large' ? '#FFFFFF' : ThemeColors.textPrimary}
                   numberOfLines={1}
                 >
                   {t('settings.large')}
@@ -236,14 +252,14 @@ export default function SettingsScreen() {
             </AppText>
             <View style={styles.pillsRow}>
               <TouchableOpacity
-                style={[styles.pillOption, lineSpacingChoice === 'normal' && styles.pillOptionActive]}
-                onPress={() => setLineSpacingChoice('normal')}
+                style={[styles.pillOption, !increasedSpacing && styles.pillOptionActive]}
+                onPress={() => setIncreasedSpacing(false)}
                 activeOpacity={0.8}
               >
                 <AppText
                   size="xs"
-                  weight={lineSpacingChoice === 'normal' ? 'bold' : 'regular'}
-                  color={lineSpacingChoice === 'normal' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  weight={!increasedSpacing ? 'bold' : 'regular'}
+                  color={!increasedSpacing ? '#FFFFFF' : ThemeColors.textPrimary}
                   numberOfLines={1}
                 >
                   {t('settings.normal')}
@@ -251,14 +267,14 @@ export default function SettingsScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.pillOption, lineSpacingChoice === 'wide' && styles.pillOptionActive]}
-                onPress={() => setLineSpacingChoice('wide')}
+                style={[styles.pillOption, increasedSpacing && styles.pillOptionActive]}
+                onPress={() => setIncreasedSpacing(true)}
                 activeOpacity={0.8}
               >
                 <AppText
                   size="xs"
-                  weight={lineSpacingChoice === 'wide' ? 'bold' : 'regular'}
-                  color={lineSpacingChoice === 'wide' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  weight={increasedSpacing ? 'bold' : 'regular'}
+                  color={increasedSpacing ? '#FFFFFF' : ThemeColors.textPrimary}
                   numberOfLines={1}
                 >
                   {t('settings.wide')}
@@ -532,5 +548,13 @@ const styles = StyleSheet.create({
     height: 6,
     backgroundColor: ThemeColors.primary,
     borderRadius: 3,
+  },
+  langNoteBox: {
+    marginTop: ThemeSpacing.md,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: ThemeRadius.md,
+    padding: ThemeSpacing.md,
   },
 });

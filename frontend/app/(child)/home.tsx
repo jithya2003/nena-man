@@ -26,6 +26,7 @@ import {
 } from "@/components/Illustrations";
 import { useRouter as useRouterM2 } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { useChildStoreBase } from "@/store/childStore";
 
 // ── M2 AI Simplification Card ─────────────────────────────────────────────────

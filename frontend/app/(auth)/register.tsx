@@ -29,6 +29,7 @@ import Button from '@/components/Button';
 import NavBar from '@/components/NavBar';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { auth } from '@/services/firebase';
 import { registerSchema, RegisterFormData } from '@/utils/validators';
 
 const GRADES = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5'];
@@ -82,7 +83,16 @@ export default function RegisterScreen() {
       });
 
       if (result.success) {
-        // All accounts (Children, Parents, Teachers) must verify their email before accessing the app
+        const isFallback = (auth as any)?.isFallback;
+        if (isFallback) {
+          if (accountType === 'child') {
+            router.replace('/(child)/home');
+          } else {
+            router.replace('/(parent)/dashboard');
+          }
+          return;
+        }
+
         router.replace({
           pathname: '/(auth)/verify-email',
           params: { email: result.email },
@@ -141,7 +151,7 @@ export default function RegisterScreen() {
                 weight={accountType === 'child' ? 'bold' : 'medium'}
                 color={ThemeColors.textPrimary}
               >
-                Student
+                {t('auth.register.studentTab')}
               </AppText>
             </TouchableOpacity>
 
@@ -179,7 +189,7 @@ export default function RegisterScreen() {
                 color={ThemeColors.textPrimary}
                 style={{ flexShrink: 1 }}
               >
-                Teacher
+                {t('auth.register.educatorTab')}
               </AppText>
             </TouchableOpacity>
           </View>
@@ -196,13 +206,13 @@ export default function RegisterScreen() {
 
           {/* ── SECTION 1: YOUR INFORMATION ── */}
           <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
-            {accountType === 'child' ? '1. ශිෂ්‍ය තොරතුරු (Student Information)' : '1. Your Information'}
+            {accountType === 'child' ? t('auth.register.section1Student') : t('auth.register.section1User')}
           </AppText>
 
           {/* Full Name */}
           <View style={styles.inputGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-              {accountType === 'child' ? "Student's Full Name (ශිෂ්‍යයාගේ සම්පූර්ණ නම)" : 'Full Name'}
+              {accountType === 'child' ? t('auth.register.studentFullName') : t('auth.register.fullName')}
             </AppText>
             <Controller
               control={control}
@@ -229,7 +239,7 @@ export default function RegisterScreen() {
           {accountType === 'child' && (
             <View style={styles.inputGroup}>
               <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-                ශ්‍රේණිය (Grade Level)
+                {t('auth.register.gradeLevel')}
               </AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gradeRow}>
                 {GRADES.map((g) => {
@@ -258,7 +268,7 @@ export default function RegisterScreen() {
           {/* Email / Username */}
           <View style={styles.inputGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-              {accountType === 'child' ? 'Student Email Address (ශිෂ්‍ය විද්‍යුත් තැපෑල)' : 'Email Address (විද්‍යුත් තැපෑල)'}
+              {accountType === 'child' ? t('auth.register.studentEmail') : t('auth.register.email')}
             </AppText>
             <Controller
               control={control}
@@ -350,13 +360,13 @@ export default function RegisterScreen() {
           {accountType !== 'child' && (
             <>
               <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
-                2. Child / Student Profile
+                {t('auth.register.section2Child')}
               </AppText>
 
               {/* Child Name */}
               <View style={styles.inputGroup}>
                 <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-                  Child's Name
+                  {t('auth.register.childName')}
                 </AppText>
                 <Controller
                   control={control}
@@ -382,7 +392,7 @@ export default function RegisterScreen() {
               {/* Grade Selector */}
               <View style={styles.inputGroup}>
                 <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-                  Grade Level
+                  {t('auth.register.gradeLevel')}
                 </AppText>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gradeRow}>
                   {GRADES.map((g) => {
@@ -427,15 +437,7 @@ export default function RegisterScreen() {
                   )}
                 </View>
                 <AppText size="xs" color={ThemeColors.textSecondary} style={{ flex: 1 }}>
-                  I agree to the{' '}
-                  <AppText size="xs" weight="bold" color={ThemeColors.accentDark}>
-                    Terms of Service
-                  </AppText>{' '}
-                  and{' '}
-                  <AppText size="xs" weight="bold" color={ThemeColors.accentDark}>
-                    Privacy Policy
-                  </AppText>
-                  .
+                  {t('auth.register.agreeTerms')}
                 </AppText>
               </TouchableOpacity>
             )}
@@ -450,10 +452,10 @@ export default function RegisterScreen() {
           <Button
             label={
               isSubmitting
-                ? 'Setting up profile...'
+                ? t('common.loading')
                 : accountType === 'child'
-                  ? 'Create Student Account & Start 🚀'
-                  : 'Create Account & Start 🚀'
+                  ? t('auth.register.createStudentBtn')
+                  : t('auth.register.createAccountBtn')
             }
             onPress={handleSubmit(onSubmit)}
             loading={isSubmitting}

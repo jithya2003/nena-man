@@ -46,7 +46,23 @@ export default function VerifyEmailScreen() {
   );
 
   const handleCheckVerification = async () => {
+    const isFallback = (auth as any)?.isFallback;
     const currentUser = auth?.currentUser;
+
+    if (isFallback) {
+      setIsCheckingVerification(true);
+      setStatusType('success');
+      setStatusMessage(
+        language === 'si'
+          ? 'විද්‍යුත් තැපෑල සාර්ථකව සත්‍යාපනය කරන ලදී! (Local Dev Mode)'
+          : 'Email verified successfully! (Local Dev Mode)'
+      );
+      setTimeout(() => {
+        router.replace('/(parent)/dashboard');
+      }, 1000);
+      return;
+    }
+
     if (!currentUser) {
       setStatusType('error');
       setStatusMessage(
@@ -73,7 +89,6 @@ export default function VerifyEmailScreen() {
 
         let userRole: UserRole = 'parent';
 
-        // Establish active authenticated session now that email is verified
         try {
           const token = await currentUser.getIdToken();
           const snap = await getDoc(doc(db, 'users', currentUser.uid));
@@ -98,7 +113,6 @@ export default function VerifyEmailScreen() {
 
         setStatusType('success');
         setStatusMessage('විද්‍යුත් තැපෑල සාර්ථකව සත්‍යාපනය කරන ලදී! (Email verified successfully!)');
-        // Navigate to appropriate home after a short delay
         setTimeout(() => {
           if (userRole === 'child') {
             router.replace('/(child)/home');
@@ -127,6 +141,17 @@ export default function VerifyEmailScreen() {
   };
 
   const handleResendEmail = async () => {
+    const isFallback = (auth as any)?.isFallback;
+    if (isFallback) {
+      setStatusType('success');
+      setStatusMessage(
+        language === 'si'
+          ? 'Local Dev Mode: ඊමේල් සත්‍යාපනය මඟ හැර ඇත.'
+          : 'Local Dev Mode: Firebase keys not set in .env. Verification email bypassed.'
+      );
+      return;
+    }
+
     const currentUser = auth?.currentUser;
     if (!currentUser) return;
 

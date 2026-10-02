@@ -21,12 +21,14 @@ import AppText from '@/components/AppText';
 import NenaManLogo from '@/components/NenaManLogo';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { connectionService } from '@/services/connectionService';
 import { LinkedPerson } from '@/types';
 import { useChildStoreBase } from '@/store/childStore';
 
 export default function ParentDashboardScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { user, logout } = useAuth();
   const currentGuardian = useChildStoreBase((s) => s.currentGuardian);
   const currentChild = useChildStoreBase((s) => s.currentChild);

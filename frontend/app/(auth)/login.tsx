@@ -37,6 +37,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const { role: initialRole } = useLocalSearchParams<{ role: string }>();
   const { login, logout } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
 
   // If user just registered (Firebase keeps them signed in) and email is unverified,
   // redirect straight to verify-email for all users (children, parents, teachers).
@@ -96,7 +97,7 @@ export default function LoginScreen() {
         if (currentRole === "parent" && result.role === "child") {
           await logout();
           setServerError(
-            selectedLanguage === "si"
+            language === "si"
               ? "මෙම ගිණුම ශිෂ්‍ය ගිණුමකි. දෙමාපිය/ගුරු පුවරුවෙන් පිවිසිය නොහැක. කරුණාකර 'ශිෂ්‍ය පිවිසුම' (Student Login) තෝරන්න."
               : "This is a Student account and cannot access the Parent/Teacher portal. Please switch to 'Student Login'."
           );
@@ -107,7 +108,7 @@ export default function LoginScreen() {
         if (currentRole === "child" && (result.role === "parent" || result.role === "teacher")) {
           await logout();
           setServerError(
-            selectedLanguage === "si"
+            language === "si"
               ? "මෙම ගිණුම දෙමාපිය/ගුරු ගිණුමකි. ශිෂ්‍ය පුවරුවෙන් පිවිසිය නොහැක. කරුණාකර 'දෙමාපිය / ගුරු පිවිසුම' (Parent/Teacher Login) තෝරන්න."
               : "This is a Parent/Teacher account and cannot access the Student portal. Please switch to 'Parent/Teacher Login'."
           );
@@ -320,9 +321,7 @@ export default function LoginScreen() {
                 color={ThemeColors.textSecondary}
                 style={styles.inputLabel}
               >
-                {isParent
-                  ? "විද්‍යුත් තැපෑල (Email Address)"
-                  : "ශිෂ්‍ය විද්‍යුත් තැපෑල (Student Email)"}
+                {isParent ? t('auth.login.parentLabel') : t('auth.login.studentLabel')}
               </AppText>
               <Controller
                 control={control}

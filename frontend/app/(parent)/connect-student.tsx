@@ -249,7 +249,7 @@ export default function ConnectStudentScreen() {
                   >
                     <AppText
                       size="xs"
-                      weight={isSelected ? 'bold' : 'normal'}
+                      weight={isSelected ? 'bold' : 'regular'}
                       color={isSelected ? ThemeColors.primary : ThemeColors.textSecondary}
                     >
                       {opt}
