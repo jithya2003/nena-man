@@ -1,7 +1,7 @@
 /**
  * nena-man · frontend/services/authService.ts
- * Real Firebase Authentication & Firestore Profile integration.
- * Connects directly to Google Firebase Auth with user-friendly error handling.
+ * Real Firebase Authentication & Firestore Profile integration with automatic local fallback.
+ * Reads environment variables safely via .env and enables local testing when keys are unconfigured.
  */
 
 import {
@@ -44,30 +44,62 @@ export function getFirebaseErrorMessage(errorCode: string): string {
   }
 }
 
+/**
+ * Creates a local fallback dev profile when Firebase is unconfigured in local dev
+ */
+function createLocalDevProfile(email: string, displayName: string, role: UserRole, data?: Partial<RegisterData>): UserProfile {
+  const uid = `dev_user_${Date.now()}`;
+  return {
+    uid,
+    email,
+    displayName: displayName || (role === 'child' ? 'ශිෂ්‍යයා' : 'දෙමාපියන්'),
+    role,
+    age: data?.age || (role === 'child' ? 7 : undefined),
+    grade: data?.grade || (role === 'child' ? 2 : undefined),
+    schoolName: data?.schoolName || '',
+    createdAt: new Date().toISOString(),
+    emailVerified: true,
+    childProfile: data?.childName || role === 'child' ? {
+      id: `child_${uid.slice(0, 6)}`,
+      name: data?.childName || displayName || 'සිසුවා',
+      age: data?.age || 7,
+      grade: data?.grade || 2,
+      readingLevel: 'medium',
+      streak: 1,
+      stars: 10,
+      totalSessions: 0,
+      avatarColor: '#4F46E5',
+    } : undefined,
+  };
+}
+
 export const authService = {
   /**
    * Register a new user with Firebase Auth & Firestore
    */
   async register(data: RegisterData): Promise<{ user: UserProfile; token: string }> {
+    const isFallback = (auth as any)?.isFallback;
+    const email = data.email.includes('@') ? data.email.trim() : `${data.email.trim()}@nenaman.lk`;
+
+    if (isFallback) {
+      console.info('[authService] Firebase not configured in .env — using local dev register fallback.');
+      const user = createLocalDevProfile(email, data.displayName, data.role, data);
+      return { user, token: 'dev-local-mock-token' };
+    }
+
     try {
       const password = data.password || 'password123';
-      const email = data.email.includes('@') ? data.email.trim() : `${data.email.trim()}@nenaman.lk`;
-      const isChild = data.role === 'child';
-
       const userCred = await createUserWithEmailAndPassword(auth, email, password);
       const fbUser = userCred.user;
 
-      // Update Firebase Auth profile display name
       await updateProfile(fbUser, { displayName: data.displayName });
 
-      // Send email verification — mandatory for ALL accounts (Children, Parents, Teachers)
       try {
         await sendEmailVerification(fbUser);
       } catch (verifyErr) {
         console.warn('[authService] sendEmailVerification warning:', verifyErr);
       }
 
-      // Save user profile in Cloud Firestore
       const userProfile: UserProfile = {
         uid: fbUser.uid,
         email: fbUser.email || email,
@@ -105,7 +137,6 @@ export const authService = {
 
       const token = await fbUser.getIdToken();
 
-      // Notify Flask backend
       try {
         await fetch(`${API_BASE_URL}/auth/register`, {
           method: 'POST',
@@ -129,6 +160,11 @@ export const authService = {
 
       return { user: userProfile, token };
     } catch (err: any) {
+      if (err?.message?.includes('_getRecaptchaConfig') || err?.code === 'auth/invalid-api-key') {
+        console.info('[authService] Caught unconfigured Firebase credentials error — completing registration in local dev mode.');
+        const user = createLocalDevProfile(email, data.displayName, data.role, data);
+        return { user, token: 'dev-local-mock-token' };
+      }
       console.error('[authService] Register error:', err.code, err.message);
       throw new Error(getFirebaseErrorMessage(err.code || ''));
     }
@@ -142,10 +178,16 @@ export const authService = {
     password: string = '',
     role: UserRole = 'child'
   ): Promise<{ user: UserProfile; token: string }> {
+    const isFallback = (auth as any)?.isFallback;
+    const email = identifier.includes('@') ? identifier.trim() : `${identifier.trim()}@nenaman.lk`;
+
+    if (isFallback) {
+      console.info('[authService] Firebase not configured in .env — using local dev login fallback.');
+      const user = createLocalDevProfile(email, identifier, role);
+      return { user, token: 'dev-local-mock-token' };
+    }
+
     try {
-      // Format email if username entered
-      const email = identifier.includes('@') ? identifier.trim() : `${identifier.trim()}@nenaman.lk`;
-      
       const userCred = await signInWithEmailAndPassword(auth, email, password);
       const fbUser = userCred.user;
       try {
@@ -155,7 +197,6 @@ export const authService = {
       }
       const token = await fbUser.getIdToken();
 
-      // Retrieve full profile from Cloud Firestore
       let userProfile: UserProfile | null = null;
       try {
         const snap = await getDoc(doc(db, 'users', fbUser.uid));
@@ -182,7 +223,6 @@ export const authService = {
         console.warn('[authService] Firestore fetch warning:', firestoreErr);
       }
 
-      // Default profile from Firebase Auth user if Firestore doc not yet created
       if (!userProfile) {
         userProfile = {
           uid: fbUser.uid,
@@ -198,6 +238,11 @@ export const authService = {
 
       return { user: userProfile, token };
     } catch (err: any) {
+      if (err?.message?.includes('_getRecaptchaConfig') || err?.code === 'auth/invalid-api-key') {
+        console.info('[authService] Caught unconfigured Firebase credentials error — completing login in local dev mode.');
+        const user = createLocalDevProfile(email, identifier, role);
+        return { user, token: 'dev-local-mock-token' };
+      }
       console.error('[authService] Login error:', err.code, err.message);
       throw new Error(getFirebaseErrorMessage(err.code || ''));
     }
@@ -207,9 +252,19 @@ export const authService = {
    * Send Password Reset Email via Firebase Auth
    */
   async sendPasswordResetEmail(email: string): Promise<void> {
+    const isFallback = (auth as any)?.isFallback;
+    if (isFallback) {
+      console.info('[authService] Local dev password reset requested for:', email);
+      return;
+    }
+
     try {
       await sendPasswordResetEmail(auth, email.trim());
     } catch (err: any) {
+      if (err?.message?.includes('_getRecaptchaConfig') || err?.code === 'auth/invalid-api-key') {
+        console.info('[authService] Password reset skipped in local dev mode.');
+        return;
+      }
       console.error('[authService] Password reset error:', err.code, err.message);
       throw new Error(getFirebaseErrorMessage(err.code || ''));
     }
@@ -219,6 +274,11 @@ export const authService = {
    * Sign Out
    */
   async logout(): Promise<void> {
+    const isFallback = (auth as any)?.isFallback;
+    if (isFallback) {
+      return;
+    }
+
     try {
       await signOut(auth);
     } catch (err) {

@@ -72,6 +72,26 @@ export const ThemeColors = {
   borderLight: '#E8F0EB',
   divider: '#E2ECE6',
   overlay: 'rgba(15, 30, 20, 0.4)',
+
+  // ── Dyslexia Kid Palette (Ages 7-8: Tactile, Warm, Playful) ────────────────
+  kidEmerald: '#059669',
+  kidEmeraldDark: '#047857',
+  kidEmeraldLight: '#ECFDF5',
+  kidHoney: '#F59E0B',
+  kidHoneyDark: '#D97706',
+  kidHoneyLight: '#FEF3C7',
+  kidCoral: '#F43F5E',
+  kidCoralDark: '#E11D48',
+  kidCoralLight: '#FFF1F2',
+  kidSky: '#0284C7',
+  kidSkyDark: '#0369A1',
+  kidSkyLight: '#E0F2FE',
+  kidViolet: '#8B5CF6',
+  kidVioletDark: '#7C3AED',
+  kidVioletLight: '#F5F3FF',
+  kidCream: '#FFFDF7',
+  kidBeige: '#FBF8EE',
+  kidBorder: '#E5E7EB',
 };
 
 export const ThemeSpacing = {
@@ -92,6 +112,8 @@ export const ThemeRadius = {
   lg: 20,
   xl: 28,
   full: 9999,
+  kidCard: 24,
+  kidButton: 20,
 };
 
 export const ThemeFontSize = {
@@ -135,6 +157,20 @@ export const ThemeShadow = {
     shadowRadius: 20,
     elevation: 8,
   },
+  kidSoft: {
+    shadowColor: '#1E293B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  kid3D: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 0,
+    elevation: 4,
+  },
 };
 
 export const Colors = ThemeColors;
@@ -143,3 +179,4 @@ export const Radius = ThemeRadius;
 export const FontSize = ThemeFontSize;
 export const FontWeight = ThemeFontWeight;
 export const Shadow = ThemeShadow;
+

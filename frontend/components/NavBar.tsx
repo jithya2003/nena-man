@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import Svg, { Path } from 'react-native-svg';
 import {
   ThemeColors,
   ThemeSpacing,
@@ -9,6 +10,7 @@ import {
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 
 export interface NavBarProps {
   title?: string;
@@ -18,6 +20,7 @@ export interface NavBarProps {
   fallbackRoute?: string;
   showHome?: boolean;
   homeRoute?: string;
+  showLanguagePill?: boolean;
   showSettings?: boolean;
   showLogout?: boolean;
   rightElement?: React.ReactNode;
@@ -32,13 +35,15 @@ export default function NavBar({
   fallbackRoute,
   showHome = false,
   homeRoute = '/(child)/home',
-  showSettings = true,
+  showLanguagePill = true,
+  showSettings = false,
   showLogout = false,
   rightElement,
   backgroundColor = ThemeColors.surface,
 }: NavBarProps) {
   const router = useRouter();
   const { logout } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
 
   const handleBack = () => {
     if (onBack) {
@@ -112,19 +117,26 @@ export default function NavBar({
 
       <View style={styles.rightGroup}>
         {rightElement}
-        {showSettings && (
+
+        {showLanguagePill && (
           <TouchableOpacity
-            onPress={handleSettings}
-            style={styles.actionChip}
-            accessibilityLabel="Font and accessibility settings"
-            activeOpacity={0.7}
+            style={styles.langPill}
+            onPress={() => setLanguage(language === 'si' ? 'en' : 'si')}
+            activeOpacity={0.8}
+            accessibilityLabel="Toggle language"
           >
-            <AppText size="xs">⚙️</AppText>
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M 12 2 C 6.48 2 2 6.48 2 12 C 2 17.52 6.48 22 12 22 C 17.52 22 22 17.52 22 12 C 22 6.48 17.52 2 12 2 Z M 11 19.93 C 7.05 19.44 4 16.08 4 12 C 4 11.38 4.08 10.79 4.21 10.21 L 9 15 L 9 16 C 9 17.1 9.9 18 11 18 L 11 19.93 Z M 17.9 17.39 C 17.64 16.58 16.9 16 16 16 L 15 16 L 15 13 C 15 12.45 14.55 12 14 12 L 8 12 L 8 10 L 10 10 C 10.55 10 11 9.55 11 9 L 11 7 L 13 7 C 14.1 7 15 6.1 15 5 L 15 4.59 C 17.93 5.78 20 8.65 20 12 C 20 14.08 19.2 15.97 17.9 17.39 Z"
+                fill={ThemeColors.textPrimary}
+              />
+            </Svg>
             <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-              Font
+              {language === 'si' ? 'සිංහල' : 'English'}
             </AppText>
           </TouchableOpacity>
         )}
+
         {showLogout && (
           <TouchableOpacity
             onPress={handleLogout}
@@ -133,7 +145,7 @@ export default function NavBar({
             activeOpacity={0.7}
           >
             <AppText size="xs" weight="bold" color={ThemeColors.error}>
-              Exit
+              {t('common.exit')}
             </AppText>
           </TouchableOpacity>
         )}
@@ -158,9 +170,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: ThemeSpacing.xs + 2,
     flex: 1,
+    minWidth: 0,
   },
   titleWrap: {
     flex: 1,
+    minWidth: 0,
     marginLeft: ThemeSpacing.xs,
   },
   iconBtn: {
@@ -177,6 +191,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: ThemeSpacing.xs,
+    flexShrink: 0,
+  },
+  langPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: ThemeColors.border,
+    paddingHorizontal: ThemeSpacing.sm + 4,
+    paddingVertical: ThemeSpacing.xs + 2,
+    borderRadius: ThemeRadius.full,
+    ...ThemeShadow.sm,
   },
   actionChip: {
     flexDirection: 'row',
@@ -188,5 +215,6 @@ const styles = StyleSheet.create({
     paddingVertical: ThemeSpacing.xs,
     borderWidth: 1,
     borderColor: ThemeColors.border,
+    flexShrink: 0,
   },
 });

@@ -21,12 +21,14 @@ import AppText from '@/components/AppText';
 import NenaManLogo from '@/components/NenaManLogo';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { connectionService } from '@/services/connectionService';
 import { LinkedPerson } from '@/types';
 import { useChildStoreBase } from '@/store/childStore';
 
 export default function ParentDashboardScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { user, logout } = useAuth();
   const currentGuardian = useChildStoreBase((s) => s.currentGuardian);
   const currentChild = useChildStoreBase((s) => s.currentChild);
@@ -237,9 +239,9 @@ export default function ParentDashboardScreen() {
             <NenaManLogo size="sm" showText={false} />
           </TouchableOpacity>
 
-          <View style={{ marginLeft: 10 }}>
+          <View style={{ marginLeft: 10, flexShrink: 1 }}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
-              දෙමාපිය & ගුරු පුවරුව
+              {t('dashboard.parentTitle')}
             </AppText>
             <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
               {effectiveParentName} 👏
@@ -628,8 +630,8 @@ export default function ParentDashboardScreen() {
                         stu.statusType === 'good'
                           ? '#047857'
                           : stu.statusType === 'attention'
-                          ? '#B45309'
-                          : '#DC2626'
+                            ? '#B45309'
+                            : '#DC2626'
                       }
                     >
                       {stu.status}
@@ -649,8 +651,8 @@ export default function ParentDashboardScreen() {
                             stu.progress >= 70
                               ? '#10B981'
                               : stu.progress >= 50
-                              ? '#F59E0B'
-                              : '#EF4444',
+                                ? '#F59E0B'
+                                : '#EF4444',
                         },
                       ]}
                     />

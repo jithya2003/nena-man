@@ -1,7 +1,7 @@
 /**
  * nena-man · frontend/app/(auth)/login.tsx
  * Login screen using react-hook-form + zod for real-time validation.
- * Properly surfaces auth/too-many-requests and other Firebase errors.
+ * Uses global LanguageContext for interface language switching.
  */
 
 import React, { useState, useEffect } from "react";
@@ -29,6 +29,7 @@ import AppText from "@/components/AppText";
 import NenaManLogo from "@/components/NenaManLogo";
 import { WelcomeStudentIllustration } from "@/components/Illustrations";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { loginSchema, LoginFormData } from "@/utils/validators";
 import { auth } from "@/services/firebase";
 
@@ -36,11 +37,12 @@ export default function LoginScreen() {
   const router = useRouter();
   const { role: initialRole } = useLocalSearchParams<{ role: string }>();
   const { login, logout } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
 
   // If user just registered (Firebase keeps them signed in) and email is unverified,
   // redirect straight to verify-email for all users (children, parents, teachers).
   useEffect(() => {
-    const currentUser = auth.currentUser;
+    const currentUser = auth?.currentUser;
     if (currentUser && !currentUser.emailVerified) {
       router.replace({
         pathname: '/(auth)/verify-email',
@@ -53,7 +55,6 @@ export default function LoginScreen() {
     initialRole === "parent" ? "parent" : "child"
   );
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState<"si" | "en">("si");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
 
@@ -67,10 +68,10 @@ export default function LoginScreen() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      identifier: currentRole === "parent" ? "" : "",
+      identifier: "",
       password: "",
     },
-    mode: "onChange", // Real-time validation as user types
+    mode: "onChange",
   });
 
   const onSubmit = async (data: LoginFormData) => {
@@ -79,7 +80,6 @@ export default function LoginScreen() {
     try {
       const result = await login(data.identifier, data.password, currentRole);
 
-      // If user requires email verification, block access and redirect immediately
       if (result.needsVerification) {
         router.replace({
           pathname: "/(auth)/verify-email",
@@ -97,7 +97,7 @@ export default function LoginScreen() {
         if (currentRole === "parent" && result.role === "child") {
           await logout();
           setServerError(
-            selectedLanguage === "si"
+            language === "si"
               ? "මෙම ගිණුම ශිෂ්‍ය ගිණුමකි. දෙමාපිය/ගුරු පුවරුවෙන් පිවිසිය නොහැක. කරුණාකර 'ශිෂ්‍ය පිවිසුම' (Student Login) තෝරන්න."
               : "This is a Student account and cannot access the Parent/Teacher portal. Please switch to 'Student Login'."
           );
@@ -108,7 +108,7 @@ export default function LoginScreen() {
         if (currentRole === "child" && (result.role === "parent" || result.role === "teacher")) {
           await logout();
           setServerError(
-            selectedLanguage === "si"
+            language === "si"
               ? "මෙම ගිණුම දෙමාපිය/ගුරු ගිණුමකි. ශිෂ්‍ය පුවරුවෙන් පිවිසිය නොහැක. කරුණාකර 'දෙමාපිය / ගුරු පිවිසුම' (Parent/Teacher Login) තෝරන්න."
               : "This is a Parent/Teacher account and cannot access the Student portal. Please switch to 'Parent/Teacher Login'."
           );
@@ -123,30 +123,21 @@ export default function LoginScreen() {
         }
       } else {
         setServerError(
-          selectedLanguage === "si"
+          language === "si"
             ? "පිවිසීම අසාර්ථක විය. කරුණාකර තොරතුරු පරීක්ෂා කරන්න."
             : "Login failed. Please check your credentials and try again."
         );
       }
     } catch (err: any) {
-      // Firebase errors (including auth/too-many-requests) are already mapped
-      // to bilingual messages by getFirebaseErrorMessage() in authService.ts
       setServerError(
         err?.message ||
-          (selectedLanguage === "si"
-            ? "දෝෂයක් සිදු විය. කරුණාකර නැවත උත්සාහ කරන්න."
-            : "An unexpected error occurred. Please try again.")
+        (language === "si"
+          ? "දෝෂයක් සිදු විය. කරුණාකර නැවත උත්සාහ කරන්න."
+          : "An unexpected error occurred. Please try again.")
       );
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleCreateAccount = () => {
-    router.push({
-      pathname: "/(auth)/register",
-      params: { role: currentRole },
-    });
   };
 
   const toggleRole = (newRole: "child" | "parent") => {
@@ -166,7 +157,7 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
         >
-          {/* Top Bar with Logo & Language / Back */}
+          {/* Top Bar with Logo & Global Language Switcher */}
           <View style={styles.topBar}>
             <TouchableOpacity
               onPress={() => router.push("/(auth)/role-select")}
@@ -177,9 +168,7 @@ export default function LoginScreen() {
 
             <TouchableOpacity
               style={styles.langPill}
-              onPress={() =>
-                setSelectedLanguage(selectedLanguage === "si" ? "en" : "si")
-              }
+              onPress={() => setLanguage(language === "si" ? "en" : "si")}
               activeOpacity={0.8}
             >
               <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
@@ -189,7 +178,7 @@ export default function LoginScreen() {
                 />
               </Svg>
               <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-                {selectedLanguage === "si" ? "සිංහල" : "English"}
+                {language === "si" ? "සිංහල" : "English"}
               </AppText>
             </TouchableOpacity>
           </View>
@@ -206,9 +195,9 @@ export default function LoginScreen() {
                 size="xs"
                 weight="bold"
                 color={!isParent ? ThemeColors.primary : ThemeColors.textSecondary}
-                style={{ marginLeft: 6 }}
+                style={{ marginLeft: 6, flexShrink: 1 }}
               >
-                ශිෂ්‍ය පිවිසුම
+                {t('auth.login.studentTab')}
               </AppText>
             </TouchableOpacity>
 
@@ -222,9 +211,9 @@ export default function LoginScreen() {
                 size="xs"
                 weight="bold"
                 color={isParent ? "#0369A1" : ThemeColors.textSecondary}
-                style={{ marginLeft: 6 }}
+                style={{ marginLeft: 6, flexShrink: 1 }}
               >
-                දෙමාපිය / ගුරු පිවිසුම
+                {t('auth.login.parentTab')}
               </AppText>
             </TouchableOpacity>
           </View>
@@ -244,7 +233,7 @@ export default function LoginScreen() {
                     color={ThemeColors.primary}
                     align="center"
                   >
-                    ආයුබෝවන්!
+                    {t('auth.login.greeting')}
                   </AppText>
                   <AppText size="xxl" style={styles.clapEmoji}>
                     👏
@@ -258,7 +247,7 @@ export default function LoginScreen() {
                   align="center"
                   style={styles.subGreeting}
                 >
-                  ඔබේ ඉගෙනුම් ගමන අදින් ආරම්භ කරමු.
+                  {t('auth.login.greetingSub')}
                 </AppText>
 
                 <AppText
@@ -267,7 +256,7 @@ export default function LoginScreen() {
                   align="center"
                   style={styles.taglineText}
                 >
-                  නැණ මං · සිංහල කියවීමේ සහායක
+                  {t('auth.login.tagline')}
                 </AppText>
               </View>
             </>
@@ -281,7 +270,7 @@ export default function LoginScreen() {
                   color="#0369A1"
                   style={{ marginLeft: 6 }}
                 >
-                  Guardian & Educator Portal
+                  {t('auth.login.parentHeroTag')}
                 </AppText>
               </View>
 
@@ -292,7 +281,7 @@ export default function LoginScreen() {
                 align="center"
                 style={{ marginTop: 8 }}
               >
-                දෙමාපිය / ගුරු පුවරුව
+                {t('auth.login.parentHeroTitle')}
               </AppText>
 
               <AppText
@@ -301,8 +290,7 @@ export default function LoginScreen() {
                 align="center"
                 style={{ marginTop: 6, maxWidth: 320, lineHeight: 20 }}
               >
-                ළමයාගේ දෛනික කියවීමේ ප්‍රගතිය, උච්චාරණ දෝෂ වාර්තා සහ AI නිර්දේශ
-                අධීක්ෂණය සඳහා පිවිසෙන්න.
+                {t('auth.login.parentHeroDesc')}
               </AppText>
             </View>
           )}
@@ -322,7 +310,7 @@ export default function LoginScreen() {
               align="center"
               style={styles.loginCardTitle}
             >
-              {isParent ? "ගිණුමට පිවිසෙන්න" : "ශිෂ්‍ය ගිණුමට පිවිසෙන්න"}
+              {isParent ? t('auth.login.parentTitle') : t('auth.login.studentTitle')}
             </AppText>
 
             {/* ID / Email Field */}
@@ -333,9 +321,7 @@ export default function LoginScreen() {
                 color={ThemeColors.textSecondary}
                 style={styles.inputLabel}
               >
-                {isParent
-                  ? "විද්‍යුත් තැපෑල (Email Address)"
-                  : "ශිෂ්‍ය විද්‍යුත් තැපෑල (Student Email)"}
+                {isParent ? t('auth.login.parentLabel') : t('auth.login.studentLabel')}
               </AppText>
               <Controller
                 control={control}
@@ -375,22 +361,37 @@ export default function LoginScreen() {
                 )}
               />
               {errors.identifier && (
-                <AppText size="xs" color={ThemeColors.error} style={styles.fieldError}>
-                  ⚠ {errors.identifier.message}
+                <AppText size="xs" color={ThemeColors.error} style={styles.fieldErrorText}>
+                  {errors.identifier.message}
                 </AppText>
               )}
             </View>
 
             {/* Password Field */}
             <View style={styles.inputGroup}>
-              <AppText
-                size="xs"
-                weight="bold"
-                color={ThemeColors.textSecondary}
-                style={styles.inputLabel}
-              >
-                මුරපදය
-              </AppText>
+              <View style={styles.labelRow}>
+                <AppText
+                  size="xs"
+                  weight="bold"
+                  color={ThemeColors.textSecondary}
+                  style={styles.inputLabel}
+                >
+                  {t('auth.login.passwordLabel')}
+                </AppText>
+                <TouchableOpacity
+                  onPress={() => router.push("/(auth)/forgot-password")}
+                  activeOpacity={0.7}
+                >
+                  <AppText
+                    size="xs"
+                    weight="bold"
+                    color={isParent ? "#0369A1" : ThemeColors.primary}
+                  >
+                    {t('auth.login.forgotPassword')}
+                  </AppText>
+                </TouchableOpacity>
+              </View>
+
               <Controller
                 control={control}
                 name="password"
@@ -409,118 +410,93 @@ export default function LoginScreen() {
                       style={styles.inputIcon}
                     >
                       <Path
-                        d="M 18 8 L 17 8 L 17 6 C 17 3.24 14.76 1 12 1 C 9.24 1 7 3.24 7 6 L 7 8 L 6 8 C 4.9 8 4 8.9 4 10 L 4 20 C 4 21.1 4.9 22 6 22 L 18 22 C 19.1 22 20 21.1 20 20 L 20 10 C 20 8.9 19.1 8 18 8 Z M 12 17 C 10.9 17 10 16.1 10 15 C 10 13.9 10.9 13 12 13 C 13.1 13 14 13.9 14 15 C 14 16.1 13.1 17 12 17 Z M 9 8 L 9 6 C 9 4.34 10.34 3 12 3 C 13.66 3 15 4.34 15 6 L 15 8 L 9 8 Z"
+                        d="M 18 8 L 17 8 L 17 6 C 17 3.24 14.76 1 12 1 C 9.24 1 7 3.24 7 6 L 7 8 L 6 8 C 4.9 8 4 8.9 4 10 L 4 20 C 4 21.1 4.9 22 6 22 L 18 22 C 19.1 22 20 21.1 20 20 L 20 10 C 20 8.9 19.1 8 18 8 Z M 12 17 C 10.9 17 10 16.1 10 15 C 10 13.9 10.9 13 12 13 C 13.1 13 14 13.9 14 15 C 14 16.1 13.1 17 12 17 Z M 15.1 8 L 8.9 8 L 8.9 6 C 8.9 4.29 10.29 2.9 12 2.9 C 13.71 2.9 15.1 4.29 15.1 6 L 15.1 8 Z"
                         fill={ThemeColors.textSecondary}
                       />
                     </Svg>
                     <TextInput
-                      style={[styles.textInput, { paddingRight: 40 }]}
+                      style={styles.textInput}
                       value={value}
                       onChangeText={onChange}
                       onBlur={onBlur}
-                      secureTextEntry={!showPassword}
-                      placeholder="මුරපදය ඇතුළත් කරන්න"
+                      placeholder="••••••••"
                       placeholderTextColor={ThemeColors.textMuted}
+                      secureTextEntry={!showPassword}
                     />
                     <TouchableOpacity
-                      style={styles.eyeBtn}
                       onPress={() => setShowPassword(!showPassword)}
-                      activeOpacity={0.7}
+                      style={styles.eyeBtn}
                     >
-                      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                        <Path
-                          d="M 12 4.5 C 7 4.5 2.73 7.61 1 12 C 2.73 16.39 7 19.5 12 19.5 C 17 19.5 21.27 16.39 23 12 C 21.27 7.61 17 4.5 12 4.5 Z M 12 17 C 9.24 17 7 14.76 7 12 C 7 9.24 9.24 7 12 7 C 14.76 7 17 9.24 17 12 C 17 14.76 14.76 17 12 17 Z M 12 9 C 10.34 9 9 10.34 9 12 C 9 13.66 10.34 15 12 15 C 13.66 15 15 13.66 15 12 C 15 10.34 13.66 9 12 9 Z"
-                          fill={ThemeColors.textSecondary}
-                        />
-                      </Svg>
+                      <AppText size="xs" color={ThemeColors.textMuted}>
+                        {showPassword ? "🙈" : "👁️"}
+                      </AppText>
                     </TouchableOpacity>
                   </View>
                 )}
               />
               {errors.password && (
-                <AppText size="xs" color={ThemeColors.error} style={styles.fieldError}>
-                  ⚠ {errors.password.message}
+                <AppText size="xs" color={ThemeColors.error} style={styles.fieldErrorText}>
+                  {errors.password.message}
                 </AppText>
               )}
+            </View>
 
-              {/* Forgot Password Link */}
+            {/* Server Error Display */}
+            {serverError ? (
+              <View style={styles.serverErrorBox}>
+                <AppText size="xs" color={ThemeColors.error} align="center">
+                  ⚠️ {serverError}
+                </AppText>
+              </View>
+            ) : null}
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={[
+                styles.submitBtn,
+                isParent && styles.submitBtnParent,
+                isSubmitting && styles.submitBtnDisabled,
+              ]}
+              onPress={handleSubmit(onSubmit)}
+              disabled={isSubmitting}
+              activeOpacity={0.8}
+            >
+              <AppText size="md" weight="extrabold" color="#FFFFFF">
+                {isSubmitting ? t('common.loading') : t('auth.login.submitBtn')}
+              </AppText>
+            </TouchableOpacity>
+
+            {/* Register Link */}
+            <View style={styles.registerPromptRow}>
+              <AppText size="xs" color={ThemeColors.textSecondary}>
+                {t('auth.login.noAccount')}{" "}
+              </AppText>
               <TouchableOpacity
-                style={styles.forgotPassLink}
-                onPress={() => router.push("/(auth)/forgot-password")}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(auth)/register",
+                    params: { role: currentRole },
+                  })
+                }
                 activeOpacity={0.7}
               >
                 <AppText
                   size="xs"
-                  weight="medium"
-                  color={ThemeColors.textSecondary}
+                  weight="extrabold"
+                  color={isParent ? "#0369A1" : ThemeColors.primary}
                 >
-                  මුරපදය අමතකද?
+                  {t('auth.login.registerNow')}
                 </AppText>
               </TouchableOpacity>
-
-              {/* Server / Firebase Error (including too-many-requests) */}
-              {serverError ? (
-                <View style={styles.errorBox}>
-                  <AppText
-                    size="xs"
-                    weight="bold"
-                    color="#DC2626"
-                    align="center"
-                  >
-                    ⚠️ {serverError}
-                  </AppText>
-                </View>
-              ) : null}
             </View>
-
-            {/* Primary Sign In Button */}
-            <TouchableOpacity
-              style={[
-                styles.signInButton,
-                isParent && styles.signInButtonParent,
-                isSubmitting && { opacity: 0.7 },
-              ]}
-              onPress={handleSubmit(onSubmit)}
-              disabled={isSubmitting}
-              activeOpacity={0.85}
-            >
-              <AppText size="md" weight="bold" color="#FFFFFF">
-                {isSubmitting
-                  ? "මඳක් රැඳෙන්න..."
-                  : isParent
-                    ? "දෙමාපිය පුවරුවට පිවිසෙන්න"
-                    : "පිවිසෙන්න"}
-              </AppText>
-              {!isSubmitting && (
-                <AppText
-                  size="md"
-                  weight="bold"
-                  color="#FFFFFF"
-                  style={{ marginLeft: 6 }}
-                >
-                  →
-                </AppText>
-              )}
-            </TouchableOpacity>
-
-            {/* Secondary Register Button */}
-            <TouchableOpacity
-              style={styles.createAccountBtn}
-              onPress={handleCreateAccount}
-              activeOpacity={0.8}
-            >
-              <AppText
-                size="sm"
-                weight="semibold"
-                color={ThemeColors.textPrimary}
-              >
-                ගිණුමක් සාදන්න
-              </AppText>
-            </TouchableOpacity>
           </View>
 
-
-          <View style={{ height: ThemeSpacing.lg }} />
+          {/* Footer Branding */}
+          <View style={styles.footerBranding}>
+            <AppText size="xs" color={ThemeColors.textMuted} align="center">
+              නැණ මං · SLIIT IT4010 Dyslexia Research Project
+            </AppText>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -540,45 +516,41 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: ThemeSpacing.lg,
-    paddingTop: ThemeSpacing.sm,
+    paddingTop: ThemeSpacing.md,
     paddingBottom: ThemeSpacing.xl,
-    alignItems: "center",
   },
   topBar: {
-    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: ThemeSpacing.xs,
-    marginBottom: ThemeSpacing.xs,
+    marginBottom: ThemeSpacing.md,
   },
   langPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#E8F1F8",
+    backgroundColor: ThemeColors.surfaceElevated,
+    borderRadius: ThemeRadius.full,
     paddingHorizontal: ThemeSpacing.md,
     paddingVertical: ThemeSpacing.xs + 2,
-    borderRadius: ThemeRadius.full,
     borderWidth: 1,
-    borderColor: "#D4E2EE",
+    borderColor: ThemeColors.borderLight,
+    ...ThemeShadow.sm,
   },
   roleTabsContainer: {
     flexDirection: "row",
     backgroundColor: "#E2E8F0",
-    borderRadius: ThemeRadius.full,
-    padding: 3,
-    marginVertical: ThemeSpacing.sm,
-    width: "100%",
-    maxWidth: 360,
+    borderRadius: ThemeRadius.lg,
+    padding: 4,
+    marginBottom: ThemeSpacing.lg,
   },
   roleTab: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
-    borderRadius: ThemeRadius.full,
+    paddingVertical: ThemeSpacing.sm,
+    borderRadius: ThemeRadius.md,
   },
   roleTabActive: {
     backgroundColor: "#FFFFFF",
@@ -589,26 +561,13 @@ const styles = StyleSheet.create({
     ...ThemeShadow.sm,
   },
   illustrationWrapper: {
-    marginVertical: ThemeSpacing.xs,
-    ...ThemeShadow.sm,
-  },
-  parentHeroWrap: {
     alignItems: "center",
-    marginVertical: ThemeSpacing.md,
-  },
-  parentBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#E0F2FE",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: ThemeRadius.full,
-    borderWidth: 1,
-    borderColor: "#BAE6FD",
+    justifyContent: "center",
+    marginBottom: ThemeSpacing.sm,
   },
   welcomeHeadingWrap: {
     alignItems: "center",
-    marginBottom: ThemeSpacing.sm,
+    marginBottom: ThemeSpacing.lg,
   },
   greetingRow: {
     flexDirection: "row",
@@ -616,127 +575,110 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   clapEmoji: {
-    marginLeft: 6,
+    marginLeft: ThemeSpacing.xs,
   },
   subGreeting: {
-    marginTop: 4,
-    maxWidth: 320,
-    lineHeight: 22,
+    marginTop: ThemeSpacing.xs,
   },
   taglineText: {
-    marginTop: 4,
+    marginTop: ThemeSpacing.xs,
+  },
+  parentHeroWrap: {
+    alignItems: "center",
+    marginBottom: ThemeSpacing.lg,
+    paddingHorizontal: ThemeSpacing.sm,
+  },
+  parentBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E0F2FE",
+    paddingHorizontal: ThemeSpacing.md,
+    paddingVertical: ThemeSpacing.xs,
+    borderRadius: ThemeRadius.full,
   },
   loginCard: {
-    width: "100%",
-    maxWidth: 360,
     backgroundColor: "#FFFFFF",
-    borderRadius: 24,
+    borderRadius: ThemeRadius.xl,
     padding: ThemeSpacing.lg,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: ThemeColors.borderLight,
-    marginTop: ThemeSpacing.xs,
   },
   parentCard: {
     borderColor: "#BAE6FD",
-    borderTopWidth: 4,
-    borderTopColor: "#0284C7",
   },
   loginCardTitle: {
-    marginBottom: ThemeSpacing.md,
+    marginBottom: ThemeSpacing.lg,
   },
   inputGroup: {
     marginBottom: ThemeSpacing.md,
   },
   inputLabel: {
-    marginBottom: 6,
-    marginLeft: 2,
+    marginBottom: ThemeSpacing.xs,
+  },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#E8F1F8",
+    backgroundColor: "#F8FAFC",
     borderRadius: ThemeRadius.md,
+    borderWidth: 1.5,
+    borderColor: "#E2E8F0",
     paddingHorizontal: ThemeSpacing.md,
     height: 48,
-    borderWidth: 1,
-    borderColor: "#D8E5F0",
   },
   inputContainerError: {
     borderColor: ThemeColors.error,
-    backgroundColor: "#FFF5F5",
   },
   inputIcon: {
-    marginRight: 8,
+    marginRight: ThemeSpacing.xs + 2,
   },
   textInput: {
     flex: 1,
-    height: 48,
+    height: "100%",
     fontSize: 14,
     color: ThemeColors.textPrimary,
   },
   eyeBtn: {
-    position: "absolute",
-    right: 12,
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
+    padding: ThemeSpacing.xs,
   },
-  fieldError: {
+  fieldErrorText: {
     marginTop: 4,
-    marginLeft: 2,
   },
-  forgotPassLink: {
-    alignSelf: "flex-end",
-    marginTop: 8,
-  },
-  errorBox: {
-    backgroundColor: "#FEE2E2",
-    borderRadius: ThemeRadius.md,
+  serverErrorBox: {
+    backgroundColor: "#FEF2F2",
+    borderRadius: ThemeRadius.sm,
     padding: ThemeSpacing.sm,
-    marginTop: ThemeSpacing.sm,
+    marginBottom: ThemeSpacing.md,
     borderWidth: 1,
     borderColor: "#FCA5A5",
   },
-  signInButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+  submitBtn: {
     backgroundColor: ThemeColors.primary,
     borderRadius: ThemeRadius.md,
     height: 48,
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: ThemeSpacing.xs,
     ...ThemeShadow.sm,
   },
-  signInButtonParent: {
+  submitBtnParent: {
     backgroundColor: "#0284C7",
   },
-  createAccountBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#E8F1F8",
-    borderRadius: ThemeRadius.md,
-    height: 48,
-    marginTop: ThemeSpacing.sm,
+  submitBtnDisabled: {
+    opacity: 0.6,
   },
-  footerWrap: {
+  registerPromptRow: {
+    flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
     marginTop: ThemeSpacing.lg,
-    gap: ThemeSpacing.sm,
   },
-  footerTextRow: {
-    flexDirection: "row",
+  footerBranding: {
+    marginTop: ThemeSpacing.xl,
     alignItems: "center",
-  },
-  helpButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#E8F1F8",
-    paddingHorizontal: ThemeSpacing.lg,
-    paddingVertical: ThemeSpacing.xs + 2,
-    borderRadius: ThemeRadius.full,
-    borderWidth: 1,
-    borderColor: "#D4E2EE",
   },
 });

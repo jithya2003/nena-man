@@ -22,6 +22,7 @@ import AppText from '@/components/AppText';
 import { useAuth } from '@/context/AuthContext';
 import { connectionService } from '@/services/connectionService';
 import { ConnectionRequest } from '@/types';
+import { LoadingView, EmptyView } from '@/components/shared-states';
 
 export default function ConnectStudentScreen() {
   const router = useRouter();
@@ -249,7 +250,7 @@ export default function ConnectStudentScreen() {
                   >
                     <AppText
                       size="xs"
-                      weight={isSelected ? 'bold' : 'normal'}
+                      weight={isSelected ? 'bold' : 'regular'}
                       color={isSelected ? ThemeColors.primary : ThemeColors.textSecondary}
                     >
                       {opt}
@@ -312,14 +313,13 @@ export default function ConnectStudentScreen() {
           </View>
 
           {isLoadingRequests ? (
-            <ActivityIndicator size="small" color={ThemeColors.primary} style={{ marginTop: 16 }} />
+            <LoadingView variant="inline" message="ඉල්ලීම් පූරණය වෙමින්..." style={{ marginTop: 16 }} />
           ) : sentRequests.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <AppText size="md">📭</AppText>
-              <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 6, textAlign: 'center' }}>
-                තවමත් කිසිදු ඉල්ලීමක් යවා නැත. ඉහත පෝරමය මඟින් ඔබගේ ශිෂ්‍යයාට ඉල්ලීමක් යවන්න.
-              </AppText>
-            </View>
+            <EmptyView
+              compact
+              title="තවමත් කිසිදු ඉල්ලීමක් යවා නැත"
+              message="ඉහත පෝරමය මඟින් ඔබගේ ශිෂ්‍යයාට සම්බන්ධ වීමේ ඉල්ලීමක් යවන්න."
+            />
           ) : (
             sentRequests.map((req) => (
               <View key={req.id} style={[styles.requestCard, ThemeShadow.sm]}>

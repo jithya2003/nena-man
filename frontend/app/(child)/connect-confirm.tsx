@@ -20,6 +20,7 @@ import AppText from '@/components/AppText';
 import { useAuth } from '@/context/AuthContext';
 import { connectionService } from '@/services/connectionService';
 import { ConnectionRequest } from '@/types';
+import { LoadingView, EmptyView } from '@/components/shared-states';
 
 export default function ConnectConfirmScreen() {
   const router = useRouter();
@@ -126,12 +127,10 @@ export default function ConnectConfirmScreen() {
         contentContainerStyle={styles.scroll}
       >
         {isLoading ? (
-          <View style={{ padding: 40, alignItems: 'center' }}>
-            <ActivityIndicator size="large" color={ThemeColors.primary} />
-            <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 12 }}>
-              තොරතුරු පූරණය වෙමින් පවතී...
-            </AppText>
-          </View>
+          <LoadingView
+            variant="card"
+            message="තොරතුරු පූරණය වෙමින් පවතී..."
+          />
         ) : actionDone === 'accepted' ? (
           /* Celebration View */
           <View style={[styles.successCard, ThemeShadow.md]}>
@@ -181,25 +180,13 @@ export default function ConnectConfirmScreen() {
           </View>
         ) : !request ? (
           /* No Request Found */
-          <View style={[styles.card, ThemeShadow.sm]}>
-            <AppText size="xxl">📭</AppText>
-            <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginTop: 12 }}>
-              සම්බන්ධතා ඉල්ලීම් කිසිවක් නැත
-            </AppText>
-            <AppText size="xs" color={ThemeColors.textSecondary} style={{ textAlign: 'center', marginTop: 6 }}>
-              ඔබට ලැබී ඇති නව සම්බන්ධතා ඉල්ලීම් මෙහි නොමැත.
-            </AppText>
-
-            <TouchableOpacity
-              style={[styles.doneBtn, { backgroundColor: ThemeColors.primary }]}
-              onPress={() => router.replace('/(child)/home')}
-              activeOpacity={0.8}
-            >
-              <AppText size="sm" weight="bold" color="#FFFFFF">
-                මුල් පිටුවට යන්න
-              </AppText>
-            </TouchableOpacity>
-          </View>
+          <EmptyView
+            compact
+            title="සම්බන්ධතා ඉල්ලීම් කිසිවක් නැත"
+            message="ඔබට ලැබී ඇති නව සම්බන්ධතා ඉල්ලීම් මෙහි නොමැත."
+            actionLabel="මුල් පිටුවට යන්න 🏠"
+            onAction={() => router.replace('/(child)/home')}
+          />
         ) : (
           /* Request Details & Confirmation */
           <View style={{ gap: ThemeSpacing.md }}>

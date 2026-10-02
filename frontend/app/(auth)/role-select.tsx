@@ -16,6 +16,7 @@ import {
 } from "@/constants/theme";
 import AppText from "@/components/AppText";
 import NavBar from "@/components/NavBar";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface RoleCardProps {
   emoji: string;
@@ -86,7 +87,7 @@ function RoleCard({
             </AppText>
           </View>
         </View>
-        <View>
+        <View style={{ flexShrink: 1 }}>
           <AppText
             size="xl"
             weight="extrabold"
@@ -106,12 +107,13 @@ function RoleCard({
 
 export default function RoleSelectScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   return (
     <SafeAreaView style={styles.container}>
       <NavBar
-        title="Role Selection"
-        subtitle="Choose your profile"
+        title={t('auth.roleSelect.title')}
+        subtitle={t('auth.roleSelect.subtitle')}
         showBack={true}
         fallbackRoute="/"
         showSettings={true}
@@ -126,10 +128,10 @@ export default function RoleSelectScreen() {
             color={ThemeColors.textPrimary}
             style={{ marginBottom: ThemeSpacing.xs }}
           >
-            Who is reading today?
+            {t('auth.roleSelect.heading')}
           </AppText>
           <AppText size="md" color={ThemeColors.textSecondary}>
-            Choose your role to get the right experience
+            {t('auth.roleSelect.subheading')}
           </AppText>
         </View>
 
@@ -137,8 +139,8 @@ export default function RoleSelectScreen() {
         <View style={styles.cards}>
           <RoleCard
             emoji="🌟"
-            title="I'm a Student"
-            subtitle="Start your reading adventure! Practice Sinhala words and earn stars."
+            title={t('auth.roleSelect.studentTitle')}
+            subtitle={t('auth.roleSelect.studentDesc')}
             bg={ThemeColors.surfaceElevated}
             border={ThemeColors.accent}
             accentColor={ThemeColors.accent}
@@ -152,8 +154,8 @@ export default function RoleSelectScreen() {
           />
           <RoleCard
             emoji="👩‍🏫"
-            title="I'm a Parent / Teacher"
-            subtitle="View reading progress, clinical error reports, and AI recommendations."
+            title={t('auth.roleSelect.parentTitle')}
+            subtitle={t('auth.roleSelect.parentDesc')}
             bg={ThemeColors.infoSurface}
             border={ThemeColors.infoBorder}
             accentColor={ThemeColors.surface}
@@ -174,8 +176,8 @@ export default function RoleSelectScreen() {
             style={styles.registerBtn}
             activeOpacity={0.7}
           >
-            <AppText size="sm" weight="bold" color={ThemeColors.textPrimary}>
-              New to Nena-Man? Create an Account →
+            <AppText size="sm" weight="bold" color={ThemeColors.textPrimary} style={{ textAlign: 'center' }}>
+              {t('auth.roleSelect.registerLink')}
             </AppText>
           </TouchableOpacity>
 

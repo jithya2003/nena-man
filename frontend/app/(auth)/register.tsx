@@ -1,7 +1,7 @@
 /**
  * nena-man · frontend/app/(auth)/register.tsx
  * Registration screen using react-hook-form + zod for real-time validation.
- * On success, redirects to verify-email screen (email verification required).
+ * Uses global LanguageContext for UI labels.
  */
 
 import React, { useState } from 'react';
@@ -28,6 +28,8 @@ import AppText from '@/components/AppText';
 import Button from '@/components/Button';
 import NavBar from '@/components/NavBar';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { auth } from '@/services/firebase';
 import { registerSchema, RegisterFormData } from '@/utils/validators';
 
 const GRADES = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5'];
@@ -36,6 +38,7 @@ export default function RegisterScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ role?: string }>();
   const { register } = useAuth();
+  const { t } = useLanguage();
 
   const [accountType, setAccountType] = useState<'child' | 'parent' | 'educator'>(
     params.role === 'child' ? 'child' : params.role === 'educator' ? 'educator' : 'parent'
@@ -59,7 +62,7 @@ export default function RegisterScreen() {
       childName: '',
       agreeTerms: true,
     },
-    mode: 'onChange', // Validate on every keystroke for real-time feedback
+    mode: 'onChange',
   });
 
   const onSubmit = async (data: RegisterFormData) => {
@@ -80,14 +83,23 @@ export default function RegisterScreen() {
       });
 
       if (result.success) {
-        // All accounts (Children, Parents, Teachers) must verify their email before accessing the app
+        const isFallback = (auth as any)?.isFallback;
+        if (isFallback) {
+          if (accountType === 'child') {
+            router.replace('/(child)/home');
+          } else {
+            router.replace('/(parent)/dashboard');
+          }
+          return;
+        }
+
         router.replace({
           pathname: '/(auth)/verify-email',
           params: { email: result.email },
         });
       }
     } catch (err: any) {
-      setServerError(err?.message || 'ගිණුම සෑදීම අසාර්ථක විය. කරුණාකර නැවත උත්සාහ කරන්න. (Failed to create account. Please try again.)');
+      setServerError(err?.message || 'ගිණුම සෑදීම අසාර්ථක විය. කරුණාකර නැවත උත්සාහ කරන්න.');
     } finally {
       setIsSubmitting(false);
     }
@@ -96,8 +108,8 @@ export default function RegisterScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <NavBar
-        title="Create Account"
-        subtitle="Set up your learning profile"
+        title={t('auth.register.title')}
+        subtitle={t('auth.register.subtitle')}
         showBack={true}
         fallbackRoute="/(auth)/login"
         showSettings={true}
@@ -114,7 +126,7 @@ export default function RegisterScreen() {
           {/* Header */}
           <View style={styles.headerInfo}>
             <AppText size="xxl" weight="extrabold" color={ThemeColors.textPrimary}>
-              Join Nena-Man 🌟
+              {t('auth.register.title')} 🌟
             </AppText>
             <AppText size="sm" color={ThemeColors.textSecondary} style={{ marginTop: 2 }}>
               {accountType === 'child'
@@ -139,7 +151,7 @@ export default function RegisterScreen() {
                 weight={accountType === 'child' ? 'bold' : 'medium'}
                 color={ThemeColors.textPrimary}
               >
-                Student
+                {t('auth.register.studentTab')}
               </AppText>
             </TouchableOpacity>
 
@@ -156,8 +168,9 @@ export default function RegisterScreen() {
                 size="xs"
                 weight={accountType === 'parent' ? 'bold' : 'medium'}
                 color={ThemeColors.textPrimary}
+                style={{ flexShrink: 1 }}
               >
-                Parent
+                {t('auth.register.parentTab')}
               </AppText>
             </TouchableOpacity>
 
@@ -174,8 +187,9 @@ export default function RegisterScreen() {
                 size="xs"
                 weight={accountType === 'educator' ? 'bold' : 'medium'}
                 color={ThemeColors.textPrimary}
+                style={{ flexShrink: 1 }}
               >
-                Teacher
+                {t('auth.register.educatorTab')}
               </AppText>
             </TouchableOpacity>
           </View>
@@ -192,13 +206,13 @@ export default function RegisterScreen() {
 
           {/* ── SECTION 1: YOUR INFORMATION ── */}
           <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
-            {accountType === 'child' ? '1. ශිෂ්‍ය තොරතුරු (Student Information)' : '1. Your Information'}
+            {accountType === 'child' ? t('auth.register.section1Student') : t('auth.register.section1User')}
           </AppText>
 
           {/* Full Name */}
           <View style={styles.inputGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-              {accountType === 'child' ? "Student's Full Name (ශිෂ්‍යයාගේ සම්පූර්ණ නම)" : 'Full Name'}
+              {accountType === 'child' ? t('auth.register.studentFullName') : t('auth.register.fullName')}
             </AppText>
             <Controller
               control={control}
@@ -225,7 +239,7 @@ export default function RegisterScreen() {
           {accountType === 'child' && (
             <View style={styles.inputGroup}>
               <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-                ශ්‍රේණිය (Grade Level)
+                {t('auth.register.gradeLevel')}
               </AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gradeRow}>
                 {GRADES.map((g) => {
@@ -254,7 +268,7 @@ export default function RegisterScreen() {
           {/* Email / Username */}
           <View style={styles.inputGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-              {accountType === 'child' ? 'Student Email Address (ශිෂ්‍ය විද්‍යුත් තැපෑල)' : 'Email Address (විද්‍යුත් තැපෑල)'}
+              {accountType === 'child' ? t('auth.register.studentEmail') : t('auth.register.email')}
             </AppText>
             <Controller
               control={control}
@@ -282,7 +296,7 @@ export default function RegisterScreen() {
           {/* Password */}
           <View style={styles.inputGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-              Password
+              {t('auth.register.password')}
             </AppText>
             <View style={styles.passwordWrapper}>
               <Controller
@@ -291,7 +305,7 @@ export default function RegisterScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
                     style={[styles.input, { paddingRight: 44 }, errors.password && styles.inputError]}
-                    placeholder="Min 8 chars, A-Z, a-z, 0-9, !@#$%"
+                    placeholder="Min 8 chars"
                     placeholderTextColor={ThemeColors.textMuted}
                     value={value}
                     onChangeText={onChange}
@@ -318,7 +332,7 @@ export default function RegisterScreen() {
           {/* Confirm Password */}
           <View style={styles.inputGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-              Confirm Password
+              {t('auth.register.confirmPassword')}
             </AppText>
             <Controller
               control={control}
@@ -346,13 +360,13 @@ export default function RegisterScreen() {
           {accountType !== 'child' && (
             <>
               <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
-                2. Child / Student Profile
+                {t('auth.register.section2Child')}
               </AppText>
 
               {/* Child Name */}
               <View style={styles.inputGroup}>
                 <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-                  Child's Name
+                  {t('auth.register.childName')}
                 </AppText>
                 <Controller
                   control={control}
@@ -378,7 +392,7 @@ export default function RegisterScreen() {
               {/* Grade Selector */}
               <View style={styles.inputGroup}>
                 <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.inputLabel}>
-                  Grade Level
+                  {t('auth.register.gradeLevel')}
                 </AppText>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gradeRow}>
                   {GRADES.map((g) => {
@@ -423,15 +437,7 @@ export default function RegisterScreen() {
                   )}
                 </View>
                 <AppText size="xs" color={ThemeColors.textSecondary} style={{ flex: 1 }}>
-                  I agree to the{' '}
-                  <AppText size="xs" weight="bold" color={ThemeColors.accentDark}>
-                    Terms of Service
-                  </AppText>{' '}
-                  and{' '}
-                  <AppText size="xs" weight="bold" color={ThemeColors.accentDark}>
-                    Privacy Policy
-                  </AppText>
-                  .
+                  {t('auth.register.agreeTerms')}
                 </AppText>
               </TouchableOpacity>
             )}
@@ -446,10 +452,10 @@ export default function RegisterScreen() {
           <Button
             label={
               isSubmitting
-                ? 'Setting up profile...'
+                ? t('common.loading')
                 : accountType === 'child'
-                  ? 'Create Student Account & Start 🚀'
-                  : 'Create Account & Start 🚀'
+                  ? t('auth.register.createStudentBtn')
+                  : t('auth.register.createAccountBtn')
             }
             onPress={handleSubmit(onSubmit)}
             loading={isSubmitting}
@@ -462,14 +468,14 @@ export default function RegisterScreen() {
           {/* Sign In Link */}
           <View style={styles.signinPrompt}>
             <AppText size="sm" color={ThemeColors.textSecondary}>
-              Already have an account?{' '}
+              {t('auth.register.alreadyAccount')}{' '}
             </AppText>
             <TouchableOpacity
               onPress={() => router.push('/(auth)/login')}
               activeOpacity={0.7}
             >
               <AppText size="sm" weight="bold" color={ThemeColors.accentDark}>
-                Sign In
+                {t('auth.register.loginLink')}
               </AppText>
             </TouchableOpacity>
           </View>
@@ -493,44 +499,56 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: ThemeSpacing.lg,
     paddingTop: ThemeSpacing.md,
-    paddingBottom: ThemeSpacing.xxxl,
+    paddingBottom: ThemeSpacing.xl,
   },
   headerInfo: {
     marginBottom: ThemeSpacing.md,
   },
   accountTypeRow: {
     flexDirection: 'row',
-    backgroundColor: ThemeColors.surface,
-    borderRadius: ThemeRadius.full,
-    padding: 4,
+    gap: ThemeSpacing.xs + 2,
     marginBottom: ThemeSpacing.md,
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
   },
   accountTypeBtn: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: ThemeSpacing.xs,
-    paddingVertical: ThemeSpacing.sm,
-    borderRadius: ThemeRadius.full,
+    gap: 6,
+    paddingVertical: ThemeSpacing.sm + 2,
+    backgroundColor: ThemeColors.surface,
+    borderRadius: ThemeRadius.md,
+    borderWidth: 1.5,
+    borderColor: ThemeColors.border,
   },
   accountTypeBtnActive: {
     backgroundColor: ThemeColors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: ThemeColors.accent,
+    borderColor: ThemeColors.accentDark,
     ...ThemeShadow.sm,
   },
+  errorAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ThemeSpacing.xs,
+    backgroundColor: ThemeColors.errorSurface,
+    padding: ThemeSpacing.sm,
+    borderRadius: ThemeRadius.sm,
+    borderWidth: 1,
+    borderColor: ThemeColors.errorBorder,
+    marginBottom: ThemeSpacing.md,
+  },
   sectionTitle: {
-    marginTop: ThemeSpacing.md,
-    marginBottom: ThemeSpacing.sm,
+    marginTop: ThemeSpacing.sm,
+    marginBottom: ThemeSpacing.xs + 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   inputGroup: {
-    marginBottom: ThemeSpacing.sm,
+    marginBottom: ThemeSpacing.sm + 2,
   },
   inputLabel: {
-    marginBottom: ThemeSpacing.xs,
+    marginBottom: 4,
   },
   input: {
     backgroundColor: ThemeColors.surface,
@@ -538,18 +556,12 @@ const styles = StyleSheet.create({
     borderColor: ThemeColors.border,
     borderRadius: ThemeRadius.md,
     paddingHorizontal: ThemeSpacing.md,
-    paddingVertical: ThemeSpacing.sm + 2,
-    fontSize: 16,
+    paddingVertical: Platform.OS === 'ios' ? ThemeSpacing.sm + 2 : ThemeSpacing.sm,
+    fontSize: 14,
     color: ThemeColors.textPrimary,
-    minHeight: 48,
   },
   inputError: {
     borderColor: ThemeColors.error,
-    backgroundColor: '#FFF5F5',
-  },
-  fieldError: {
-    marginTop: 4,
-    marginLeft: 2,
   },
   passwordWrapper: {
     position: 'relative',
@@ -558,22 +570,22 @@ const styles = StyleSheet.create({
   eyeBtn: {
     position: 'absolute',
     right: ThemeSpacing.md,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: ThemeSpacing.xs,
+  },
+  fieldError: {
+    marginTop: 4,
   },
   gradeRow: {
-    flexDirection: 'row',
-    gap: ThemeSpacing.xs,
+    gap: ThemeSpacing.xs + 2,
     paddingVertical: 2,
   },
   gradeChip: {
     paddingHorizontal: ThemeSpacing.md,
-    paddingVertical: ThemeSpacing.sm,
+    paddingVertical: ThemeSpacing.xs + 2,
     borderRadius: ThemeRadius.full,
     backgroundColor: ThemeColors.surface,
     borderWidth: 1.5,
-    borderColor: ThemeColors.borderLight,
+    borderColor: ThemeColors.border,
   },
   gradeChipSelected: {
     backgroundColor: ThemeColors.accentLight,
@@ -581,39 +593,29 @@ const styles = StyleSheet.create({
   },
   termsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: ThemeSpacing.sm,
-    marginTop: ThemeSpacing.sm,
+    alignItems: 'flex-start',
+    gap: ThemeSpacing.xs + 2,
+    marginTop: ThemeSpacing.xs,
   },
   checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: ThemeRadius.xs,
+    width: 20,
+    height: 20,
+    borderRadius: 4,
     borderWidth: 1.5,
     borderColor: ThemeColors.border,
-    backgroundColor: ThemeColors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: ThemeColors.surface,
+    marginTop: 2,
   },
   checkboxActive: {
     backgroundColor: ThemeColors.accent,
     borderColor: ThemeColors.accentDark,
   },
-  errorAlert: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ThemeSpacing.xs,
-    backgroundColor: ThemeColors.errorSurface,
-    borderRadius: ThemeRadius.md,
-    padding: ThemeSpacing.sm,
-    borderWidth: 1,
-    borderColor: ThemeColors.errorBorder,
-    marginBottom: ThemeSpacing.sm,
-  },
   signinPrompt: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: ThemeSpacing.md,
+    marginTop: ThemeSpacing.lg,
   },
 });
