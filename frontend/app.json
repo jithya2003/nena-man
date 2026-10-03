@@ -4,11 +4,9 @@
     "slug": "nena-man",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#7C3AED"
     },
@@ -17,10 +15,6 @@
       "bundleIdentifier": "lk.sliit.nenam"
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#7C3AED"
-      },
       "package": "lk.sliit.nenam",
       "permissions": [
         "android.permission.RECORD_AUDIO",
@@ -41,18 +35,14 @@
           "androidMode": "default",
           "androidCollapsedTitle": "Nena Man"
         }
-      ],
-      "expo-asset"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "scheme": "nena-man",
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "71a84b27-697a-4da7-9039-645c8e24d794"
-      }
+      "router": {}
     }
   }
 }
