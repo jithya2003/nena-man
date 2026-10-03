@@ -132,6 +132,12 @@ export const translations: Record<Language, Record<string, string>> = {
 
     // Notifications & Profile UI
     'notifications.title': 'දැනුම්දීම්',
+    'notifications.dailyReminderTitle': '📖 කියවීමේ වේලාවයි!',
+    'notifications.dailyReminderBody': 'අද දවසේ කියවීමේ පුහුණුව ආරම්භ කර තරු දිනා ගන්න!',
+    'notifications.testTitle': '🔔 පරීක්ෂණ දැනුම්දීම',
+    'notifications.testBody': 'නෙන මං දැනුම්දීම් ඔබේ දුරකතනයේ සාර්ථකව ක්‍රියාත්මක වේ! 🎉',
+    'settings.reminders.testBtn': '🔔 දැනුම්දීම පරීක්ෂා කරන්න (තත්පර 3)',
+    'settings.reminders.testSent': 'තත්පර 3කින් දැනුම්දීමක් ලැබෙනු ඇත. දුරකතනය අගුළු දමා (Lock) හෝ වෙනත් තිරයකට ගොස් බලන්න.',
     'profile.title': 'මගේ ගිණුම',
     'progress.title': 'කියවීමේ ප්‍රගතිය',
     'games.title': 'කියවීමේ ක්‍රීඩා',
@@ -286,6 +292,12 @@ export const translations: Record<Language, Record<string, string>> = {
 
     // Notifications & Profile UI
     'notifications.title': 'Notifications',
+    'notifications.dailyReminderTitle': '📖 Time to Read!',
+    'notifications.dailyReminderBody': 'Start your daily reading practice today and earn stars!',
+    'notifications.testTitle': '🔔 Test Notification',
+    'notifications.testBody': 'Nena Man reminders are working successfully on your phone! 🎉',
+    'settings.reminders.testBtn': '🔔 Test Notification (3s)',
+    'settings.reminders.testSent': 'Notification will arrive in 3 seconds. You can lock or minimize your screen.',
     'profile.title': 'My Account',
     'progress.title': 'Reading Progress',
     'games.title': 'Reading Games',

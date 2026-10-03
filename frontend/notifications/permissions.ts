@@ -36,32 +36,28 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   }
 
   try {
-    // Step 1: check current permission status without prompting
+    // Step 1: check current permission status
     const existing = await Notifications.getPermissionsAsync();
 
-    if (existing.granted) {
+    if (existing.granted || existing.status === 'granted') {
       return 'granted';
     }
 
-    // Step 2: if canAskAgain = false means OS will not show the prompt → blocked
-    if (!existing.canAskAgain) {
-      return 'blocked';
-    }
-
-    // Step 3: actually request permission (shows system dialog)
+    // Step 2: request permission from the system
     const result = await Notifications.requestPermissionsAsync({
       ios: {
         allowAlert: true,
         allowBadge: true,
         allowSound: true,
       },
+      android: {},
     });
 
-    if (result.granted) {
+    if (result.granted || result.status === 'granted') {
       return 'granted';
     }
 
-    // Check again if we can ask in the future
+    // Check if future prompts are blocked by the OS
     return result.canAskAgain ? 'denied' : 'blocked';
   } catch (err) {
     console.warn('[Notifications] Permission request error:', err);

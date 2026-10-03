@@ -17,7 +17,7 @@
 import { useState, useCallback } from 'react';
 import { useSettingsStoreBase } from '@/store/settingsStore';
 import { requestNotificationPermission } from '@/notifications/permissions';
-import { scheduleDailyReminder, cancelDailyReminder } from '@/notifications/scheduler';
+import { scheduleDailyReminder, cancelDailyReminder, scheduleTestNotification } from '@/notifications/scheduler';
 
 interface ReminderSettingsHook {
   /** Whether reminders are currently enabled. */
@@ -42,6 +42,10 @@ interface ReminderSettingsHook {
    * If reminders are enabled, automatically reschedules the notification.
    */
   updateReminderTime: (time: string) => Promise<void>;
+  /**
+   * Send a test notification that arrives in 3 seconds.
+   */
+  sendTestNotification: () => Promise<void>;
 }
 
 export function useReminderSettings(): ReminderSettingsHook {
@@ -110,6 +114,24 @@ export function useReminderSettings(): ReminderSettingsHook {
     }
   }, [remindersEnabled, setReminderTime]);
 
+  /**
+   * Send a test notification in 3 seconds.
+   * Also ensures permissions are requested if not already granted.
+   */
+  const sendTestNotification = useCallback(async () => {
+    try {
+      const permissionStatus = await requestNotificationPermission();
+      if (permissionStatus === 'blocked') {
+        setPermissionBlocked(true);
+        return;
+      }
+      setPermissionBlocked(false);
+      await scheduleTestNotification();
+    } catch (err) {
+      console.warn('[useReminderSettings] sendTestNotification error:', err);
+    }
+  }, []);
+
   return {
     remindersEnabled,
     reminderTime,
@@ -117,5 +139,6 @@ export function useReminderSettings(): ReminderSettingsHook {
     isTogglingReminder,
     toggleReminders,
     updateReminderTime,
+    sendTestNotification,
   };
 }

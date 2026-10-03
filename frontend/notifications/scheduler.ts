@@ -28,10 +28,12 @@ async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
     name: 'Daily Reading Reminder',
-    importance: AndroidImportance.HIGH,
+    importance: AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#0B7A44',
     sound: 'default',
+    enableVibrate: true,
+    showBadge: true,
   });
 }
 
@@ -41,7 +43,7 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
-    shouldSetBadge: false,
+    shouldSetBadge: true,
     shouldShowBanner: true,
     shouldShowList: true,
   }),
@@ -74,26 +76,75 @@ export async function scheduleDailyReminder(time: string): Promise<void> {
     // Ensure Android channel exists
     await ensureAndroidChannel();
 
+    const { language } = useSettingsStoreBase.getState();
+    const title = language === 'en' ? '📖 Time to Read!' : '📖 කියවීමේ වේලාවයි!';
+    const body =
+      language === 'en'
+        ? 'Start your daily reading practice today and earn stars!'
+        : 'අද දවසේ කියවීමේ පුහුණුව ආරම්භ කර තරු දිනා ගන්න!';
+
     // Schedule the daily repeating notification
-    await Notifications.scheduleNotificationAsync({
+    const trigger = {
+      type: SchedulableTriggerInputTypes.DAILY,
+      hour,
+      minute,
+      channelId: CHANNEL_ID,
+    } as const;
+
+    const id = await Notifications.scheduleNotificationAsync({
       content: {
-        // i18n key placeholders — NOT hardcoded text
-        // Connect to your i18n system when localization is wired up
-        title: 'notifications.dailyReminderTitle',
-        body: 'notifications.dailyReminderBody',
+        title,
+        body,
         sound: 'default',
         ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
       },
-      trigger: {
-        type: SchedulableTriggerInputTypes.DAILY,
-        hour,
-        minute,
-      },
+      trigger,
     });
 
-    console.log(`[Scheduler] Daily reminder scheduled at ${hour}:${minute < 10 ? '0' + minute : minute}`);
+    const nextDate = await Notifications.getNextTriggerDateAsync(trigger);
+    const nextDateStr = nextDate ? new Date(nextDate).toLocaleString() : 'tomorrow';
+    console.log(`[Scheduler] Daily reminder (ID: ${id}) scheduled for ${hour}:${minute < 10 ? '0' + minute : minute}. Next fire: ${nextDateStr}`);
   } catch (err) {
     console.warn('[Scheduler] scheduleDailyReminder error:', err);
+  }
+}
+
+/**
+ * Triggers a test notification after 3 seconds so the user can verify
+ * immediately that sound, vibration, channel, and permissions work on device.
+ */
+export async function scheduleTestNotification(): Promise<void> {
+  if (Platform.OS === 'web') return;
+
+  try {
+    await ensureAndroidChannel();
+
+    const { language } = useSettingsStoreBase.getState();
+    const title = language === 'en' ? '🔔 Test Notification' : '🔔 පරීක්ෂණ දැනුම්දීම';
+    const body =
+      language === 'en'
+        ? 'Nena Man reminders are working successfully on your phone! 🎉'
+        : 'නෙන මං දැනුම්දීම් ඔබේ දුරකතනයේ සාර්ථකව ක්‍රියාත්මක වේ! 🎉';
+
+    const trigger = {
+      type: SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 3,
+      channelId: CHANNEL_ID,
+    } as const;
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        sound: 'default',
+        ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
+      },
+      trigger,
+    });
+
+    console.log('[Scheduler] Test notification scheduled in 3 seconds');
+  } catch (err) {
+    console.warn('[Scheduler] scheduleTestNotification error:', err);
   }
 }
 

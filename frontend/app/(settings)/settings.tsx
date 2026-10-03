@@ -49,8 +49,10 @@ export default function SettingsScreen() {
     isTogglingReminder,
     toggleReminders,
     updateReminderTime,
+    sendTestNotification,
   } = useReminderSettings();
 
+  const [testSent, setTestSent] = useState(false);
   const isParentOrTeacher = user?.role === 'parent' || user?.role === 'teacher';
   const [volumeLevel, setVolumeLevel] = useState(0.7);
 
@@ -481,6 +483,29 @@ export default function SettingsScreen() {
               <AppText size="xs" color={ThemeColors.textMuted} style={{ marginTop: 8, textAlign: 'center' }}>
                 📅 {reminderTime} ට සෑම දිනකම මතක් කිරීමක් ලැබේ
               </AppText>
+
+              {/* Instant Test Button */}
+              <TouchableOpacity
+                style={styles.testNotificationBtn}
+                onPress={async () => {
+                  setTestSent(true);
+                  await sendTestNotification();
+                  setTimeout(() => setTestSent(false), 6000);
+                }}
+                activeOpacity={0.8}
+              >
+                <AppText size="xs" weight="bold" color="#FFFFFF">
+                  {t('settings.reminders.testBtn')}
+                </AppText>
+              </TouchableOpacity>
+
+              {testSent && (
+                <View style={styles.testSentBox}>
+                  <AppText size="xs" color="#166534" weight="medium" style={{ textAlign: 'center' }}>
+                    {t('settings.reminders.testSent')}
+                  </AppText>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -694,5 +719,21 @@ const styles = StyleSheet.create({
     borderColor: '#BBF7D0',
     borderRadius: ThemeRadius.md,
     padding: ThemeSpacing.md,
+  },
+  testNotificationBtn: {
+    marginTop: 12,
+    backgroundColor: ThemeColors.primary,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  testSentBox: {
+    marginTop: 10,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 10,
+    padding: 10,
   },
 });
