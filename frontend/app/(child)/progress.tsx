@@ -15,7 +15,6 @@ import {
   ThemeRadius,
   ThemeShadow,
 } from '@/constants/theme';
-import { MOCK_CHILD } from '@/mock/data';
 import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
@@ -30,24 +29,26 @@ export default function StudentProgressReportScreen() {
     { day: 'බදා', height: '90%', active: true },
     { day: 'බ්‍රහ', height: '75%', active: false },
     { day: 'සිකු', height: '100%', active: true },
-    { day: 'සෙන', height: '25%', active: false },
-    { day: 'ඉරි', height: '0%', active: false },
+    { day: 'සෙන', height: '35%', active: false },
+    { day: 'ඉරි', height: '15%', active: false },
   ];
 
   const badges = [
     {
       id: 1,
       icon: '🏆',
-      title: 'පළමු ක්‍රියාකාරකම',
+      title: 'පළමු ජයග්‍රහණය',
       unlocked: true,
-      bgColor: '#FFEDD5',
+      bgColor: '#FEF3C7',
+      borderColor: '#FDE68A',
     },
     {
       id: 2,
       icon: '🔥',
-      title: 'දින 3ක ඉගෙනුම් ගමන',
+      title: 'දින 3ක ගමන',
       unlocked: true,
       bgColor: '#FFEDD5',
+      borderColor: '#FED7AA',
     },
     {
       id: 3,
@@ -55,45 +56,50 @@ export default function StudentProgressReportScreen() {
       title: 'ක්‍රියාකාරකම් 25ක්',
       unlocked: true,
       bgColor: '#DBEAFE',
+      borderColor: '#BAE6FD',
     },
     {
       id: 4,
       icon: '🔒',
-      title: 'ලකුණු 80%ක ප්‍රතිඵලයක්',
+      title: 'ලකුණු 80%+ ප්‍රවීණතාව',
       unlocked: false,
       bgColor: '#F1F5F9',
+      borderColor: '#E2E8F0',
     },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header */}
+      {/* ── Top Header ── */}
       <View style={styles.topBar}>
         <TouchableOpacity
           onPress={() => router.push('/(child)/home')}
           style={styles.navIconBtn}
           activeOpacity={0.7}
         >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
             <Path
               d="M 20 11 L 7.83 11 L 13.42 5.41 L 12 4 L 4 12 L 12 20 L 13.41 18.59 L 7.83 13 L 20 13 Z"
-              fill={ThemeColors.textPrimary}
+              fill={ThemeColors.primary}
             />
           </Svg>
         </TouchableOpacity>
 
         <View style={styles.headerTitleWrap}>
-          <AppText size="sm">📊</AppText>
-          <AppText size="md" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
+          <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
             මගේ ප්‍රගතිය
+          </AppText>
+          <AppText size="md" style={{ marginLeft: 6 }}>
+            📊
           </AppText>
         </View>
 
         <TouchableOpacity
           onPress={() => router.push('/(child)/profile')}
           activeOpacity={0.8}
+          style={styles.avatarWrap}
         >
-          <StudentAvatarPhoto size={34} showEditBadge={false} />
+          <StudentAvatarPhoto size={36} showEditBadge={false} />
         </TouchableOpacity>
       </View>
 
@@ -102,34 +108,39 @@ export default function StudentProgressReportScreen() {
         contentContainerStyle={styles.scroll}
       >
         {/* ── CARD 1: Overall Progress & Metric Summary ── */}
-        <View style={[styles.card, ThemeShadow.sm]}>
+        <View style={styles.heroCard}>
           <View style={styles.overallRow}>
             <View>
-              <AppText size="xs" color={ThemeColors.textSecondary}>
-                සමස්ත ප්‍රගතිය
+              <AppText size="xs" weight="bold" color="#64748B">
+                සමස්ත ඉගෙනුම් ප්‍රගතිය
               </AppText>
-              <AppText size="xxl" weight="extrabold" color={ThemeColors.primary} style={{ marginTop: 2 }}>
-                72%
-              </AppText>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 2 }}>
+                <AppText size="display" weight="extrabold" color={ThemeColors.primary}>
+                  72%
+                </AppText>
+                <AppText size="xs" weight="extrabold" color="#059669" style={{ marginLeft: 6 }}>
+                  විශිෂ්ටයි! 🚀
+                </AppText>
+              </View>
             </View>
 
             {/* Circular Green Star Badge */}
             <View style={styles.starCircleBadge}>
-              <Svg width={46} height={46} viewBox="0 0 50 50">
-                <Circle cx="25" cy="25" r="22" stroke="#E2E8F0" strokeWidth="4" fill="none" />
+              <Svg width={54} height={54} viewBox="0 0 50 50">
+                <Circle cx="25" cy="25" r="22" stroke="#E2E8F0" strokeWidth="5" fill="none" />
                 <Circle
                   cx="25"
                   cy="25"
                   r="22"
-                  stroke={ThemeColors.primary}
-                  strokeWidth="4"
+                  stroke="#10B981"
+                  strokeWidth="5"
                   strokeDasharray="100, 150"
                   strokeLinecap="round"
                   fill="none"
                 />
               </Svg>
               <View style={styles.starInner}>
-                <AppText size="sm">⭐</AppText>
+                <AppText size="md">⭐</AppText>
               </View>
             </View>
           </View>
@@ -137,25 +148,25 @@ export default function StudentProgressReportScreen() {
           {/* 2 Stats Row */}
           <View style={styles.statGridRow}>
             <View style={styles.statMiniBox}>
-              <View style={styles.statIconRow}>
+              <View style={[styles.statIconRow, { backgroundColor: '#ECFDF5' }]}>
                 <AppText size="xs">⏱️</AppText>
               </View>
-              <AppText size="xl" weight="extrabold" color={ThemeColors.textPrimary}>
+              <AppText size="xl" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginTop: 2 }}>
                 38
               </AppText>
-              <AppText size="xs" color={ThemeColors.textSecondary}>
+              <AppText size="xs" color="#64748B" weight="semibold">
                 ක්‍රියාකාරකම්
               </AppText>
             </View>
 
             <View style={styles.statMiniBox}>
-              <View style={styles.statIconRow}>
+              <View style={[styles.statIconRow, { backgroundColor: '#FEF3C7' }]}>
                 <AppText size="xs">🔥</AppText>
               </View>
-              <AppText size="xl" weight="extrabold" color={ThemeColors.textPrimary}>
+              <AppText size="xl" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginTop: 2 }}>
                 දින 5
               </AppText>
-              <AppText size="xs" color={ThemeColors.textSecondary}>
+              <AppText size="xs" color="#64748B" weight="semibold">
                 ඉගෙනුම් ගමන
               </AppText>
             </View>
@@ -163,12 +174,12 @@ export default function StudentProgressReportScreen() {
 
           {/* Total Time Pill */}
           <View style={styles.totalTimePill}>
-            <AppText size="xs">🎯</AppText>
-            <View style={{ marginLeft: 6 }}>
-              <AppText size="xs" color={ThemeColors.textSecondary}>
+            <AppText size="sm">🎯</AppText>
+            <View style={{ marginLeft: 8 }}>
+              <AppText size="xs" color="#64748B" weight="medium">
                 මුළු ඉගෙනුම් කාලය
               </AppText>
-              <AppText size="xs" weight="extrabold" color={ThemeColors.textPrimary}>
+              <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary}>
                 පැය 4 විනාඩි 25
               </AppText>
             </View>
@@ -184,64 +195,84 @@ export default function StudentProgressReportScreen() {
             </AppText>
           </View>
 
-          <View style={[styles.card, ThemeShadow.sm]}>
+          <View style={styles.skillsCard}>
             {/* Skill 1 */}
             <View style={styles.skillItem}>
               <View style={styles.skillLabelRow}>
-                <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-                  අකුරු හඳුනාගැනීම
-                </AppText>
-                <AppText size="xs" weight="extrabold" color={ThemeColors.primary}>
-                  90%
-                </AppText>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <AppText size="xs">🔤</AppText>
+                  <AppText size="sm" weight="bold" color={ThemeColors.textPrimary} style={{ marginLeft: 6 }}>
+                    අකුරු හඳුනාගැනීම
+                  </AppText>
+                </View>
+                <View style={[styles.skillPercentBadge, { backgroundColor: '#ECFDF5' }]}>
+                  <AppText size="xs" weight="extrabold" color="#059669">
+                    90%
+                  </AppText>
+                </View>
               </View>
               <View style={styles.skillTrack}>
-                <View style={[styles.skillFill, { width: '90%', backgroundColor: ThemeColors.primary }]} />
+                <View style={[styles.skillFill, { width: '90%', backgroundColor: '#10B981' }]} />
               </View>
             </View>
 
             {/* Skill 2 */}
             <View style={styles.skillItem}>
               <View style={styles.skillLabelRow}>
-                <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-                  ශබ්ද හඳුනාගැනීම
-                </AppText>
-                <AppText size="xs" weight="extrabold" color={ThemeColors.primary}>
-                  82%
-                </AppText>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <AppText size="xs">👂</AppText>
+                  <AppText size="sm" weight="bold" color={ThemeColors.textPrimary} style={{ marginLeft: 6 }}>
+                    ශබ්ද හඳුනාගැනීම
+                  </AppText>
+                </View>
+                <View style={[styles.skillPercentBadge, { backgroundColor: '#FEF3C7' }]}>
+                  <AppText size="xs" weight="extrabold" color="#D97706">
+                    82%
+                  </AppText>
+                </View>
               </View>
               <View style={styles.skillTrack}>
-                <View style={[styles.skillFill, { width: '82%', backgroundColor: ThemeColors.primary }]} />
+                <View style={[styles.skillFill, { width: '82%', backgroundColor: '#F59E0B' }]} />
               </View>
             </View>
 
             {/* Skill 3 */}
             <View style={styles.skillItem}>
               <View style={styles.skillLabelRow}>
-                <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-                  වචන කියවීම
-                </AppText>
-                <AppText size="xs" weight="extrabold" color={ThemeColors.accent}>
-                  65%
-                </AppText>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <AppText size="xs">📖</AppText>
+                  <AppText size="sm" weight="bold" color={ThemeColors.textPrimary} style={{ marginLeft: 6 }}>
+                    වචන කියවීම
+                  </AppText>
+                </View>
+                <View style={[styles.skillPercentBadge, { backgroundColor: '#FFE4E6' }]}>
+                  <AppText size="xs" weight="extrabold" color="#E11D48">
+                    65%
+                  </AppText>
+                </View>
               </View>
               <View style={styles.skillTrack}>
-                <View style={[styles.skillFill, { width: '65%', backgroundColor: ThemeColors.accent }]} />
+                <View style={[styles.skillFill, { width: '65%', backgroundColor: '#F43F5E' }]} />
               </View>
             </View>
 
             {/* Skill 4 */}
             <View style={[styles.skillItem, { marginBottom: 0 }]}>
               <View style={styles.skillLabelRow}>
-                <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-                  වාක්‍ය කියවීම
-                </AppText>
-                <AppText size="xs" weight="extrabold" color={ThemeColors.accent}>
-                  48%
-                </AppText>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <AppText size="xs">🗂️</AppText>
+                  <AppText size="sm" weight="bold" color={ThemeColors.textPrimary} style={{ marginLeft: 6 }}>
+                    වාක්‍ය කියවීම
+                  </AppText>
+                </View>
+                <View style={[styles.skillPercentBadge, { backgroundColor: '#E0F2FE' }]}>
+                  <AppText size="xs" weight="extrabold" color="#0284C7">
+                    48%
+                  </AppText>
+                </View>
               </View>
               <View style={styles.skillTrack}>
-                <View style={[styles.skillFill, { width: '48%', backgroundColor: ThemeColors.accent }]} />
+                <View style={[styles.skillFill, { width: '48%', backgroundColor: '#0284C7' }]} />
               </View>
             </View>
           </View>
@@ -256,22 +287,32 @@ export default function StudentProgressReportScreen() {
             </AppText>
           </View>
 
-          <View style={[styles.card, ThemeShadow.sm]}>
+          <View style={styles.weeklyCard}>
             <View style={styles.weeklyBarsRow}>
               {weeklyData.map((w, idx) => (
                 <View key={idx} style={styles.barCol}>
+                  {w.active && (
+                    <View style={styles.barActiveStar}>
+                      <AppText size="xs">⭐</AppText>
+                    </View>
+                  )}
                   <View style={styles.barBgTrack}>
                     <View
                       style={[
                         styles.barBarFill,
                         {
                           height: w.height as any,
-                          backgroundColor: w.active ? ThemeColors.primary : '#86EFAC',
+                          backgroundColor: w.active ? '#10B981' : '#6EE7B7',
                         },
                       ]}
                     />
                   </View>
-                  <AppText size="xs" color={ThemeColors.textSecondary} style={styles.barDayText}>
+                  <AppText
+                    size="xs"
+                    weight={w.active ? 'extrabold' : 'medium'}
+                    color={w.active ? '#065F46' : '#64748B'}
+                    style={styles.barDayText}
+                  >
                     {w.day}
                   </AppText>
                 </View>
@@ -295,16 +336,28 @@ export default function StudentProgressReportScreen() {
                 key={b.id}
                 style={[
                   styles.badgeBox,
-                  { opacity: b.unlocked ? 1 : 0.6 },
-                  ThemeShadow.sm,
+                  { backgroundColor: b.bgColor, borderColor: b.borderColor },
+                  { opacity: b.unlocked ? 1 : 0.65 },
                 ]}
               >
-                <View style={[styles.badgeIconCircle, { backgroundColor: b.bgColor }]}>
-                  <AppText size="md">{b.icon}</AppText>
+                <View style={styles.badgeIconCircle}>
+                  <AppText size="lg">{b.icon}</AppText>
                 </View>
-                <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} align="center" style={styles.badgeLabel}>
+                <AppText
+                  size="xs"
+                  weight="extrabold"
+                  color={ThemeColors.textPrimary}
+                  align="center"
+                  style={styles.badgeLabel}
+                  numberOfLines={2}
+                >
                   {b.title}
                 </AppText>
+                <View style={styles.unlockedTag}>
+                  <AppText size="xs" weight="bold" color={b.unlocked ? '#047857' : '#64748B'}>
+                    {b.unlocked ? 'ජයග්‍රහණය කළා' : 'අගුළු දමා ඇත'}
+                  </AppText>
+                </View>
               </View>
             ))}
           </View>
@@ -312,13 +365,15 @@ export default function StudentProgressReportScreen() {
 
         {/* ── SECTION 5: විවේක ක්‍රියාකාරකම් Button ── */}
         <TouchableOpacity
-          style={[styles.cooldownBanner, ThemeShadow.sm]}
+          style={styles.cooldownBanner}
           onPress={() => router.push('/(child)/cooldown')}
           activeOpacity={0.85}
         >
           <View style={styles.cooldownBannerRow}>
-            <AppText size="md">🌿</AppText>
-            <View style={{ marginLeft: 8 }}>
+            <View style={styles.cooldownIconBox}>
+              <AppText size="md">🌿</AppText>
+            </View>
+            <View style={{ marginLeft: 10, flex: 1 }}>
               <AppText size="sm" weight="extrabold" color={ThemeColors.primary}>
                 විවේක ක්‍රියාකාරකම්
               </AppText>
@@ -326,6 +381,9 @@ export default function StudentProgressReportScreen() {
                 සන්සුන් ක්‍රීඩා හා හුස්ම ගැනීමේ අභ්‍යාස
               </AppText>
             </View>
+            <AppText size="md" color={ThemeColors.primary} weight="bold">
+              →
+            </AppText>
           </View>
         </TouchableOpacity>
 
@@ -341,7 +399,7 @@ export default function StudentProgressReportScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ThemeColors.background,
+    backgroundColor: '#F7FAF8',
     ...(Platform.OS === 'web' ? { minHeight: '100vh' as any, height: '100vh' as any } : {}),
   },
   topBar: {
@@ -349,21 +407,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: ThemeSpacing.md,
-    paddingVertical: ThemeSpacing.xs + 2,
+    paddingVertical: ThemeSpacing.xs + 4,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: ThemeColors.borderLight,
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#E2ECE6',
   },
   navIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F0FDF4',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#DCFCE7',
   },
   headerTitleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  avatarWrap: {
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: '#10B981',
   },
   scroll: {
     paddingHorizontal: ThemeSpacing.md,
@@ -371,12 +437,15 @@ const styles = StyleSheet.create({
     paddingBottom: ThemeSpacing.xl,
     gap: ThemeSpacing.md,
   },
-  card: {
+  heroCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: ThemeSpacing.md,
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
+    borderRadius: 24,
+    padding: ThemeSpacing.md + 2,
+    borderWidth: 1.5,
+    borderColor: '#E2ECE6',
+    borderBottomWidth: 4,
+    borderBottomColor: '#CBD5E1',
+    ...ThemeShadow.sm,
   },
   overallRow: {
     flexDirection: 'row',
@@ -386,8 +455,8 @@ const styles = StyleSheet.create({
   },
   starCircleBadge: {
     position: 'relative',
-    width: 46,
-    height: 46,
+    width: 54,
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -398,30 +467,35 @@ const styles = StyleSheet.create({
   },
   statGridRow: {
     flexDirection: 'row',
-    gap: ThemeSpacing.sm,
+    gap: 12,
     marginBottom: ThemeSpacing.sm,
   },
   statMiniBox: {
     flex: 1,
     backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: ThemeSpacing.sm + 2,
-    alignItems: 'center',
+    borderRadius: 18,
+    padding: ThemeSpacing.sm + 4,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    alignItems: 'center',
   },
   statIconRow: {
-    marginBottom: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   totalTimePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F1F8',
-    borderRadius: 14,
+    backgroundColor: '#FFFDF7',
     paddingHorizontal: ThemeSpacing.md,
-    paddingVertical: ThemeSpacing.xs + 4,
+    paddingVertical: ThemeSpacing.sm,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#D4E2EE',
+    borderColor: '#FDE68A',
+    marginTop: 4,
   },
   sectionWrap: {
     gap: ThemeSpacing.xs + 2,
@@ -429,7 +503,17 @@ const styles = StyleSheet.create({
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 2,
+    marginBottom: 4,
+  },
+  skillsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: ThemeSpacing.md + 2,
+    borderWidth: 1.5,
+    borderColor: '#E2ECE6',
+    borderBottomWidth: 4,
+    borderBottomColor: '#CBD5E1',
+    ...ThemeShadow.sm,
   },
   skillItem: {
     marginBottom: ThemeSpacing.md,
@@ -438,84 +522,121 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+  },
+  skillPercentBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: ThemeRadius.full,
   },
   skillTrack: {
     width: '100%',
-    height: 7,
-    backgroundColor: '#E5E7EB',
+    height: 10,
+    backgroundColor: '#E2E8F0',
     borderRadius: ThemeRadius.full,
     overflow: 'hidden',
   },
   skillFill: {
-    height: 7,
+    height: 10,
     borderRadius: ThemeRadius.full,
+  },
+  weeklyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: ThemeSpacing.md + 2,
+    borderWidth: 1.5,
+    borderColor: '#E2ECE6',
+    borderBottomWidth: 4,
+    borderBottomColor: '#CBD5E1',
+    ...ThemeShadow.sm,
   },
   weeklyBarsRow: {
     flexDirection: 'row',
+    justifyContent: 'space-around',
     alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    height: 120,
-    paddingTop: 10,
-    paddingHorizontal: 4,
+    height: 140,
+    paddingTop: 16,
   },
   barCol: {
     alignItems: 'center',
     flex: 1,
+    position: 'relative',
+  },
+  barActiveStar: {
+    position: 'absolute',
+    top: -18,
   },
   barBgTrack: {
     width: 22,
-    height: 85,
-    backgroundColor: '#E0F2FE',
-    borderRadius: 6,
+    height: 100,
+    backgroundColor: '#F1F5F9',
+    borderRadius: ThemeRadius.full,
     justifyContent: 'flex-end',
     overflow: 'hidden',
   },
   barBarFill: {
     width: '100%',
-    borderRadius: 6,
+    borderRadius: ThemeRadius.full,
   },
   barDayText: {
     marginTop: 6,
-    fontSize: 10,
+    fontSize: 11,
   },
   badgesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: ThemeSpacing.sm,
+    gap: 12,
   },
   badgeBox: {
-    flexBasis: '48%',
-    flexGrow: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    width: '48%',
+    borderRadius: 20,
     padding: ThemeSpacing.md,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
+    borderWidth: 1.5,
+    borderBottomWidth: 4,
+    ...ThemeShadow.sm,
   },
   badgeIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   badgeLabel: {
-    fontSize: 11,
-    lineHeight: 15,
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  unlockedTag: {
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: ThemeRadius.full,
   },
   cooldownBanner: {
     backgroundColor: '#EAF7EE',
-    borderRadius: 16,
+    borderRadius: 22,
     padding: ThemeSpacing.md,
-    borderWidth: 1,
-    borderColor: '#C7EBD2',
-    marginTop: ThemeSpacing.xs,
+    borderWidth: 1.5,
+    borderColor: '#A7F3D0',
+    borderBottomWidth: 4,
+    borderBottomColor: '#6EE7B7',
+    ...ThemeShadow.sm,
   },
   cooldownBannerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  cooldownIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

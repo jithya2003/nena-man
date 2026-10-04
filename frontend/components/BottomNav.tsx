@@ -9,6 +9,7 @@ import {
   ThemeShadow,
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
+import { useLanguage } from '@/context/LanguageContext';
 
 export interface BottomNavProps {
   role?: 'child' | 'parent';
@@ -21,56 +22,60 @@ export default function BottomNav({
 }: BottomNavProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { t } = useLanguage();
 
   const childTabs = [
     {
       key: 'home',
-      label: 'මුල් පිටුව',
+      label: t('nav.home'),
       route: '/(child)/home',
+      emoji: '🏠',
       renderIcon: (active: boolean) => (
-        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+        <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
           <Path
             d="M 3 9.5 L 12 3 L 21 9.5 L 21 20 C 21 20.55 20.55 21 20 21 L 14 21 L 14 14 L 10 14 L 10 21 L 4 21 C 3.45 21 3 20.55 3 20 Z"
-            fill={active ? '#FFFFFF' : ThemeColors.textSecondary}
+            fill={active ? ThemeColors.primary : '#64748B'}
           />
         </Svg>
       ),
     },
     {
       key: 'learning',
-      label: 'ඉගෙනුම',
+      label: t('nav.learning'),
       route: '/(child)/reading',
+      emoji: '📚',
       renderIcon: (active: boolean) => (
-        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+        <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
           <Path
             d="M 12 3 L 1 9 L 12 15 L 21 10.09 L 21 17 L 23 17 L 23 9 L 12 3 Z M 5 13.18 L 5 17.18 C 5 19.5 8.13 21 12 21 C 15.87 21 19 19.5 19 17.18 L 19 13.18 L 12 17 L 5 13.18 Z"
-            fill={active ? '#FFFFFF' : ThemeColors.textSecondary}
+            fill={active ? ThemeColors.primary : '#64748B'}
           />
         </Svg>
       ),
     },
     {
       key: 'games',
-      label: 'ක්‍රීඩා',
+      label: t('nav.games'),
       route: '/(child)/cooldown',
+      emoji: '🎮',
       renderIcon: (active: boolean) => (
-        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+        <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
           <Rect
             x="3"
             y="5"
             width="18"
             height="14"
-            rx="3"
-            stroke={active ? '#FFFFFF' : ThemeColors.textSecondary}
-            strokeWidth="2"
-            fill="none"
+            rx="4"
+            stroke={active ? ThemeColors.primary : '#64748B'}
+            strokeWidth="2.2"
+            fill={active ? '#EAF7EE' : 'none'}
           />
-          <Circle cx="8" cy="12" r="1.5" fill={active ? '#FFFFFF' : ThemeColors.textSecondary} />
-          <Circle cx="16" cy="12" r="1.5" fill={active ? '#FFFFFF' : ThemeColors.textSecondary} />
+          <Circle cx="8" cy="12" r="1.5" fill={active ? ThemeColors.primary : '#64748B'} />
+          <Circle cx="16" cy="12" r="1.5" fill={active ? ThemeColors.primary : '#64748B'} />
           <Path
             d="M 10 9 L 14 9 M 12 7 L 12 11"
-            stroke={active ? '#FFFFFF' : ThemeColors.textSecondary}
-            strokeWidth="1.5"
+            stroke={active ? ThemeColors.primary : '#64748B'}
+            strokeWidth="1.8"
             strokeLinecap="round"
           />
         </Svg>
@@ -78,13 +83,14 @@ export default function BottomNav({
     },
     {
       key: 'progress',
-      label: 'ප්‍රගතිය',
+      label: t('nav.progress'),
       route: '/(child)/progress',
+      emoji: '⭐',
       renderIcon: (active: boolean) => (
-        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+        <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
           <Path
             d="M 3.5 18.5 L 9.5 12.5 L 13.5 16.5 L 20.5 7.5 M 20.5 7.5 L 15.5 7.5 M 20.5 7.5 L 20.5 12.5"
-            stroke={active ? '#FFFFFF' : ThemeColors.textSecondary}
+            stroke={active ? ThemeColors.primary : '#64748B'}
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -94,13 +100,14 @@ export default function BottomNav({
     },
     {
       key: 'profile',
-      label: 'මගේ ගිණුම',
+      label: t('nav.profile'),
       route: '/(child)/profile',
+      emoji: '👤',
       renderIcon: (active: boolean) => (
-        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+        <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
           <Path
             d="M 12 12 C 14.21 12 16 10.21 16 8 C 16 5.79 14.21 4 12 4 C 9.79 4 8 5.79 8 8 C 8 10.21 9.79 12 12 12 Z M 12 14 C 9.33 14 4 15.34 4 18 L 4 20 L 20 20 L 20 18 C 20 15.34 14.67 14 12 14 Z"
-            fill={active ? '#FFFFFF' : ThemeColors.textSecondary}
+            fill={active ? ThemeColors.primary : '#64748B'}
           />
         </Svg>
       ),
@@ -108,7 +115,7 @@ export default function BottomNav({
   ];
 
   return (
-    <View style={[styles.wrapper, ThemeShadow.md]}>
+    <View style={styles.wrapper}>
       <View style={styles.container}>
         {childTabs.map((tab) => {
           const isExplicitActive = activeTab === tab.key;
@@ -128,20 +135,21 @@ export default function BottomNav({
                   router.push(tab.route as any);
                 }
               }}
-              activeOpacity={0.8}
+              activeOpacity={0.7}
             >
-              <View style={styles.iconWrap}>
+              <View style={[styles.iconWrap, isActive && styles.iconWrapActive]}>
                 {tab.renderIcon(isActive)}
               </View>
               <AppText
                 size="xs"
-                weight={isActive ? 'bold' : 'medium'}
-                color={isActive ? '#FFFFFF' : ThemeColors.textSecondary}
+                weight={isActive ? 'extrabold' : 'medium'}
+                color={isActive ? ThemeColors.primary : '#64748B'}
                 style={[styles.tabLabel, isActive ? styles.activeTabLabel : undefined]}
                 numberOfLines={1}
               >
                 {tab.label}
               </AppText>
+              {isActive && <View style={styles.activeDot} />}
             </TouchableOpacity>
           );
         })}
@@ -153,10 +161,21 @@ export default function BottomNav({
 const styles = StyleSheet.create({
   wrapper: {
     backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: ThemeColors.borderLight,
-    paddingBottom: Platform.OS === 'ios' ? ThemeSpacing.md : ThemeSpacing.xs + 2,
-    paddingTop: ThemeSpacing.xs + 2,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1.5,
+    borderTopColor: '#E2ECE6',
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderLeftColor: '#E2ECE6',
+    borderRightColor: '#E2ECE6',
+    paddingBottom: Platform.OS === 'ios' ? ThemeSpacing.md + 4 : ThemeSpacing.xs + 4,
+    paddingTop: ThemeSpacing.xs + 4,
+    shadowColor: '#0B381E',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
   },
   container: {
     flexDirection: 'row',
@@ -165,31 +184,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: ThemeSpacing.xs,
   },
   tabBtn: {
+    flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    minWidth: 58,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
     borderRadius: ThemeRadius.md,
   },
   tabBtnActive: {
-    backgroundColor: ThemeColors.primary,
-    borderRadius: ThemeRadius.full,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    minWidth: 64,
+    transform: [{ scale: 1.04 }],
   },
   iconWrap: {
-    marginBottom: 2,
+    width: 38,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 2,
+  },
+  iconWrapActive: {
+    backgroundColor: '#EAF7EE',
   },
   tabLabel: {
-    fontSize: 10,
-    marginTop: 1,
+    fontSize: 11,
+    textAlign: 'center',
+    letterSpacing: 0.2,
   },
   activeTabLabel: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: ThemeColors.primary,
+    fontWeight: '800',
+  },
+  activeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: ThemeColors.primary,
+    marginTop: 2,
   },
 });

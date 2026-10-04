@@ -15,10 +15,11 @@
       "bundleIdentifier": "lk.sliit.nenam"
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#7C3AED"
-      },
-      "package": "lk.sliit.nenam"
+      "package": "lk.sliit.nenam",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -26,11 +27,22 @@
     },
     "plugins": [
       "expo-router",
-      "expo-av"
+      "expo-av",
+      [
+        "expo-notifications",
+        {
+          "color": "#0B7A44",
+          "androidMode": "default",
+          "androidCollapsedTitle": "Nena Man"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
     },
-    "scheme": "nena-man"
+    "scheme": "nena-man",
+    "extra": {
+      "router": {}
+    }
   }
 }

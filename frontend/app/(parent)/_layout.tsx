@@ -9,34 +9,30 @@ import { Stack } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { ThemeColors } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
+import { auth } from '@/services/firebase';
 
 export default function ParentLayout() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
+  const isFallback = (auth as any)?.isFallback;
+  const isUnverified = user && (user.role === 'parent' || user.role === 'teacher') && !user.emailVerified && !isFallback;
+
   useEffect(() => {
     if (!isLoading) {
       if (!isAuthenticated) {
         router.replace('/(auth)/login');
-      } else if (
-        user &&
-        (user.role === 'parent' || user.role === 'teacher') &&
-        !user.emailVerified
-      ) {
+      } else if (isUnverified) {
         router.replace({
           pathname: '/(auth)/verify-email',
-          params: { email: user.email, unverified: 'true' },
+          params: { email: user?.email || '', unverified: 'true' },
         });
       }
     }
-  }, [isAuthenticated, isLoading, user]);
+  }, [isAuthenticated, isLoading, user, isUnverified]);
 
   // Render nothing while the auth state is loading or redirect is in progress
-  if (
-    isLoading ||
-    !isAuthenticated ||
-    (user && (user.role === 'parent' || user.role === 'teacher') && !user.emailVerified)
-  ) {
+  if (isLoading || !isAuthenticated || isUnverified) {
     return null;
   }
 

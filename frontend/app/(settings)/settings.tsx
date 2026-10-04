@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Switch,
   Platform,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,23 +20,48 @@ import {
 import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
+import { useAuth } from '@/context/AuthContext';
+import { useReminderSettings } from '@/hooks/useReminderSettings';
+import { useLanguage } from '@/context/LanguageContext';
+import { useDyslexiaTheme } from '@/context/ThemeContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
+  const {
+    fontSizeScale,
+    setFontSizeScale,
+    increasedSpacing,
+    setIncreasedSpacing,
+    audioAssistance,
+    setAudioAssistance,
+    soundFeedback,
+    setSoundFeedback,
+    readingSpeed,
+    setReadingSpeed,
+  } = useDyslexiaTheme();
 
-  const [fontSizeChoice, setFontSizeChoice] = useState<'small' | 'medium' | 'large'>('medium');
-  const [lineSpacingChoice, setLineSpacingChoice] = useState<'normal' | 'wide'>('normal');
-  const [audioAssistance, setAudioAssistance] = useState(true);
-  const [readingSpeed, setReadingSpeed] = useState(1); // 0 = slow, 1 = normal, 2 = fast
+  const {
+    remindersEnabled,
+    reminderTime,
+    permissionBlocked,
+    isTogglingReminder,
+    toggleReminders,
+    updateReminderTime,
+    sendTestNotification,
+  } = useReminderSettings();
+
+  const [testSent, setTestSent] = useState(false);
+  const isParentOrTeacher = user?.role === 'parent' || user?.role === 'teacher';
   const [volumeLevel, setVolumeLevel] = useState(0.7);
-  const [soundFeedback, setSoundFeedback] = useState(true);
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Header */}
       <View style={styles.topBar}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => (isParentOrTeacher ? router.replace('/(parent)/dashboard') : router.back())}
           style={styles.navIconBtn}
           activeOpacity={0.7}
         >
@@ -50,7 +76,7 @@ export default function SettingsScreen() {
         <View style={styles.headerTitleWrap}>
           <AppText size="md">⚙️</AppText>
           <AppText size="md" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
-            සැකසුම්
+            {t('settings.title')}
           </AppText>
         </View>
 
@@ -58,7 +84,22 @@ export default function SettingsScreen() {
           onPress={() => router.push('/(child)/profile')}
           activeOpacity={0.8}
         >
-          <StudentAvatarPhoto size={34} showEditBadge={false} />
+          {isParentOrTeacher ? (
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                backgroundColor: '#E0F2FE',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <AppText size="sm">{user?.role === 'teacher' ? '👩‍🏫' : '👨‍👩‍👧'}</AppText>
+            </View>
+          ) : (
+            <StudentAvatarPhoto size={34} showEditBadge={false} />
+          )}
         </TouchableOpacity>
       </View>
 
@@ -66,12 +107,65 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
+        {/* ── SECTION 0: 🌐 භාෂාව (Language) ── */}
+        <View style={[styles.card, ThemeShadow.sm]}>
+          <View style={styles.sectionHeaderRow}>
+            <AppText size="sm">🌐</AppText>
+            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6, flexShrink: 1 }}>
+              {t('settings.language.section')}
+            </AppText>
+          </View>
+
+          <View style={styles.settingGroup}>
+            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.settingLabel}>
+              {t('settings.language.label')}
+            </AppText>
+            <View style={styles.pillsRow}>
+              <TouchableOpacity
+                style={[styles.pillOption, language === 'si' && styles.pillOptionActive]}
+                onPress={() => setLanguage('si')}
+                activeOpacity={0.8}
+              >
+                <AppText
+                  size="xs"
+                  weight={language === 'si' ? 'bold' : 'regular'}
+                  color={language === 'si' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  numberOfLines={1}
+                >
+                  {t('settings.language.sinhala')}
+                </AppText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.pillOption, language === 'en' && styles.pillOptionActive]}
+                onPress={() => setLanguage('en')}
+                activeOpacity={0.8}
+              >
+                <AppText
+                  size="xs"
+                  weight={language === 'en' ? 'bold' : 'regular'}
+                  color={language === 'en' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  numberOfLines={1}
+                >
+                  {t('settings.language.english')}
+                </AppText>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.langNoteBox}>
+              <AppText size="xs" color="#166534" weight="medium" style={{ lineHeight: 18 }}>
+                {t('settings.language.note')}
+              </AppText>
+            </View>
+          </View>
+        </View>
+
         {/* ── SECTION 1: 👤 ගිණුම (Account) ── */}
         <View style={[styles.card, ThemeShadow.sm]}>
           <View style={styles.sectionHeaderRow}>
             <AppText size="sm">👤</AppText>
-            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
-              ගිණුම
+            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6, flexShrink: 1 }}>
+              {t('settings.account')}
             </AppText>
           </View>
 
@@ -80,8 +174,8 @@ export default function SettingsScreen() {
             onPress={() => router.push('/(child)/profile')}
             activeOpacity={0.8}
           >
-            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-              මගේ පැතිකඩ
+            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.menuRowText}>
+              {t('settings.profile')}
             </AppText>
             <AppText size="xs" color={ThemeColors.textMuted}>
               ›
@@ -89,12 +183,12 @@ export default function SettingsScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.menuRowItem, { borderBottomWidth: 0 }]}
+            style={[styles.menuRowItem, { marginBottom: 0 }]}
             onPress={() => router.push('/(auth)/forgot-password')}
             activeOpacity={0.8}
           >
-            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-              මුරපදය වෙනස් කරන්න
+            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.menuRowText}>
+              {t('settings.changePassword')}
             </AppText>
             <AppText size="xs" color={ThemeColors.textMuted}>
               ›
@@ -106,56 +200,59 @@ export default function SettingsScreen() {
         <View style={[styles.card, ThemeShadow.sm]}>
           <View style={styles.sectionHeaderRow}>
             <AppText size="sm">♿</AppText>
-            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
-              ඉගෙනුම් පහසුකම්
+            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6, flexShrink: 1 }}>
+              {t('settings.accessibility')}
             </AppText>
           </View>
 
           {/* 1. අකුරු ප්‍රමාණය (Font Size) */}
           <View style={styles.settingGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.settingLabel}>
-              අකුරු ප්‍රමාණය
+              {t('settings.fontSize')}
             </AppText>
             <View style={styles.pillsRow}>
               <TouchableOpacity
-                style={[styles.pillOption, fontSizeChoice === 'small' && styles.pillOptionActive]}
-                onPress={() => setFontSizeChoice('small')}
+                style={[styles.pillOption, fontSizeScale === 'normal' && styles.pillOptionActive]}
+                onPress={() => setFontSizeScale('normal')}
                 activeOpacity={0.8}
               >
                 <AppText
                   size="xs"
-                  weight={fontSizeChoice === 'small' ? 'bold' : 'regular'}
-                  color={fontSizeChoice === 'small' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  weight={fontSizeScale === 'normal' ? 'bold' : 'regular'}
+                  color={fontSizeScale === 'normal' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  numberOfLines={1}
                 >
-                  කුඩා
+                  {t('settings.small')}
                 </AppText>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.pillOption, fontSizeChoice === 'medium' && styles.pillOptionActive]}
-                onPress={() => setFontSizeChoice('medium')}
+                style={[styles.pillOption, fontSizeScale === 'large' && styles.pillOptionActive]}
+                onPress={() => setFontSizeScale('large')}
                 activeOpacity={0.8}
               >
                 <AppText
                   size="xs"
-                  weight={fontSizeChoice === 'medium' ? 'bold' : 'regular'}
-                  color={fontSizeChoice === 'medium' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  weight={fontSizeScale === 'large' ? 'bold' : 'regular'}
+                  color={fontSizeScale === 'large' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  numberOfLines={1}
                 >
-                  මධ්‍යම
+                  {t('settings.medium')}
                 </AppText>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.pillOption, fontSizeChoice === 'large' && styles.pillOptionActive]}
-                onPress={() => setFontSizeChoice('large')}
+                style={[styles.pillOption, fontSizeScale === 'extra-large' && styles.pillOptionActive]}
+                onPress={() => setFontSizeScale('extra-large')}
                 activeOpacity={0.8}
               >
                 <AppText
                   size="xs"
-                  weight={fontSizeChoice === 'large' ? 'bold' : 'regular'}
-                  color={fontSizeChoice === 'large' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  weight={fontSizeScale === 'extra-large' ? 'bold' : 'regular'}
+                  color={fontSizeScale === 'extra-large' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  numberOfLines={1}
                 >
-                  විශාල
+                  {t('settings.large')}
                 </AppText>
               </TouchableOpacity>
             </View>
@@ -164,34 +261,36 @@ export default function SettingsScreen() {
           {/* 2. පේළි පරතරය (Line Spacing) */}
           <View style={styles.settingGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.settingLabel}>
-              පේළි පරතරය
+              {t('settings.lineSpacing')}
             </AppText>
             <View style={styles.pillsRow}>
               <TouchableOpacity
-                style={[styles.pillOption, lineSpacingChoice === 'normal' && styles.pillOptionActive]}
-                onPress={() => setLineSpacingChoice('normal')}
+                style={[styles.pillOption, !increasedSpacing && styles.pillOptionActive]}
+                onPress={() => setIncreasedSpacing(false)}
                 activeOpacity={0.8}
               >
                 <AppText
                   size="xs"
-                  weight={lineSpacingChoice === 'normal' ? 'bold' : 'regular'}
-                  color={lineSpacingChoice === 'normal' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  weight={!increasedSpacing ? 'bold' : 'regular'}
+                  color={!increasedSpacing ? '#FFFFFF' : ThemeColors.textPrimary}
+                  numberOfLines={1}
                 >
-                  සාමාන්‍ය
+                  {t('settings.normal')}
                 </AppText>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.pillOption, lineSpacingChoice === 'wide' && styles.pillOptionActive]}
-                onPress={() => setLineSpacingChoice('wide')}
+                style={[styles.pillOption, increasedSpacing && styles.pillOptionActive]}
+                onPress={() => setIncreasedSpacing(true)}
                 activeOpacity={0.8}
               >
                 <AppText
                   size="xs"
-                  weight={lineSpacingChoice === 'wide' ? 'bold' : 'regular'}
-                  color={lineSpacingChoice === 'wide' ? '#FFFFFF' : ThemeColors.textPrimary}
+                  weight={increasedSpacing ? 'bold' : 'regular'}
+                  color={increasedSpacing ? '#FFFFFF' : ThemeColors.textPrimary}
+                  numberOfLines={1}
                 >
-                  පුළුල්
+                  {t('settings.wide')}
                 </AppText>
               </TouchableOpacity>
             </View>
@@ -201,8 +300,8 @@ export default function SettingsScreen() {
           <View style={styles.settingToggleCard}>
             <View style={styles.toggleLabelLeft}>
               <AppText size="sm">🔊</AppText>
-              <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={{ marginLeft: 8 }}>
-                ශබ්ද සහාය
+              <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={{ marginLeft: 8, flexShrink: 1 }}>
+                {t('settings.audioAssistance')}
               </AppText>
             </View>
             <Switch
@@ -216,7 +315,7 @@ export default function SettingsScreen() {
           {/* 4. කියවීමේ වේගය (Reading Speed) */}
           <View style={styles.settingGroup}>
             <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.settingLabel}>
-              කියවීමේ වේගය
+              {t('settings.readingSpeed')}
             </AppText>
             {/* Custom Slider Simulation */}
             <View style={styles.sliderTrackWrap}>
@@ -233,7 +332,7 @@ export default function SettingsScreen() {
                   color={readingSpeed === 0 ? ThemeColors.primary : ThemeColors.textMuted}
                   weight={readingSpeed === 0 ? 'bold' : 'regular'}
                 >
-                  මන්දගාමී
+                  {t('settings.slow')}
                 </AppText>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setReadingSpeed(1)}>
@@ -242,7 +341,7 @@ export default function SettingsScreen() {
                   color={readingSpeed === 1 ? ThemeColors.primary : ThemeColors.textMuted}
                   weight={readingSpeed === 1 ? 'bold' : 'regular'}
                 >
-                  සාමාන්‍ය
+                  {t('settings.normal')}
                 </AppText>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setReadingSpeed(2)}>
@@ -251,7 +350,7 @@ export default function SettingsScreen() {
                   color={readingSpeed === 2 ? ThemeColors.primary : ThemeColors.textMuted}
                   weight={readingSpeed === 2 ? 'bold' : 'regular'}
                 >
-                  වේගවත්
+                  {t('settings.fast')}
                 </AppText>
               </TouchableOpacity>
             </View>
@@ -262,8 +361,8 @@ export default function SettingsScreen() {
         <View style={[styles.card, ThemeShadow.sm]}>
           <View style={styles.sectionHeaderRow}>
             <AppText size="sm">🔊</AppText>
-            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
-              ශබ්ද
+            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6, flexShrink: 1 }}>
+              {t('settings.sound')}
             </AppText>
           </View>
 
@@ -281,9 +380,11 @@ export default function SettingsScreen() {
 
           {/* Sound Feedback Toggle */}
           <View style={styles.settingToggleCard}>
-            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-              ශබ්ද ප්‍රතිචාර
-            </AppText>
+            <View style={styles.toggleLabelLeft}>
+              <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={{ flexShrink: 1 }}>
+                {t('settings.soundFeedback')}
+              </AppText>
+            </View>
             <Switch
               value={soundFeedback}
               onValueChange={setSoundFeedback}
@@ -293,11 +394,127 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* ── SECTION 4: 🔔 දෛනික මතක් කිරීම (Daily Reminders) ── */}
+        <View style={[styles.card, ThemeShadow.sm]}>
+          <View style={styles.sectionHeaderRow}>
+            <AppText size="sm">🔔</AppText>
+            <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
+              දෛනික කියවීමේ මතක් කිරීම
+            </AppText>
+          </View>
+
+          {/* Enable / Disable Toggle */}
+          <View style={styles.settingToggleCard}>
+            <View style={styles.toggleLabelLeft}>
+              <AppText size="sm">{remindersEnabled ? '🔔' : '🔕'}</AppText>
+              <View style={{ marginLeft: 8 }}>
+                <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
+                  {remindersEnabled ? 'මතක් කිරීම් සක්‍රීයයි' : 'මතක් කිරීම් අක්‍රීයයි'}
+                </AppText>
+                <AppText size="xs" color={ThemeColors.textMuted}>
+                  සෑම දිනකම කියවීමට මතක් කරයි
+                </AppText>
+              </View>
+            </View>
+            <Switch
+              value={remindersEnabled}
+              onValueChange={toggleReminders}
+              disabled={isTogglingReminder}
+              trackColor={{ false: '#CBD5E1', true: ThemeColors.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          {/* Permission Blocked Warning */}
+          {permissionBlocked && (
+            <View style={styles.permissionWarningBox}>
+              <AppText size="xs" weight="bold" color="#B45309">
+                ⚠️ දැනුම්දීම් අවසර නොමැත
+              </AppText>
+              <AppText size="xs" color="#92400E" style={{ marginTop: 4, lineHeight: 18 }}>
+                දුරකතනයේ සැකසුම් (Settings) → යෙදුම් (Apps) → Nena Man → දැනුම්දීම් (Notifications) යටතේ සක්‍රීය කරන්න.
+              </AppText>
+            </View>
+          )}
+
+          {/* Time Picker — only show when reminders are enabled */}
+          {remindersEnabled && (
+            <View style={styles.timePickerSection}>
+              <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={{ marginBottom: 8 }}>
+                මතක් කිරීමේ වේලාව:
+              </AppText>
+
+              {/* Quick time selection buttons */}
+              <View style={styles.timeButtonsGrid}>
+                {[
+                  { label: 'උදේ 7:00', value: '07:00' },
+                  { label: 'දහවල් 12:00', value: '12:00' },
+                  { label: 'හවස 5:00', value: '17:00' },
+                  { label: 'රාත්‍රී 8:00', value: '20:00' },
+                ].map((opt) => {
+                  const isSelected = reminderTime === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[
+                        styles.timeBtn,
+                        isSelected && styles.timeBtnActive,
+                      ]}
+                      onPress={() => updateReminderTime(opt.value)}
+                      activeOpacity={0.8}
+                    >
+                      <AppText
+                        size="xs"
+                        weight={isSelected ? 'bold' : 'medium'}
+                        color={isSelected ? '#FFFFFF' : ThemeColors.textSecondary}
+                      >
+                        {opt.label}
+                      </AppText>
+                      {isSelected && (
+                        <AppText size="xs" color="#FFFFFF" style={{ marginTop: 2 }}>
+                          ✓
+                        </AppText>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <AppText size="xs" color={ThemeColors.textMuted} style={{ marginTop: 8, textAlign: 'center' }}>
+                📅 {reminderTime} ට සෑම දිනකම මතක් කිරීමක් ලැබේ
+              </AppText>
+
+              {/* Instant Test Button */}
+              <TouchableOpacity
+                style={styles.testNotificationBtn}
+                onPress={async () => {
+                  setTestSent(true);
+                  await sendTestNotification();
+                  setTimeout(() => setTestSent(false), 6000);
+                }}
+                activeOpacity={0.8}
+              >
+                <AppText size="xs" weight="bold" color="#FFFFFF">
+                  {t('settings.reminders.testBtn')}
+                </AppText>
+              </TouchableOpacity>
+
+              {testSent && (
+                <View style={styles.testSentBox}>
+                  <AppText size="xs" color="#166534" weight="medium" style={{ textAlign: 'center' }}>
+                    {t('settings.reminders.testSent')}
+                  </AppText>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
         <View style={{ height: ThemeSpacing.xl }} />
       </ScrollView>
 
-      {/* 5-Tab Bottom Navigation with Settings Active */}
-      <BottomNav role="child" activeTab="settings" />
+      {/* 5-Tab Bottom Navigation for Child Only */}
+      {!isParentOrTeacher && <BottomNav role="child" activeTab="settings" />}
     </SafeAreaView>
   );
 }
@@ -328,6 +545,7 @@ const styles = StyleSheet.create({
   headerTitleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
   },
   scroll: {
     paddingHorizontal: ThemeSpacing.md,
@@ -357,6 +575,11 @@ const styles = StyleSheet.create({
     paddingVertical: ThemeSpacing.sm + 2,
     marginBottom: ThemeSpacing.xs + 2,
   },
+  menuRowText: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
+  },
   settingGroup: {
     marginBottom: ThemeSpacing.md,
   },
@@ -369,9 +592,11 @@ const styles = StyleSheet.create({
   },
   pillOption: {
     flex: 1,
+    minWidth: 0,
     backgroundColor: '#E8F1F8',
     borderRadius: 10,
     paddingVertical: 10,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -391,6 +616,9 @@ const styles = StyleSheet.create({
   toggleLabelLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
   },
   sliderTrackWrap: {
     height: 30,
@@ -449,5 +677,63 @@ const styles = StyleSheet.create({
     height: 6,
     backgroundColor: ThemeColors.primary,
     borderRadius: 3,
+  },
+  permissionWarningBox: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 12,
+    padding: ThemeSpacing.sm + 4,
+    marginTop: 10,
+  },
+  timePickerSection: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: ThemeColors.borderLight,
+  },
+  timeButtonsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  timeBtn: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: ThemeColors.borderLight,
+  },
+  timeBtnActive: {
+    backgroundColor: ThemeColors.primary,
+    borderColor: ThemeColors.primaryDark,
+  },
+  langNoteBox: {
+    marginTop: ThemeSpacing.md,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: ThemeRadius.md,
+    padding: ThemeSpacing.md,
+  },
+  testNotificationBtn: {
+    marginTop: 12,
+    backgroundColor: ThemeColors.primary,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  testSentBox: {
+    marginTop: 10,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 10,
+    padding: 10,
   },
 });

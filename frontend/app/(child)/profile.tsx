@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Switch,
   Platform,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,13 +21,109 @@ import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
 import { useAuth } from '@/context/AuthContext';
+import { connectionService } from '@/services/connectionService';
+import { useChildStoreBase } from '@/store/childStore';
+import { LinkedPerson } from '@/types';
 
 export default function StudentProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const currentChild = useChildStoreBase((s) => s.currentChild);
+  const isParentOrTeacher = user?.role === 'parent' || user?.role === 'teacher';
 
   const [audioAssistance, setAudioAssistance] = useState(true);
   const [largeFont, setLargeFont] = useState(true);
+  const [connectedGuardians, setConnectedGuardians] = useState<LinkedPerson[]>([]);
+  const [connectedChildren, setConnectedChildren] = useState<LinkedPerson[]>([]);
+
+  const studentGradeNumber = user?.grade || 2;
+  const studentCode = connectionService.getStudentCode(user?.uid || '', user?.studentCode);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!user?.uid) return;
+      try {
+        if (isParentOrTeacher) {
+          const list = await connectionService.getLinkedChildren(user.uid, user.email);
+          setConnectedChildren(list || []);
+        } else {
+          const list = await connectionService.getLinkedGuardians(user.uid, user.email);
+          setConnectedGuardians(list || []);
+        }
+      } catch (err) {
+        console.warn('[ProfileScreen] loadData error:', err);
+      }
+    }
+    loadData();
+  }, [user?.uid, user?.email, isParentOrTeacher]);
+
+  const handleSwitchToChildSession = (child: LinkedPerson) => {
+    useChildStoreBase.getState().setCurrentChild({
+      id: child.uid,
+      name: child.name,
+      age: 7,
+      grade: child.grade || 2,
+      readingLevel: 'medium',
+      streak: 1,
+      stars: 10,
+      totalSessions: 0,
+      avatarColor: '#4F46E5',
+    });
+    router.replace('/(child)/home');
+  };
+
+  const handleRemoveChild = async (child: LinkedPerson) => {
+    if (!user?.uid) return;
+    const confirmMsg = `${child.name} ශිෂ්‍යයාගේ සම්බන්ධතාවය ඔබගේ ගිණුමෙන් ඉවත් කිරීමට අවශ්‍යද? (Remove this student connection?)`;
+    const doRemove = Platform.OS === 'web' ? window.confirm(confirmMsg) : true;
+    if (doRemove) {
+      try {
+        await connectionService.removeStudentConnection(user.uid, child.uid, child.email);
+        useChildStoreBase.getState().clearCurrentChild();
+        setConnectedChildren((prev) =>
+          prev.filter((c) => c.uid !== child.uid && c.email !== child.email)
+        );
+      } catch (err) {
+        console.warn('[ProfileScreen] remove child error:', err);
+      }
+    }
+  };
+
+  const handleRemoveGuardian = async (guardian: LinkedPerson) => {
+    if (!user?.uid) return;
+    const confirmMsg = `${guardian.name} දෙමාපිය/ගුරු ගිණුමේ සම්බන්ධතාවය ඔබගේ ගිණුමෙන් ඉවත් කිරීමට අවශ්‍යද? (Remove this parent/teacher connection?)`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(confirmMsg)) {
+        await executeRemoveGuardian(guardian);
+      }
+    } else {
+      Alert.alert(
+        'සම්බන්ධතාවය ඉවත් කිරීම',
+        confirmMsg,
+        [
+          { text: 'අවලංගු කරන්න', style: 'cancel' },
+          {
+            text: 'ඉවත් කරන්න',
+            style: 'destructive',
+            onPress: () => executeRemoveGuardian(guardian),
+          },
+        ]
+      );
+    }
+  };
+
+  const executeRemoveGuardian = async (guardian: LinkedPerson) => {
+    if (!user?.uid) return;
+    try {
+      await connectionService.removeStudentConnection(guardian.uid, user.uid, user.email);
+      useChildStoreBase.getState().setCurrentGuardian(null);
+      setConnectedGuardians((prev) =>
+        prev.filter((g) => g.uid !== guardian.uid && g.email !== guardian.email)
+      );
+    } catch (err) {
+      console.warn('[ProfileScreen] remove guardian error:', err);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -38,7 +135,7 @@ export default function StudentProfileScreen() {
       {/* Top Header Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => (isParentOrTeacher ? router.replace('/(parent)/dashboard') : router.back())}
           style={styles.navIconBtn}
           activeOpacity={0.7}
         >
@@ -51,10 +148,21 @@ export default function StudentProfileScreen() {
         </TouchableOpacity>
 
         <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
-          මගේ ගිණුම
+          {isParentOrTeacher ? 'මගේ ගිණුම (දෙමාපිය / ගුරු)' : 'මගේ ගිණුම'}
         </AppText>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {isParentOrTeacher && (
+            <TouchableOpacity
+              onPress={() => router.replace('/(parent)/dashboard')}
+              style={[styles.navIconBtn, { backgroundColor: '#E0F2FE' }]}
+              activeOpacity={0.75}
+              accessibilityLabel="Back to Parent Dashboard"
+            >
+              <AppText size="sm">🎛️</AppText>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             onPress={() => router.push('/(settings)/settings')}
             style={styles.navIconBtn}
@@ -93,14 +201,24 @@ export default function StudentProfileScreen() {
       >
         {/* ── PROFILE HEADER CARD ── */}
         <View style={[styles.profileCard, ThemeShadow.sm]}>
-          <StudentAvatarPhoto size={76} showEditBadge={true} style={styles.avatarMargin} />
+          {isParentOrTeacher ? (
+            <View style={styles.parentAvatarLargeCircle}>
+              <AppText size="xxl">{user?.role === 'teacher' ? '👩‍🏫' : '👨‍👩‍👧'}</AppText>
+            </View>
+          ) : (
+            <StudentAvatarPhoto size={76} showEditBadge={true} style={styles.avatarMargin} />
+          )}
 
           <AppText size="xl" weight="extrabold" color={ThemeColors.textPrimary} style={styles.studentName}>
-            {user?.displayName || 'සෙනුලි පෙරේරා'}
+            {isParentOrTeacher
+              ? (user?.displayName || (user?.role === 'teacher' ? 'පන්ති භාර ගුරුතුමා' : 'දෙමාපියන්'))
+              : (user?.displayName || 'ශිෂ්‍ය ගිණුම')}
           </AppText>
 
           <AppText size="xs" color={ThemeColors.textSecondary} style={styles.schoolSubtitle}>
-            {user?.grade ? `${user.grade} ශ්‍රේණිය` : '2 ශ්‍රේණිය'} • {user?.schoolName || 'ශ්‍රී ලංකා පාසල'}
+            {isParentOrTeacher
+              ? `${user?.role === 'teacher' ? 'ගුරු ගිණුම' : 'දෙමාපිය ගිණුම'} • ${user?.email}`
+              : `${studentGradeNumber} ශ්‍රේණිය • ${user?.schoolName || 'ශ්‍රී ලංකා පාසල'}`}
           </AppText>
 
           {/* Edit Profile Button */}
@@ -109,12 +227,183 @@ export default function StudentProfileScreen() {
             onPress={() => router.push('/(settings)/settings')}
             activeOpacity={0.8}
           >
-            <AppText size="xs">👤</AppText>
+            <AppText size="xs">{isParentOrTeacher ? '⚙️' : '👤'}</AppText>
             <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={{ marginLeft: 4 }}>
-              පැතිකඩ සංස්කරණය
+              {isParentOrTeacher ? 'සැකසුම් (Settings)' : 'පැතිකඩ සංස්කරණය'}
             </AppText>
           </TouchableOpacity>
         </View>
+
+        {/* ── STUDENT CODE & CONNECTION CARD (For Child Only) ── */}
+        {!isParentOrTeacher && (
+          <View style={[styles.codeCard, ThemeShadow.sm]}>
+            <View style={styles.codeCardHeader}>
+              <View style={styles.codeTagPill}>
+                <AppText size="xs" weight="extrabold" color={ThemeColors.primary}>
+                  🏷️ ශිෂ්‍ය කේතය (Student Code)
+                </AppText>
+              </View>
+              <TouchableOpacity
+                onPress={() => router.push('/(child)/notifications')}
+                activeOpacity={0.7}
+              >
+                <AppText size="xs" weight="bold" color={ThemeColors.primary}>
+                  දැනුම්දීම් බලන්න 🔔
+                </AppText>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.codeDisplayRow}>
+              <View style={styles.codeBox}>
+                <AppText size="xl" weight="extrabold" color={ThemeColors.primary} style={{ letterSpacing: 2 }}>
+                  {studentCode}
+                </AppText>
+              </View>
+            </View>
+
+            <AppText size="xs" color={ThemeColors.textSecondary} style={{ textAlign: 'center', marginTop: 6, lineHeight: 18 }}>
+              දෙමාපියන්ට හෝ ගුරුතුමාට ඔබේ ගිණුම සම්බන්ධ කිරීමට මෙම කේතය හෝ ඔබගේ විද්‍යුත් තැපෑල ({user?.email}) ලබාදෙන්න.
+            </AppText>
+          </View>
+        )}
+
+        {/* ── CONNECTED CHILDREN (FOR PARENT/TEACHER) OR GUARDIANS (FOR CHILD) ── */}
+        {isParentOrTeacher ? (
+          <View style={styles.sectionWrap}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <AppText size="md">👥</AppText>
+                <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginLeft: 6 }}>
+                  සම්බන්ධිත දරුවන් සහ සිසුන් ({connectedChildren.length})
+                </AppText>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => router.push('/(parent)/connect-student')}
+                activeOpacity={0.7}
+              >
+                <AppText size="xs" weight="bold" color={ThemeColors.primary}>
+                  + අලුතින් එක්කරන්න
+                </AppText>
+              </TouchableOpacity>
+            </View>
+
+            {connectedChildren.length === 0 ? (
+              <View style={[styles.emptyGuardiansCard, ThemeShadow.sm]}>
+                <AppText size="sm">🤝</AppText>
+                <View style={{ marginLeft: 8, flex: 1 }}>
+                  <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
+                    තවමත් කිසිදු ශිෂ්‍යයෙකු සම්බන්ධ කර නැත
+                  </AppText>
+                  <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 2, lineHeight: 18 }}>
+                    ඔබගේ දරුවාගේ හෝ ශිෂ්‍යයාගේ ගිණුම සම්බන්ධ කිරීමට පහත බොත්තම ඔබන්න.
+                  </AppText>
+                </View>
+                <TouchableOpacity
+                  style={styles.connectMiniBtn}
+                  onPress={() => router.push('/(parent)/connect-student')}
+                  activeOpacity={0.8}
+                >
+                  <AppText size="xs" weight="bold" color="#FFFFFF">
+                    + සම්බන්ධ කරන්න
+                  </AppText>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              connectedChildren.map((c) => (
+                <View key={c.uid} style={[styles.guardianCard, ThemeShadow.sm]}>
+                  <View style={[styles.guardianAvatar, { backgroundColor: '#DCFCE7' }]}>
+                    <AppText size="sm" weight="extrabold" color="#047857">
+                      {c.name ? c.name.charAt(0) : '🎓'}
+                    </AppText>
+                  </View>
+                  <View style={{ marginLeft: 10, flex: 1 }}>
+                    <AppText size="sm" weight="bold" color={ThemeColors.textPrimary}>
+                      {c.name}
+                    </AppText>
+                    <AppText size="xs" color={ThemeColors.textSecondary}>
+                      ශ්‍රේණිය {c.grade || 2} · {c.relationship || 'ශිෂ්‍යයා'}
+                    </AppText>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <TouchableOpacity
+                      style={styles.sessionSwitchPill}
+                      onPress={() => handleSwitchToChildSession(c)}
+                      activeOpacity={0.8}
+                    >
+                      <AppText size="xs" weight="bold" color="#FFFFFF">
+                        ඉගෙනුමට 🚀
+                      </AppText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.detachSmallBtn}
+                      onPress={() => handleRemoveChild(c)}
+                      activeOpacity={0.7}
+                      accessibilityLabel="Remove child connection"
+                    >
+                      <AppText size="xs" weight="bold" color="#DC2626">
+                        ✕
+                      </AppText>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        ) : (
+          <View style={styles.sectionWrap}>
+            <View style={styles.sectionHeaderRow}>
+              <AppText size="md">👨‍👩‍👧‍👦</AppText>
+              <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginLeft: 6 }}>
+                සම්බන්ධිත දෙමාපියන් සහ ගුරුවරුන් ({connectedGuardians.length})
+              </AppText>
+            </View>
+
+            {connectedGuardians.length === 0 ? (
+              <View style={[styles.emptyGuardiansCard, ThemeShadow.sm]}>
+                <AppText size="sm">🤝</AppText>
+                <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginLeft: 8, flex: 1, lineHeight: 18 }}>
+                  තවමත් කිසිදු දෙමාපිය හෝ ගුරු ගිණුමක් සම්බන්ධ කර නැත. ඉහත කේතය දෙමාපියන්ට ලබාදෙන්න.
+                </AppText>
+              </View>
+            ) : (
+              connectedGuardians.map((g) => (
+                <View key={g.uid} style={[styles.guardianCard, ThemeShadow.sm]}>
+                  <View style={styles.guardianAvatar}>
+                    <AppText size="md">
+                      {g.role === 'teacher' ? '👩‍🏫' : '👨‍👩‍👧'}
+                    </AppText>
+                  </View>
+                  <View style={{ marginLeft: 10, flex: 1 }}>
+                    <AppText size="sm" weight="bold" color={ThemeColors.textPrimary}>
+                      {g.name}
+                    </AppText>
+                    <AppText size="xs" color={ThemeColors.textSecondary}>
+                      {g.role === 'teacher' ? 'ගුරුතුමා / ගුරුතුමිය' : 'දෙමාපියන්'} · {g.relationship || 'භාරකරු'}
+                    </AppText>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={styles.linkedBadge}>
+                      <AppText size="xs" weight="bold" color="#047857">
+                        ✓ සම්බන්ධයි
+                      </AppText>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.detachSmallBtn}
+                      onPress={() => handleRemoveGuardian(g)}
+                      activeOpacity={0.7}
+                      accessibilityLabel="Remove guardian connection"
+                    >
+                      <AppText size="xs" weight="bold" color="#DC2626">
+                        ✕ ඉවත් කරන්න
+                      </AppText>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
 
         {/* ── SECTION 1: මගේ ඉගෙනුම් පැතිකඩ ── */}
         <View style={styles.sectionWrap}>
@@ -350,8 +639,8 @@ export default function StudentProfileScreen() {
         <View style={{ height: ThemeSpacing.lg }} />
       </ScrollView>
 
-      {/* 5-Tab Sinhala Bottom Navigation with Profile Active */}
-      <BottomNav role="child" activeTab="profile" />
+      {/* 5-Tab Sinhala Bottom Navigation with Profile Active (Child Only) */}
+      {!isParentOrTeacher && <BottomNav role="child" activeTab="profile" />}
     </SafeAreaView>
   );
 }
@@ -392,6 +681,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: ThemeColors.borderLight,
+  },
+  parentAvatarLargeCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#E0F2FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: ThemeSpacing.sm,
+    borderWidth: 2,
+    borderColor: '#BAE6FD',
+  },
+  connectMiniBtn: {
+    backgroundColor: ThemeColors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  sessionSwitchPill: {
+    backgroundColor: ThemeColors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  detachSmallBtn: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
   avatarMargin: {
     marginBottom: ThemeSpacing.sm,
@@ -555,5 +875,70 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#FCA5A5',
     marginTop: ThemeSpacing.sm,
+  },
+  codeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: ThemeSpacing.md,
+    borderWidth: 1.5,
+    borderColor: '#C7EBD2',
+  },
+  codeCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  codeTagPill: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: ThemeRadius.full,
+  },
+  codeDisplayRow: {
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  codeBox: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: ThemeColors.primary,
+    borderStyle: 'dashed',
+    borderRadius: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  emptyGuardiansCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: ThemeSpacing.md,
+    borderWidth: 1,
+    borderColor: ThemeColors.borderLight,
+  },
+  guardianCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: ThemeSpacing.md,
+    borderWidth: 1,
+    borderColor: ThemeColors.borderLight,
+    marginBottom: 8,
+  },
+  guardianAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E0F2FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  linkedBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
 });

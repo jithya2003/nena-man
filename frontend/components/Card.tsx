@@ -5,7 +5,7 @@ import { ThemeColors, ThemeRadius, ThemeShadow } from '@/constants/theme';
 interface CardProps {
   children: React.ReactNode;
   style?: ViewStyle | ViewStyle[];
-  variant?: 'default' | 'elevated' | 'tinted' | 'surface';
+  variant?: 'default' | 'elevated' | 'tinted' | 'surface' | 'playful';
   padding?: number;
 }
 
@@ -13,7 +13,7 @@ export default function Card({
   children,
   style,
   variant = 'default',
-  padding = 16,
+  padding = 18,
 }: CardProps) {
   return (
     <View
@@ -22,6 +22,7 @@ export default function Card({
         variant === 'elevated' && styles.elevated,
         variant === 'tinted' && styles.tinted,
         variant === 'surface' && styles.surface,
+        variant === 'playful' && styles.playful,
         { padding },
         style,
       ]}
@@ -33,23 +34,37 @@ export default function Card({
 
 const styles = StyleSheet.create({
   base: {
-    backgroundColor: ThemeColors.surface, // 30% soft sage surface (never #FFFFFF)
-    borderRadius: ThemeRadius.lg,
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
+    backgroundColor: '#FFFFFF',
+    borderRadius: ThemeRadius.kidCard,
+    borderWidth: 1.5,
+    borderColor: '#E2ECE6',
+    borderBottomWidth: 3,
+    borderBottomColor: '#D1E0D7',
     ...ThemeShadow.sm,
   },
   elevated: {
-    backgroundColor: ThemeColors.surfaceElevated,
-    borderColor: ThemeColors.border,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D4E5DB',
+    borderBottomWidth: 4,
+    borderBottomColor: '#BDD6C7',
     ...ThemeShadow.md,
   },
   tinted: {
-    backgroundColor: ThemeColors.accentLight,
-    borderColor: ThemeColors.warningBorder,
+    backgroundColor: '#FFFDF5',
+    borderColor: '#FDE68A',
+    borderBottomWidth: 3,
+    borderBottomColor: '#FCD34D',
   },
   surface: {
-    backgroundColor: ThemeColors.surfaceMuted,
-    borderColor: ThemeColors.borderLight,
+    backgroundColor: '#F7FAF8',
+    borderColor: '#E2ECE6',
+    borderBottomWidth: 3,
+    borderBottomColor: '#D1E0D7',
+  },
+  playful: {
+    backgroundColor: '#FFF1F2',
+    borderColor: '#FECDD3',
+    borderBottomWidth: 3,
+    borderBottomColor: '#FDA4AF',
   },
 });

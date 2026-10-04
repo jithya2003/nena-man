@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -7,31 +7,57 @@ import { StyleSheet, Platform } from 'react-native';
 import { ThemeColors } from '@/constants/theme';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
+import { LanguageProvider } from '@/context/LanguageContext';
+import { useNetworkStatus } from '@/store/hooks';
+import { syncReminderOnStartup } from '@/notifications/scheduler';
+import OfflineBanner from '@/components/OfflineBanner';
+
+/** Mounts the NetInfo / browser-event listener once for the app's lifetime. */
+function NetworkListener() {
+  useNetworkStatus();
+  return null;
+}
+
+/**
+ * Re-syncs the daily reading reminder on every app launch.
+ * Covers cases where the OS cleared scheduled notifications (e.g. after reboot).
+ */
+function ReminderSyncListener() {
+  useEffect(() => {
+    syncReminderOnStartup();
+  }, []);
+  return null;
+}
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <SafeAreaProvider>
-        <GestureHandlerRootView style={styles.root}>
-          <StatusBar style="dark" backgroundColor={ThemeColors.background} />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              animation: 'fade',
-              contentStyle: { backgroundColor: ThemeColors.background },
-            }}
-          >
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="(child)" options={{ headerShown: false }} />
-            <Stack.Screen name="(parent)" options={{ headerShown: false }} />
-            <Stack.Screen name="(settings)" options={{ headerShown: false }} />
-          </Stack>
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <LanguageProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <SafeAreaProvider>
+            <GestureHandlerRootView style={styles.root}>
+              <NetworkListener />
+              <OfflineBanner />
+              <ReminderSyncListener />
+              <StatusBar style="dark" backgroundColor={ThemeColors.background} />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  animation: 'fade',
+                  contentStyle: { backgroundColor: ThemeColors.background },
+                }}
+              >
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen name="(child)" options={{ headerShown: false }} />
+                <Stack.Screen name="(parent)" options={{ headerShown: false }} />
+                <Stack.Screen name="(settings)" options={{ headerShown: false }} />
+              </Stack>
+            </GestureHandlerRootView>
+          </SafeAreaProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </LanguageProvider>
   );
 }
 
