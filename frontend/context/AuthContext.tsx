@@ -56,13 +56,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const parsedUser: UserProfile = JSON.parse(storedUser);
           setUser(parsedUser);
           setToken(storedToken);
-          // Sync authStore so child/session stores can read the user on restore
+          // Sync authStore so child/session stores can read the user and API client can read token
           storeSetUser({
             uid: parsedUser.uid,
             name: parsedUser.displayName,
             email: parsedUser.email,
             role: parsedUser.role,
-          });
+          }, storedToken);
         }
       } catch (err) {
         console.error('[AuthContext] Failed to restore session:', err);
@@ -100,13 +100,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await AppStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(res.user));
       await AppStorage.setItem(STORAGE_KEYS.TOKEN, res.token);
 
-      // Sync authStore so sibling stores (childStore, sessionStore) have the user
+      // Sync authStore so sibling stores and API client have the user and token
       storeSetUser({
         uid: res.user.uid,
         name: res.user.displayName,
         email: res.user.email,
         role: res.user.role,
-      });
+      }, res.token);
 
       return { success: true, role: res.user.role };
     } catch (err) {
@@ -156,7 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: userProfile.displayName,
       email: userProfile.email,
       role: userProfile.role,
-    });
+    }, authToken);
   };
 
   const switchRole = (newRole: UserRole) => {
