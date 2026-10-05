@@ -160,6 +160,17 @@ export const translations: Record<Language, Record<string, string>> = {
     'state.offline.message': 'අන්තර්ජාලය නෑ. සම්බන්ධ වූ විට දත්ත යාවත්කාලීන වේ.',
     'state.offline.retry': 'නැවත සම්බන්ධ කරන්න',
     'state.skeleton.caption': 'කියවමින් ඉන්නවා... 📚',
+
+    // Reading Session Flow
+    'session.loading.stage1': 'ඔබ කියවූ ආකාරය පරීක්ෂා කරමින්...',
+    'session.loading.stage2': 'ඔබේ මනෝභාවය හඳුනාගනිමින්...',
+    'session.loading.stage3': 'ඔබේ ඊළඟ පියවර සූදානම් කරමින්...',
+    'session.offline.alert': 'ඔබ දැන් නොබැඳි තත්වයේ (Offline) පසුවෙයි. අන්තර්ජාලය සම්බන්ධ වූ වහාම මෙය විශ්ලේෂණය කරනු ඇත.',
+    'session.error.readingAnalysis': 'කථන විශ්ලේෂණය අසාර්ථක විය. නැවත උත්සාහ කරන්න.',
+    'session.error.recommendationRetry': 'ඊළඟ ක්‍රියාකාරකම ලබා ගැනීමට නොහැකි විය. නැවත උත්සාහ කරන්න.',
+    'session.intervention.bannerTitle': 'විවේකයක් ගමු! 🌿',
+    'session.intervention.bannerDesc': 'කියවීමෙන් පසු මනස සැහැල්ලු කර ගැනීමට විනෝදජනක සන්සුන් ක්‍රීඩාවක් කරමු.',
+    'session.intervention.playBtn': '🎮 සන්සුන් ක්‍රීඩා වෙත',
   },
   en: {
     // Common interface labels
@@ -320,5 +331,16 @@ export const translations: Record<Language, Record<string, string>> = {
     'state.offline.message': "You're offline. Data will sync when back online.",
     'state.offline.retry': 'Reconnect',
     'state.skeleton.caption': 'Reading stories... 📚',
+
+    // Reading Session Flow
+    'session.loading.stage1': 'Checking how you read...',
+    'session.loading.stage2': "Seeing how you're feeling...",
+    'session.loading.stage3': 'Building your next steps...',
+    'session.offline.alert': "You're offline. We'll process your reading session once you're back online.",
+    'session.error.readingAnalysis': 'Reading analysis failed. Please try again.',
+    'session.error.recommendationRetry': "Couldn't load your next activity. Tap to retry.",
+    'session.intervention.bannerTitle': "Let's take a break! 🌿",
+    'session.intervention.bannerDesc': 'A relaxing cooldown activity is recommended to help you reset.',
+    'session.intervention.playBtn': 'Play Cooldown Game 🎮',
   },
 };
