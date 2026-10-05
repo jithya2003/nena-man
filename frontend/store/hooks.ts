@@ -57,6 +57,39 @@ export const useCurrentChild = useChildStoreBase;
  */
 export const useSession = useSessionStoreBase;
 
+/**
+ * Reactive selector for the active session's multi-module results.
+ * Only triggers re-renders when `results` changes.
+ *
+ * @example
+ * const results = useSessionResults();
+ * const readingAccuracy = results.errorAnalysis?.severity;
+ */
+export function useSessionResults() {
+  return useSessionStoreBase((s) => s.results);
+}
+
+/**
+ * Reactive selector for the active session's loaded text item.
+ */
+export function useSessionText() {
+  return useSessionStoreBase((s) => s.currentText);
+}
+
+/**
+ * Reactive selector for the session audio pipeline status.
+ */
+export function useSessionRecordingStatus() {
+  return useSessionStoreBase((s) => s.recordingStatus);
+}
+
+/**
+ * Reactive selector for the current session ID.
+ */
+export function useSessionId() {
+  return useSessionStoreBase((s) => s.sessionId);
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 /**
