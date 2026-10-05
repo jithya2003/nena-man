@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -19,6 +19,9 @@ import {
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
 import VoiceAssessmentModal from '@/components/VoiceAssessmentModal';
+import { useReadingSession } from '@/hooks/useReadingSession';
+import { useLanguage } from '@/context/LanguageContext';
+import { LoadingView, ErrorView, OfflineBanner } from '@/components/shared-states';
 
 // Curated 3 Core Sentences for Interactive Demo with Reading Rate & Audio Comparison Metadata
 const PRACTICE_SENTENCES = [
@@ -179,15 +182,13 @@ const SUPPORT_OPTIONS = [
   },
 ];
 
-type SessionState = 'pre' | 'recording' | 'analyzing' | 'result';
-
 export default function SpeechSessionScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [currentTextIndex, setCurrentTextIndex] = useState(2); // Default to 3rd sentence as requested by user
   const [isSimplified, setIsSimplified] = useState(false);
   const [simplifying, setSimplifying] = useState(false);
-  const [sessionState, setSessionState] = useState<SessionState>('pre');
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showGamePopup, setShowGamePopup] = useState(false);
 
@@ -196,22 +197,76 @@ export default function SpeechSessionScreen() {
   const [playbackSpeed, setPlaybackSpeed] = useState<'1.0x' | '0.75x'>('1.0x');
   const audioTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [analysisResult, setAnalysisResult] = useState<{
-    accuracy: number;
-    transcription: string;
-    errors: typeof PRACTICE_SENTENCES[0]['simulatedErrors'];
-    isAccurate: boolean;
-    wpm: number;
-    fluencyScore: number;
-    avgPauseDuration: string;
-    syllablesPerSec: string;
-    targetWord: string;
-    spokenWord: string;
-    phoneticBreakdown: string;
-  } | null>(null);
-
   const resultAnim = useRef(new Animated.Value(0)).current;
   const currentSentence = PRACTICE_SENTENCES[currentTextIndex];
+
+  // ── Central Reading Session Hook ───────────────────────────────────────────
+  const session = useReadingSession({
+    text: {
+      id: currentSentence.id,
+      content: currentSentence.sinhala,
+      difficulty: 'medium',
+    },
+    onSuccess: () => {
+      Animated.spring(resultAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    },
+  });
+
+  // End session cleanly when leaving the screen
+  useEffect(() => {
+    return () => {
+      session.endSession();
+    };
+  }, []);
+
+  // Compute presentation analysis metrics from store results
+  const analysisResult = useMemo(() => {
+    if (session.sessionStatus !== 'done' && session.sessionStatus !== 'partial_error') {
+      return null;
+    }
+
+    const m1 = session.results.errorAnalysis;
+    const m1Raw = m1?.raw;
+
+    const accuracy =
+      m1Raw?.readingAccuracy ??
+      (m1?.severity !== undefined ? Math.round((1 - m1.severity) * 100) : 80);
+
+    const isAccurate = accuracy >= 85;
+
+    const errors =
+      m1Raw?.detectedErrors && m1Raw.detectedErrors.length > 0
+        ? m1Raw.detectedErrors.map((e) => ({
+            type: (e.type || 'substitution') as any,
+            word: e.word || currentSentence.targetWord,
+            detected: e.detected || currentSentence.spokenWord,
+            severity: e.severity || 0.4,
+            explanation: e.explanation || "'ගොඩාක්' වචනයේ 'ඩා' ස්වරය දිගු කර පැහැදිලිව ශබ්ද කළ යුතුය.",
+            tip: e.tip || "🗣️ 'ඩා' ශබ්දය දිගු කර 'ගොඩාක්' ලෙස උච්චාරණය කරන්න.",
+          }))
+        : isAccurate
+        ? []
+        : currentSentence.simulatedErrors;
+
+    return {
+      accuracy,
+      transcription: m1Raw?.transcription || currentSentence.sinhala,
+      errors,
+      isAccurate,
+      wpm: m1Raw?.readingSpeed ?? currentSentence.wpm,
+      fluencyScore: m1Raw?.fluencyScore ?? currentSentence.fluencyScore,
+      avgPauseDuration: m1Raw?.pauseDuration ? `${m1Raw.pauseDuration}s` : currentSentence.avgPauseDuration,
+      syllablesPerSec: currentSentence.syllablesPerSec,
+      targetWord: currentSentence.targetWord,
+      spokenWord: currentSentence.spokenWord,
+      phoneticBreakdown: currentSentence.phoneticBreakdown,
+    };
+  }, [session.sessionStatus, session.results.errorAnalysis, currentSentence]);
 
   const displaySinhala = isSimplified && currentSentence.simplifiedSinhala
     ? currentSentence.simplifiedSinhala
@@ -240,67 +295,19 @@ export default function SpeechSessionScreen() {
     }, duration);
   };
 
-  // Execute speech simulation
-  const executeSimulation = (accurate: boolean) => {
-    setSessionState('analyzing');
-    setTimeout(() => {
-      if (accurate) {
-        setAnalysisResult({
-          accuracy: 96,
-          transcription: currentSentence.sinhala,
-          errors: [],
-          isAccurate: true,
-          wpm: Math.round(currentSentence.wpm * 1.25),
-          fluencyScore: 92,
-          avgPauseDuration: '0.6s',
-          syllablesPerSec: '3.0 syl/s',
-          targetWord: currentSentence.targetWord,
-          spokenWord: currentSentence.targetWord,
-          phoneticBreakdown: currentSentence.phoneticBreakdown,
-        });
-      } else {
-        setAnalysisResult({
-          accuracy: 78,
-          transcription: currentSentence.simulatedSpoken,
-          errors: currentSentence.simulatedErrors,
-          isAccurate: false,
-          wpm: currentSentence.wpm,
-          fluencyScore: currentSentence.fluencyScore,
-          avgPauseDuration: currentSentence.avgPauseDuration,
-          syllablesPerSec: currentSentence.syllablesPerSec,
-          targetWord: currentSentence.targetWord,
-          spokenWord: currentSentence.spokenWord,
-          phoneticBreakdown: currentSentence.phoneticBreakdown,
-        });
-        // Auto trigger the "අපි සෙල්ලමක් කරමුද?" pop-up after a brief moment
-        setTimeout(() => {
-          setShowGamePopup(true);
-        }, 1100);
-      }
-      setSessionState('result');
-      Animated.spring(resultAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 8,
-        useNativeDriver: true,
-      }).start();
-    }, 900);
-  };
-
   const handleVoiceModalSuccess = () => {
     setShowVoiceModal(false);
-    executeSimulation(false);
+    session.stopRecording();
   };
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
-    setSessionState('pre');
-    setAnalysisResult(null);
+    session.resetSession();
     setIsSimplified(false);
     setShowGamePopup(false);
     setPlayingAudio(null);
     resultAnim.setValue(0);
-  };
+  }, [session, resultAnim]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -411,8 +418,18 @@ export default function SpeechSessionScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* ── Offline Alert Banner ─────────────────────────────────────────── */}
+        {session.isOffline && (
+          <OfflineBanner
+            forceShow={true}
+            message={t('session.offline.alert')}
+            onRetry={session.retryPipeline}
+            style={{ marginBottom: ThemeSpacing.sm }}
+          />
+        )}
+
         {/* ── Speech Recording Section ────────────────────────────────────────── */}
-        {sessionState === 'pre' && (
+        {(session.sessionStatus === 'idle' || session.sessionStatus === 'recording') && (
           <View style={[styles.recordSection, ThemeShadow.sm]}>
             <View style={styles.sectionHeaderLine}>
               <AppText size="sm">🎙️</AppText>
@@ -425,42 +442,66 @@ export default function SpeechSessionScreen() {
               ඉහත වාක්‍යය පැහැදිලිව කියවන්න. AI මගින් ඔබේ උච්චාරණය, වේගය සහ චතුරතාව ක්ෂණිකව විශ්ලේෂණය කරයි.
             </AppText>
 
-            {/* Clean Center Mic Button with Ripple Effect */}
+            {/* Center Mic Button with Live Recording State */}
             <View style={styles.micButtonContainer}>
               <TouchableOpacity
-                style={styles.circleMicButton}
-                onPress={() => executeSimulation(false)}
+                style={[
+                  styles.circleMicButton,
+                  session.isRecording && styles.circleMicButtonRecording,
+                ]}
+                onPress={session.isRecording ? session.stopRecording : session.startRecording}
                 activeOpacity={0.85}
               >
                 <AppText size="display" style={{ fontSize: 38 }}>
-                  🎙️
+                  {session.isRecording ? '⏹️' : '🎙️'}
                 </AppText>
               </TouchableOpacity>
-              <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginTop: 12 }}>
-                පටිගත කිරීම ආරම්භ කිරීමට ස්පර්ශ කරන්න
+              <AppText
+                size="sm"
+                weight="extrabold"
+                color={session.isRecording ? '#DC2626' : ThemeColors.primary}
+                style={{ marginTop: 12 }}
+              >
+                {session.isRecording
+                  ? 'පටිගත වෙමින් පවතී... නැවැත්වීමට ඔබන්න'
+                  : 'පටිගත කිරීම ආරම්භ කිරීමට ස්පර්ශ කරන්න'}
               </AppText>
               <AppText size="xs" color={ThemeColors.textMuted} style={{ marginTop: 4 }}>
-                (ශබ්ද නගා කියවා AI විශ්ලේෂණය ලබාගන්න)
+                {session.isRecording
+                  ? '(කියවා අවසන් වූ පසු ස්පර්ශ කරන්න)'
+                  : '(ශබ්ද නගා කියවා AI විශ්ලේෂණය ලබාගන්න)'}
               </AppText>
             </View>
           </View>
         )}
 
-        {/* ── Analyzing State ───────────────────────────────────────────── */}
-        {sessionState === 'analyzing' && (
+        {/* ── Progressive Loading State (feat/shared-states LoadingView) ───── */}
+        {session.isProcessing && (
           <View style={[styles.analyzingCard, ThemeShadow.sm]}>
-            <AppText size="display">🧠</AppText>
-            <AppText size="md" weight="extrabold" color={ThemeColors.primary} style={{ marginTop: 10 }}>
-              AI කථන සහ උච්චාරණ විශ්ලේෂණය...
-            </AppText>
-            <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 4 }}>
-              අකුරු නිරවද්‍යතාව, කියවීමේ වේගය (WPM) සහ චතුරතාව පරීක්ෂා කරමින් පවතී
-            </AppText>
+            <LoadingView
+              variant="card"
+              message={session.loadingMessage}
+              subtitle={`AI විශ්ලේෂණය සක්‍රීයයි · පියවර ${session.loadingStage} / 3`}
+            />
+          </View>
+        )}
+
+        {/* ── Error State (feat/shared-states ErrorView) ────────────────────── */}
+        {session.sessionStatus === 'error' && (
+          <View style={[styles.analyzingCard, ThemeShadow.sm]}>
+            <ErrorView
+              title={t('state.error.title')}
+              message={t('session.error.readingAnalysis')}
+              onRetry={() => session.retryStep('readingAnalysis')}
+              retryLabel={t('state.error.retry')}
+              secondaryLabel={t('common.back')}
+              onSecondaryAction={handleReset}
+            />
           </View>
         )}
 
         {/* ── Result Dashboard ──────────────────────────────────────────── */}
-        {sessionState === 'result' && analysisResult && (
+        {(session.sessionStatus === 'done' || session.sessionStatus === 'partial_error') && analysisResult && (
           <Animated.View
             style={[
               styles.resultCard,
@@ -468,6 +509,69 @@ export default function SpeechSessionScreen() {
               { opacity: resultAnim, transform: [{ scale: resultAnim }] },
             ]}
           >
+            {/* Behavioral Intervention Banner (Displayed on results per spec) */}
+            {session.hasIntervention && (
+              <View style={[styles.interventionBannerCard, ThemeShadow.sm]}>
+                <View style={styles.interventionHeaderRow}>
+                  <AppText size="lg">🌿</AppText>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <AppText size="sm" weight="extrabold" color="#065F46">
+                      {t('session.intervention.bannerTitle')}
+                    </AppText>
+                    <AppText size="xs" color="#047857" style={{ marginTop: 2 }}>
+                      {t('session.intervention.bannerDesc')}
+                    </AppText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.interventionPlayBtn}
+                    onPress={() => router.push('/(child)/cooldown')}
+                    activeOpacity={0.85}
+                  >
+                    <AppText size="xs" weight="bold" color="#FFFFFF">
+                      {t('session.intervention.playBtn')}
+                    </AppText>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Recommendation Failure Inline Retry (Non-blocking partial failure) */}
+            {session.errors.recommendation && (
+              <View style={[styles.recRetryBanner, ThemeShadow.sm]}>
+                <View style={{ flex: 1 }}>
+                  <AppText size="xs" weight="bold" color="#92400E">
+                    ⚠️ {t('session.error.recommendationRetry')}
+                  </AppText>
+                </View>
+                <TouchableOpacity
+                  style={styles.recRetryBtn}
+                  onPress={() => session.retryStep('recommendation')}
+                  activeOpacity={0.8}
+                >
+                  <AppText size="xs" weight="bold" color="#FFFFFF">
+                    නැවත කරමු 🚀
+                  </AppText>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Recommendation Success Highlights */}
+            {session.results.recommendation && (
+              <View style={[styles.recSuccessBanner, ThemeShadow.sm]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <AppText size="sm">✨</AppText>
+                  <AppText size="xs" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
+                    ඊළඟ නිර්දේශය: {session.results.recommendation.nextActivity} ({session.results.recommendation.transition})
+                  </AppText>
+                </View>
+                {session.results.recommendation.rationale.length > 0 && (
+                  <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 4 }}>
+                    {session.results.recommendation.rationale.join(' • ')}
+                  </AppText>
+                )}
+              </View>
+            )}
+
             {/* Accuracy Header */}
             <View
               style={[
@@ -777,7 +881,7 @@ export default function SpeechSessionScreen() {
         )}
 
         {/* ── Progressive Support Options Panel (Ladder) ─────── */}
-        {sessionState === 'result' && analysisResult && (
+        {(session.sessionStatus === 'done' || session.sessionStatus === 'partial_error') && analysisResult && (
           <View style={styles.ladderContainer}>
             <View style={styles.ladderHeader}>
               <AppText size="xs">📊</AppText>
@@ -1413,5 +1517,58 @@ const styles = StyleSheet.create({
     height: 42,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  circleMicButtonRecording: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#DC2626',
+    borderWidth: 3,
+    shadowColor: '#DC2626',
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  interventionBannerCard: {
+    backgroundColor: '#ECFDF5',
+    borderRadius: ThemeRadius.md,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    padding: ThemeSpacing.sm + 2,
+    marginBottom: ThemeSpacing.md,
+  },
+  interventionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  interventionPlayBtn: {
+    backgroundColor: '#059669',
+    borderRadius: ThemeRadius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginLeft: 8,
+  },
+  recRetryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderRadius: ThemeRadius.md,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: ThemeSpacing.sm,
+    marginBottom: ThemeSpacing.md,
+  },
+  recRetryBtn: {
+    backgroundColor: '#D97706',
+    borderRadius: ThemeRadius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginLeft: 8,
+  },
+  recSuccessBanner: {
+    backgroundColor: '#F5F3FF',
+    borderRadius: ThemeRadius.md,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    padding: ThemeSpacing.sm,
+    marginBottom: ThemeSpacing.md,
   },
 });
