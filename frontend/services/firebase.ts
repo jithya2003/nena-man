@@ -6,8 +6,12 @@
  */
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import { getAuth, initializeAuth, Auth } from 'firebase/auth';
+// @ts-ignore - provided by React Native bundle of firebase/auth
+import { getReactNativePersistence } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 const apiKey = process.env.EXPO_PUBLIC_FIREBASE_API_KEY;
 const isFirebaseConfigured = Boolean(
@@ -33,7 +37,17 @@ let db: Firestore | any = {};
 if (isFirebaseConfigured) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    auth = getAuth(app);
+    if (Platform.OS !== 'web' && typeof getReactNativePersistence === 'function') {
+      try {
+        auth = initializeAuth(app, {
+          persistence: getReactNativePersistence(AsyncStorage),
+        });
+      } catch {
+        auth = getAuth(app);
+      }
+    } else {
+      auth = getAuth(app);
+    }
     auth.isFallback = false;
     db = getFirestore(app);
   } catch (err) {

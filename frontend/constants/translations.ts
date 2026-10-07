@@ -120,6 +120,9 @@ export const translations: Record<Language, Record<string, string>> = {
 
     // Dashboards Common UI
     'dashboard.greeting': 'ආයුබෝවන්',
+    'dashboard.welcomeFriend': '{name} යාලුවා! 👋',
+    'dashboard.welcomeSubtitle': 'අදත් අපි සතුටින් අලුත් පාඩම් කියවමු! 🌟',
+    'dashboard.defaultStudentName': 'ශිෂ්‍යයා',
     'dashboard.childTagline': 'ඔබේ දෛනික කියවීමේ අභ්‍යාස',
     'dashboard.parentTitle': 'දෙමාපිය / ගුරු පුවරුව',
     'dashboard.parentSubtitle': 'ළමයාගේ කියවීමේ ප්‍රගතිය සහ AI විශ්ලේෂණය',
@@ -129,6 +132,16 @@ export const translations: Record<Language, Record<string, string>> = {
     'child.home.startPractice': 'කියවීමේ අභ්‍යාස ආරම්භ කරන්න',
     'child.home.dailyStreak': 'දෛනික ජයග්‍රහණ',
     'child.home.myBadges': 'මගේ පදක්කම්',
+    'child.home.simplifyBtn': '✨ සරල කරමු',
+    'child.home.simplifyingBtn': '⏳ AI සකසමින්...',
+    'child.home.originalSentenceBtn': '↩️ මුල් වාක්‍යය',
+    'child.home.readOutLoudBtn': '🎙️ ශබ්ද නගා කියවමු',
+
+    // Reading Activities Filters
+    'reading.filter.all': 'සියල්ල',
+    'reading.filter.letters': 'අකුරු',
+    'reading.filter.sounds': 'ශබ්ද',
+    'reading.filter.words': 'වචන',
 
     // Notifications & Profile UI
     'notifications.title': 'දැනුම්දීම්',
@@ -291,6 +304,9 @@ export const translations: Record<Language, Record<string, string>> = {
 
     // Dashboards Common UI
     'dashboard.greeting': 'Welcome',
+    'dashboard.welcomeFriend': 'Hello, {name}! 👋',
+    'dashboard.welcomeSubtitle': "Let's enjoy reading new lessons today! 🌟",
+    'dashboard.defaultStudentName': 'Student',
     'dashboard.childTagline': 'Your daily reading exercises',
     'dashboard.parentTitle': 'Parent & Teacher Dashboard',
     'dashboard.parentSubtitle': 'Child reading progress & AI analytics',
@@ -300,6 +316,16 @@ export const translations: Record<Language, Record<string, string>> = {
     'child.home.startPractice': 'Start Reading Practice',
     'child.home.dailyStreak': 'Daily Achievements',
     'child.home.myBadges': 'My Badges',
+    'child.home.simplifyBtn': '✨ Simplify',
+    'child.home.simplifyingBtn': '⏳ AI Processing...',
+    'child.home.originalSentenceBtn': '↩️ Original Text',
+    'child.home.readOutLoudBtn': '🎙️ Read Out Loud',
+
+    // Reading Activities Filters
+    'reading.filter.all': 'All',
+    'reading.filter.letters': 'Letters',
+    'reading.filter.sounds': 'Sounds',
+    'reading.filter.words': 'Words',
 
     // Notifications & Profile UI
     'notifications.title': 'Notifications',

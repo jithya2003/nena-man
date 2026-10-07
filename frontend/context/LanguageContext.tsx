@@ -7,7 +7,7 @@ const LANGUAGE_STORAGE_KEY = '@nena_man_language';
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => Promise<void>;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string>) => string;
   isLanguageReady: boolean;
 }
 
@@ -49,9 +49,15 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const t = useCallback(
-    (key: string): string => {
+    (key: string, params?: Record<string, string>): string => {
       const langDict = translations[language] || translations['si'];
-      return langDict[key] || translations['si'][key] || key;
+      let text = langDict[key] || translations['si'][key] || key;
+      if (params) {
+        Object.entries(params).forEach(([paramKey, val]) => {
+          text = text.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), val);
+        });
+      }
+      return text;
     },
     [language]
   );

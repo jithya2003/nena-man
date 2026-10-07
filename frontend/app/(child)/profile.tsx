@@ -312,20 +312,25 @@ export default function StudentProfileScreen() {
             ) : (
               connectedChildren.map((c) => (
                 <View key={c.uid} style={[styles.guardianCard, ThemeShadow.sm]}>
-                  <View style={[styles.guardianAvatar, { backgroundColor: '#DCFCE7' }]}>
-                    <AppText size="sm" weight="extrabold" color="#047857">
-                      {c.name ? c.name.charAt(0) : '🎓'}
-                    </AppText>
+                  <View style={styles.guardianInfoRow}>
+                    <View style={[styles.guardianAvatar, { backgroundColor: '#DCFCE7' }]}>
+                      <AppText size="sm" weight="extrabold" color="#047857">
+                        {c.name ? c.name.charAt(0) : '🎓'}
+                      </AppText>
+                    </View>
+                    <View style={styles.guardianTextCol}>
+                      <AppText size="sm" weight="bold" color={ThemeColors.textPrimary} numberOfLines={1}>
+                        {c.name}
+                      </AppText>
+                      <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 2 }}>
+                        ශ්‍රේණිය {c.grade || 2} · {c.relationship || 'ශිෂ්‍යයා'}
+                      </AppText>
+                    </View>
                   </View>
-                  <View style={{ marginLeft: 10, flex: 1 }}>
-                    <AppText size="sm" weight="bold" color={ThemeColors.textPrimary}>
-                      {c.name}
-                    </AppText>
-                    <AppText size="xs" color={ThemeColors.textSecondary}>
-                      ශ්‍රේණිය {c.grade || 2} · {c.relationship || 'ශිෂ්‍යයා'}
-                    </AppText>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+
+                  <View style={styles.guardianDivider} />
+
+                  <View style={styles.guardianActionsRow}>
                     <TouchableOpacity
                       style={styles.sessionSwitchPill}
                       onPress={() => handleSwitchToChildSession(c)}
@@ -342,7 +347,7 @@ export default function StudentProfileScreen() {
                       accessibilityLabel="Remove child connection"
                     >
                       <AppText size="xs" weight="bold" color="#DC2626">
-                        ✕
+                        ✕ ඉවත් කරන්න
                       </AppText>
                     </TouchableOpacity>
                   </View>
@@ -369,20 +374,30 @@ export default function StudentProfileScreen() {
             ) : (
               connectedGuardians.map((g) => (
                 <View key={g.uid} style={[styles.guardianCard, ThemeShadow.sm]}>
-                  <View style={styles.guardianAvatar}>
-                    <AppText size="md">
-                      {g.role === 'teacher' ? '👩‍🏫' : '👨‍👩‍👧'}
-                    </AppText>
+                  <View style={styles.guardianInfoRow}>
+                    <View style={styles.guardianAvatar}>
+                      <AppText size="md">
+                        {g.role === 'teacher' ? '👩‍🏫' : '👨‍👩‍👧'}
+                      </AppText>
+                    </View>
+                    <View style={styles.guardianTextCol}>
+                      <AppText size="sm" weight="bold" color={ThemeColors.textPrimary} numberOfLines={1}>
+                        {g.name}
+                      </AppText>
+                      <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 2 }}>
+                        {g.role === 'teacher' ? 'ගුරුතුමා / ගුරුතුමිය' : 'දෙමාපියන්'} · {g.relationship || 'භාරකරු'}
+                      </AppText>
+                      {g.email ? (
+                        <AppText size="xs" color="#94A3B8" style={{ marginTop: 1, fontSize: 11 }} numberOfLines={1}>
+                          {g.email}
+                        </AppText>
+                      ) : null}
+                    </View>
                   </View>
-                  <View style={{ marginLeft: 10, flex: 1 }}>
-                    <AppText size="sm" weight="bold" color={ThemeColors.textPrimary}>
-                      {g.name}
-                    </AppText>
-                    <AppText size="xs" color={ThemeColors.textSecondary}>
-                      {g.role === 'teacher' ? 'ගුරුතුමා / ගුරුතුමිය' : 'දෙමාපියන්'} · {g.relationship || 'භාරකරු'}
-                    </AppText>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+
+                  <View style={styles.guardianDivider} />
+
+                  <View style={styles.guardianActionsRow}>
                     <View style={styles.linkedBadge}>
                       <AppText size="xs" weight="bold" color="#047857">
                         ✓ සම්බන්ධයි
@@ -918,27 +933,47 @@ const styles = StyleSheet.create({
     borderColor: ThemeColors.borderLight,
   },
   guardianCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: ThemeSpacing.md,
     borderWidth: 1,
     borderColor: ThemeColors.borderLight,
-    marginBottom: 8,
+    marginBottom: 10,
+  },
+  guardianInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
   },
   guardianAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: '#E0F2FE',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  guardianTextCol: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  guardianDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 10,
+    width: '100%',
+  },
+  guardianActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
   linkedBadge: {
     backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 12,
   },
 });

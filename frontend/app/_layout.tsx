@@ -3,7 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform, LogBox } from 'react-native';
 import { ThemeColors } from '@/constants/theme';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
@@ -11,6 +11,13 @@ import { LanguageProvider } from '@/context/LanguageContext';
 import { useNetworkStatus } from '@/store/hooks';
 import { syncReminderOnStartup } from '@/notifications/scheduler';
 import OfflineBanner from '@/components/OfflineBanner';
+
+// Suppress known development-only notices in Expo Go
+LogBox.ignoreLogs([
+  'expo-notifications: Android Push notifications',
+  'Expo AV has been deprecated',
+  '@firebase/auth: Auth',
+]);
 
 /** Mounts the NetInfo / browser-event listener once for the app's lifetime. */
 function NetworkListener() {

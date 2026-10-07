@@ -1,16 +1,47 @@
-# Node & Expo
+# =============================================================================
+# Frontend (Expo / React Native) .gitignore
+# =============================================================================
+
+# Node & Package Managers
 node_modules/
+package-lock.json.bak
+yarn-error.log*
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.log
+
+# Expo & Metro
 .expo/
 .expo-shared/
 dist/
 web-build/
 
-# Environment variables & secrets — NEVER COMMIT TO GIT
+# Native prebuild output (EAS / react-native build)
+android/
+ios/
+
+# Environment variables & Secrets — NEVER COMMIT TO GIT
 .env
 .env.*
 !.env.example
 *.env
 *.pem
+*.key
+*.cert
+*.jks
+*.keystore
+google-services.json
+GoogleService-Info.plist
+*-service-account.json
+serviceAccountKey.json
 
-# Generated types
+# Generated TypeScript declarations
 expo-env.d.ts
+
+# OS & Editor artefacts
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/

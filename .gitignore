@@ -117,6 +117,13 @@ firebase-adminsdk-*.json
 serviceAccountKey.json
 google-services.json
 GoogleService-Info.plist
+*.keystore
+*.jks
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
 
 
 # -----------------------------------------------------------------------------

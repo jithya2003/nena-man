@@ -35,7 +35,9 @@
           "androidMode": "default",
           "androidCollapsedTitle": "Nena Man"
         }
-      ]
+      ],
+      "expo-font",
+      "expo-splash-screen"
     ],
     "experiments": {
       "typedRoutes": true

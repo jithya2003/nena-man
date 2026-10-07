@@ -19,11 +19,13 @@ import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { WelcomeStudentIllustration } from '@/components/Illustrations';
 import { EmptyView } from '@/components/shared-states';
+import { useLanguage } from '@/context/LanguageContext';
 
 type ActivityFilter = 'all' | 'letters' | 'sounds' | 'words';
 
 export default function LearningActivitiesScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [activeFilter, setActiveFilter] = useState<ActivityFilter>('all');
 
   const activities = [
@@ -78,7 +80,7 @@ export default function LearningActivitiesScreen() {
       progress: 30,
       cardBg: '#FAF5FF',
       badge: '⭐ නිර්දේශිතයි',
-      badgePos: 'left',
+      badgePos: 'right',
       route: '/(child)/reading-comprehension',
     },
     {
@@ -155,8 +157,9 @@ export default function LearningActivitiesScreen() {
               size="xs"
               weight="extrabold"
               color={activeFilter === 'all' ? '#FFFFFF' : '#475569'}
+              numberOfLines={1}
             >
-              සියල්ල
+              {t('reading.filter.all')}
             </AppText>
           </TouchableOpacity>
 
@@ -169,12 +172,15 @@ export default function LearningActivitiesScreen() {
             onPress={() => setActiveFilter('letters')}
             activeOpacity={0.8}
           >
+            <AppText size="xs">🔤</AppText>
             <AppText
               size="xs"
               weight="extrabold"
               color={activeFilter === 'letters' ? '#FFFFFF' : '#0369A1'}
+              style={{ marginLeft: 4 }}
+              numberOfLines={1}
             >
-              🔤 අකුරු
+              {t('reading.filter.letters')}
             </AppText>
           </TouchableOpacity>
 
@@ -187,12 +193,15 @@ export default function LearningActivitiesScreen() {
             onPress={() => setActiveFilter('sounds')}
             activeOpacity={0.8}
           >
+            <AppText size="xs">👂</AppText>
             <AppText
               size="xs"
               weight="extrabold"
               color={activeFilter === 'sounds' ? '#FFFFFF' : '#C2410C'}
+              style={{ marginLeft: 4 }}
+              numberOfLines={1}
             >
-              👂 ශබ්ද
+              {t('reading.filter.sounds')}
             </AppText>
           </TouchableOpacity>
 
@@ -205,12 +214,15 @@ export default function LearningActivitiesScreen() {
             onPress={() => setActiveFilter('words')}
             activeOpacity={0.8}
           >
+            <AppText size="xs">📖</AppText>
             <AppText
               size="xs"
               weight="extrabold"
               color={activeFilter === 'words' ? '#FFFFFF' : '#B45309'}
+              style={{ marginLeft: 4 }}
+              numberOfLines={1}
             >
-              📖 වචන
+              {t('reading.filter.words')}
             </AppText>
           </TouchableOpacity>
         </View>
@@ -302,7 +314,7 @@ export default function LearningActivitiesScreen() {
                 activeOpacity={0.85}
               >
                 {act.badge && (
-                  <View style={[styles.floatingBadgeTag, act.badgePos === 'right' ? { right: 14 } : { left: 14 }]}>
+                  <View style={[styles.floatingBadgeTag, { right: 16 }]}>
                     <AppText size="xs" weight="extrabold" color="#FFFFFF">
                       {act.badge}
                     </AppText>
@@ -422,20 +434,23 @@ const styles = StyleSheet.create({
   },
   filterPillsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     marginVertical: ThemeSpacing.xs,
   },
   filterPill: {
     flex: 1,
+    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     borderRadius: ThemeRadius.full,
-    paddingVertical: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 3,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: '#E2ECE6',
     borderBottomWidth: 3,
     borderBottomColor: '#CBD5E1',
+    minHeight: 38,
   },
   filterPillActive: {
     backgroundColor: ThemeColors.primary,
@@ -528,6 +543,7 @@ const styles = StyleSheet.create({
   floatingBadgeTag: {
     position: 'absolute',
     top: -10,
+    right: 16,
     backgroundColor: '#F59E0B',
     paddingHorizontal: 10,
     paddingVertical: 3,

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { connectionService } from "@/services/connectionService";
@@ -33,6 +34,7 @@ function M2SimplificationCard() {
   const [simplified, setSimplified] = useState(false);
   const [processing, setProcessing] = useState(false);
   const router = useRouterM2();
+  const { t } = useLanguage();
 
   const handleSimplify = useCallback(() => {
     if (simplified) {
@@ -133,12 +135,14 @@ function M2SimplificationCard() {
             size="sm"
             weight="extrabold"
             color={simplified ? "#92400E" : "#FFFFFF"}
+            align="center"
+            style={m2Styles.btnText}
           >
             {processing
-              ? "⏳ AI සකසමින්..."
+              ? t("child.home.simplifyingBtn")
               : simplified
-                ? "↩️ මුල් වාක්‍යය"
-                : "✨ සරල කරමු"}
+                ? t("child.home.originalSentenceBtn")
+                : t("child.home.simplifyBtn")}
           </AppText>
         </TouchableOpacity>
 
@@ -147,8 +151,14 @@ function M2SimplificationCard() {
           onPress={() => router.push("/(child)/m1-session")}
           activeOpacity={0.8}
         >
-          <AppText size="sm" weight="extrabold" color="#FFFFFF">
-            🎙️ ශබ්ද නගා කියවමු
+          <AppText
+            size="sm"
+            weight="extrabold"
+            color="#FFFFFF"
+            align="center"
+            style={m2Styles.btnText}
+          >
+            {t("child.home.readOutLoudBtn")}
           </AppText>
         </TouchableOpacity>
       </View>
@@ -172,6 +182,8 @@ const m2Styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: ThemeSpacing.sm,
+    flexWrap: "wrap",
+    gap: 6,
   },
   moduleTag: {
     flexDirection: "row",
@@ -284,6 +296,9 @@ const m2Styles = StyleSheet.create({
     borderBottomColor: "#064E2A",
     minHeight: 48,
   },
+  btnText: {
+    textAlign: "center",
+  },
 });
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -354,35 +369,33 @@ export default function StudentDashboard() {
   };
 
   const currentChild = useChildStoreBase((s) => s.currentChild);
-  const greetingName = (user?.role === 'child' ? user.displayName : currentChild?.name)
-    ? (user?.role === 'child' ? user.displayName : currentChild?.name)!.split(" ")[0]
-    : user?.displayName
-      ? user.displayName.split(" ")[0]
-      : "ශිෂ්‍යයා";
+  const rawProfileName = user?.role === 'child'
+    ? (user?.displayName || user?.fullName || '')
+    : (currentChild?.name || user?.displayName || user?.fullName || '');
+
+  const greetingName = rawProfileName.trim()
+    ? rawProfileName.trim().split(" ")[0]
+    : t('dashboard.defaultStudentName');
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ── TOP HEADER ── */}
+      {/* ── TOP HEADER (Brand & Quick Actions) ── */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
+        <View style={styles.headerBrandRow}>
           <View style={styles.logoBadgeCircle}>
-            <AppText size="sm" weight="extrabold" color={ThemeColors.primary}>
-              නැණ
-            </AppText>
+            <Image
+              source={require("@/assets/logo-icon.png")}
+              style={styles.brandLogoImg}
+              resizeMode="contain"
+            />
           </View>
-
-          <View style={{ marginLeft: 10, flexShrink: 1 }}>
-            <AppText size="xs" weight="bold" color="#64748B">
-              {t('dashboard.greeting')},
+          <View style={{ marginLeft: 8 }}>
+            <AppText size="md" weight="extrabold" color={ThemeColors.primary} style={{ letterSpacing: 0.3 }}>
+              නැණ මං
             </AppText>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
-                {greetingName}!
-              </AppText>
-              <AppText size="md" style={{ marginLeft: 4 }}>
-                👋
-              </AppText>
-            </View>
+            <AppText size="xs" color="#64748B" style={{ fontSize: 10, marginTop: -3, fontWeight: "600" }}>
+              Nena Man
+            </AppText>
           </View>
         </View>
 
@@ -400,18 +413,10 @@ export default function StudentDashboard() {
             style={styles.bellBtn}
             onPress={() => router.push("/(child)/notifications")}
             activeOpacity={0.7}
+            accessibilityLabel="Notifications"
           >
             <AppText size="sm">🔔</AppText>
             <View style={styles.redDot} />
-          </TouchableOpacity>
-
-          {/* Student Avatar */}
-          <TouchableOpacity
-            onPress={() => router.push("/(child)/profile")}
-            activeOpacity={0.8}
-            style={styles.avatarWrap}
-          >
-            <StudentAvatarPhoto size={36} showEditBadge={false} />
           </TouchableOpacity>
 
           {/* Switch between Child Account and related Parent/Teacher Dashboard */}
@@ -429,8 +434,9 @@ export default function StudentDashboard() {
             style={styles.logoutBtn}
             onPress={handleLogout}
             activeOpacity={0.75}
+            accessibilityLabel="Log Out"
           >
-            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M 9 21 H 5 C 3.89543 21 3 20.1046 3 19 V 5 C 3 3.89543 3.89543 3 5 3 H 9 M 16 17 L 21 12 M 21 12 L 16 7 M 21 12 H 9"
                 stroke="#DC2626"
@@ -447,6 +453,31 @@ export default function StudentDashboard() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
+        {/* ── WELCOME HERO CARD (Spacious & Friendly) ── */}
+        <View style={styles.welcomeHeroCard}>
+          <View style={styles.welcomeHeroText}>
+            <View style={styles.greetingPill}>
+              <AppText size="xs" weight="bold" color="#047857">
+                ☀️ {t('dashboard.greeting')}
+              </AppText>
+            </View>
+            <AppText size="xl" weight="extrabold" color={ThemeColors.textPrimary} style={styles.welcomeNameText}>
+              {t('dashboard.welcomeFriend', { name: greetingName })}
+            </AppText>
+            <AppText size="xs" color="#64748B" style={{ marginTop: 2 }}>
+              {t('dashboard.welcomeSubtitle')}
+            </AppText>
+          </View>
+          <TouchableOpacity
+            onPress={() => router.push("/(child)/profile")}
+            activeOpacity={0.8}
+            style={styles.welcomeAvatarTouch}
+            accessibilityLabel="Go to Profile"
+          >
+            <StudentAvatarPhoto size={48} showEditBadge={false} />
+          </TouchableOpacity>
+        </View>
+
         {/* ── SECTION 1: ✨ M2 AI Sentence Simplification ── */}
         <M2SimplificationCard />
 
@@ -805,61 +836,58 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: ThemeSpacing.md,
-    paddingVertical: ThemeSpacing.xs + 4,
+    paddingVertical: ThemeSpacing.xs + 3,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1.5,
     borderBottomColor: "#E2ECE6",
   },
-  headerLeft: {
+  headerBrandRow: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
   },
   logoBadgeCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#EAF7EE",
-    borderWidth: 2,
-    borderColor: "#A7F3D0",
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1.5,
+    borderColor: "#BBF7D0",
     alignItems: "center",
     justifyContent: "center",
+    padding: 3,
+  },
+  brandLogoImg: {
+    width: "100%",
+    height: "100%",
   },
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
   scorePill: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FEF3C7",
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
     borderRadius: ThemeRadius.full,
     borderWidth: 1,
     borderColor: "#FDE68A",
   },
   bellBtn: {
     position: "relative",
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: "#E0F2FE",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#BAE6FD",
-  },
-  avatarWrap: {
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: "#10B981",
   },
   logoutBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: "#FEE2E2",
     alignItems: "center",
     justifyContent: "center",
@@ -867,14 +895,50 @@ const styles = StyleSheet.create({
     borderColor: "#FECACA",
   },
   parentBackBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: "#E0F2FE",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "#BAE6FD",
+  },
+  welcomeHeroCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: ThemeSpacing.md,
+    borderWidth: 1,
+    borderColor: "#E2ECE6",
+    borderLeftWidth: 5,
+    borderLeftColor: ThemeColors.primary,
+    ...ThemeShadow.sm,
+    marginBottom: 4,
+  },
+  welcomeHeroText: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  greetingPill: {
+    alignSelf: "flex-start",
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: ThemeRadius.full,
+    marginBottom: 4,
+  },
+  welcomeNameText: {
+    lineHeight: 28,
+  },
+  welcomeAvatarTouch: {
+    padding: 2,
+    borderRadius: 30,
+    backgroundColor: "#EAF7EE",
+    borderWidth: 2,
+    borderColor: "#A7F3D0",
   },
   redDot: {
     position: "absolute",

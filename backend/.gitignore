@@ -1,0 +1,49 @@
+# =============================================================================
+# Backend (Flask / Python) .gitignore
+# =============================================================================
+
+# Bytecode & Caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Secrets & Environment variables — NEVER COMMIT TO GIT
+.env
+.env.*
+!.env.example
+*.env
+firebase-adminsdk-*.json
+*-service-account.json
+serviceAccountKey.json
+
+# Local runtime & Databases
+instance/
+*.sqlite
+*.db
+
+# Testing & Typechecking
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# Temporary / uploads
+uploads/
+temp/
+tmp/
+*.log
+
+# OS & Editor artefacts
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
