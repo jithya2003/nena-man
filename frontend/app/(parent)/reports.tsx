@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -28,6 +28,9 @@ import NavBar from '@/components/NavBar';
 import BottomNav from '@/components/BottomNav';
 import Button from '@/components/Button';
 import M3RecommendationCard from '@/components/M3RecommendationCard';
+import { sessionService } from '@/services/sessionService';
+import { useCurrentChild, useAuthStore } from '@/store/hooks';
+import type { SessionData } from '@/types';
 
 const ERROR_DETAIL = {
   substitution: {
@@ -73,13 +76,36 @@ const totalErrors = Object.values(MOCK_ERROR_BREAKDOWN).reduce((a, b) => a + b, 
 export default function ReportsScreen() {
   const router = useRouter();
   const [filterSession, setFilterSession] = useState<'all' | 'recent'>('all');
+  const [sessions, setSessions] = useState<SessionData[]>(MOCK_SESSIONS);
+  const [isRealData, setIsRealData] = useState(false);
+  const { currentChild } = useCurrentChild();
+  const { user } = useAuthStore();
+
+  const activeChildName = currentChild?.name || user?.name || MOCK_CHILD.name;
+  const activeChildId = currentChild?.id || user?.uid || 'child_default';
+
+  useEffect(() => {
+    async function loadSessions() {
+      try {
+        const records = await sessionService.getChildSessions(activeChildId);
+        if (records && records.length > 0) {
+          const mapped = records.map((r) => sessionService.toSessionData(r));
+          setSessions(mapped);
+          setIsRealData(true);
+        }
+      } catch (err) {
+        console.warn('[ReportsScreen] Error loading real sessions:', err);
+      }
+    }
+    loadSessions();
+  }, [activeChildId]);
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Universal Top Navigation */}
       <NavBar
         title="Clinical Error Reports"
-        subtitle={`${MOCK_CHILD.name} · ${MOCK_CHILD.totalSessions} Sessions`}
+        subtitle={`${activeChildName} · ${sessions.length} Sessions ${isRealData ? '(Real Data)' : ''}`}
         showBack={true}
         fallbackRoute="/(parent)/dashboard"
         showSettings={true}
@@ -174,9 +200,9 @@ export default function ReportsScreen() {
 
         {/* Session breakdown */}
         <AppText size="lg" weight="bold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
-          Session-by-Session Breakdown
+          Session-by-Session Breakdown {isRealData && '☁️ (Firestore & Local)'}
         </AppText>
-        {MOCK_SESSIONS.map((s) => (
+        {sessions.map((s) => (
           <Card key={s.id} style={styles.sessionCard}>
             <View style={styles.sessionHeader}>
               <AppText size="sm" weight="bold" color={ThemeColors.textPrimary}>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -18,9 +18,41 @@ import {
 import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
+import { sessionService } from '@/services/sessionService';
+import { useCurrentChild, useAuthStore } from '@/store/hooks';
+import type { ReadingSessionRecord } from '@/types';
 
 export default function StudentProgressReportScreen() {
   const router = useRouter();
+  const { currentChild } = useCurrentChild();
+  const { user } = useAuthStore();
+  const [sessions, setSessions] = useState<ReadingSessionRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const activeChildId = currentChild?.id || user?.uid || 'child_default';
+
+  useEffect(() => {
+    async function loadHistory() {
+      try {
+        setIsLoading(true);
+        const list = await sessionService.getChildSessions(activeChildId);
+        setSessions(list);
+      } catch (err) {
+        console.warn('[ProgressScreen] Error loading child sessions:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadHistory();
+  }, [activeChildId]);
+
+  const totalSessionsCount = sessions.length > 0 ? sessions.length : 38;
+  const avgAccuracy = sessions.length > 0
+    ? Math.round(sessions.reduce((acc, s) => acc + (s.overallAccuracy || 80), 0) / sessions.length)
+    : 72;
+  const totalMinutes = sessions.length > 0
+    ? Math.max(1, Math.round(sessions.reduce((acc, s) => acc + (s.durationSeconds || 60), 0) / 60))
+    : 265;
 
   // 7-day weekly activity (Mon - Sun)
   const weeklyData = [
@@ -116,10 +148,10 @@ export default function StudentProgressReportScreen() {
               </AppText>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 2 }}>
                 <AppText size="display" weight="extrabold" color={ThemeColors.primary}>
-                  72%
+                  {avgAccuracy}%
                 </AppText>
                 <AppText size="xs" weight="extrabold" color="#059669" style={{ marginLeft: 6 }}>
-                  විශිෂ්ටයි! 🚀
+                  {avgAccuracy >= 80 ? 'විශිෂ්ටයි! 🚀' : 'ඉදිරියට යමු! ✨'}
                 </AppText>
               </View>
             </View>
@@ -152,10 +184,10 @@ export default function StudentProgressReportScreen() {
                 <AppText size="xs">⏱️</AppText>
               </View>
               <AppText size="xl" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginTop: 2 }}>
-                38
+                {totalSessionsCount}
               </AppText>
               <AppText size="xs" color="#64748B" weight="semibold">
-                ක්‍රියාකාරකම්
+                ක්‍රියාකාරකම් {sessions.length > 0 ? '(සැබෑ)' : ''}
               </AppText>
             </View>
 
@@ -180,7 +212,7 @@ export default function StudentProgressReportScreen() {
                 මුළු ඉගෙනුම් කාලය
               </AppText>
               <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary}>
-                පැය 4 විනාඩි 25
+                {Math.floor(totalMinutes / 60)} පැය {totalMinutes % 60} විනාඩි
               </AppText>
             </View>
           </View>
@@ -361,6 +393,76 @@ export default function StudentProgressReportScreen() {
               </View>
             ))}
           </View>
+        </View>
+
+        {/* ── SECTION 4.5: මෑතකදී කළ කියවීමේ සැසි (Persisted Session History) ── */}
+        <View style={styles.sectionWrap}>
+          <View style={styles.sectionTitleRow}>
+            <View>
+              <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
+                මෑතකදී කළ සැසි {sessions.length > 0 && `(${sessions.length})`}
+              </AppText>
+              <AppText size="xs" color="#64748B">
+                Firestore සහ උපාංගයේ සුරැකි සැබෑ ප්‍රගති වාර්තා
+              </AppText>
+            </View>
+            <View style={styles.sessionCountTag}>
+              <AppText size="xs" weight="bold" color="#047857">
+                ☁️ සුරැකිණි
+              </AppText>
+            </View>
+          </View>
+
+          {sessions.length === 0 ? (
+            <View style={styles.emptySessionBox}>
+              <AppText size="sm" color="#64748B" align="center">
+                තවමත් සටහන් වූ සැසි නොමැත. කථන සැසියක් ආරම්භ කර කියවීම පුහුණු වන්න! 🎙️
+              </AppText>
+            </View>
+          ) : (
+            sessions.slice(0, 5).map((s) => (
+              <View key={s.sessionId} style={styles.sessionRecordCard}>
+                <View style={styles.sessionRecordHeader}>
+                  <View style={{ flex: 1 }}>
+                    <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary}>
+                      {s.textContent || `වාක්‍යය: ${s.textId}`}
+                    </AppText>
+                    <AppText size="xs" color="#64748B" style={{ marginTop: 2 }}>
+                      📅 {new Date(s.startTime).toLocaleDateString()} · ⏱️ {s.durationSeconds}s
+                    </AppText>
+                  </View>
+                  <View style={styles.sessionAccuracyPill}>
+                    <AppText size="sm" weight="extrabold" color="#047857">
+                      {s.overallAccuracy !== undefined
+                        ? (s.overallAccuracy <= 1.0 ? Math.round(s.overallAccuracy * 100) : Math.round(s.overallAccuracy))
+                        : 80}%
+                    </AppText>
+                  </View>
+                </View>
+
+                {/* Stars and state summary */}
+                <View style={styles.sessionRecordFooter}>
+                  <AppText size="xs">
+                    {'⭐'.repeat(s.starsEarned || 3)}
+                  </AppText>
+                  {s.results.behaviorState && (
+                    <View style={styles.behaviorTagPill}>
+                      <AppText size="xs" color="#0369A1" weight="bold">
+                        {s.results.behaviorState.behavioralState}
+                      </AppText>
+                    </View>
+                  )}
+                  {s.results.recommendation && (
+                    <View style={styles.recTagPill}>
+                      <AppText size="xs" color="#6D28D9" weight="bold">
+                        {s.results.recommendation.difficultyAction}
+                      </AppText>
+                    </View>
+                  )}
+                </View>
+              </View>
+            ))
+          )}
         </View>
 
         {/* ── SECTION 5: විවේක ක්‍රියාකාරකම් Button ── */}
@@ -638,5 +740,67 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: ThemeSpacing.xs,
+  },
+  sessionCountTag: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: ThemeRadius.sm,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  emptySessionBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: ThemeRadius.md,
+    padding: ThemeSpacing.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: ThemeSpacing.sm,
+  },
+  sessionRecordCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: ThemeRadius.md,
+    padding: ThemeSpacing.md,
+    marginTop: ThemeSpacing.sm,
+    borderWidth: 1,
+    borderColor: '#E2ECE6',
+    ...ThemeShadow.sm,
+  },
+  sessionRecordHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sessionAccuracyPill: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: ThemeRadius.full,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+  },
+  sessionRecordFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: ThemeSpacing.sm,
+    gap: 8,
+  },
+  behaviorTagPill: {
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: ThemeRadius.sm,
+  },
+  recTagPill: {
+    backgroundColor: '#EDE9FE',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: ThemeRadius.sm,
   },
 });

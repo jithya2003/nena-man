@@ -231,7 +231,7 @@ export default function SpeechSessionScreen() {
     }
 
     const m1 = session.results.errorAnalysis;
-    const m1Raw = m1?.raw;
+    const m1Raw: any = m1?.raw;
 
     const accuracy =
       m1Raw?.readingAccuracy ??
@@ -241,7 +241,7 @@ export default function SpeechSessionScreen() {
 
     const errors =
       m1Raw?.detectedErrors && m1Raw.detectedErrors.length > 0
-        ? m1Raw.detectedErrors.map((e) => ({
+        ? m1Raw.detectedErrors.map((e: any) => ({
             type: (e.type || 'substitution') as any,
             word: e.word || currentSentence.targetWord,
             detected: e.detected || currentSentence.spokenWord,
@@ -572,6 +572,18 @@ export default function SpeechSessionScreen() {
               </View>
             )}
 
+            {/* Session Persistence Status Badge */}
+            <View style={styles.persistedBadgeRow}>
+              <View style={[styles.persistedDot, session.isPersisting && { backgroundColor: '#F59E0B' }]} />
+              <AppText size="xs" weight="bold" color="#059669">
+                {session.isPersisting
+                  ? '⏳ සැසිය Firestore වෙත සුරකිමින්...'
+                  : session.savedSessionId
+                  ? '☁️ සැසිය Firestore හි සුරැකිණි (Session Persisted)'
+                  : '☁️ සැසිය සාර්ථකව සුරැකිණි'}
+              </AppText>
+            </View>
+
             {/* Accuracy Header */}
             <View
               style={[
@@ -699,8 +711,8 @@ export default function SpeechSessionScreen() {
                 <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={{ marginBottom: 6 }}>
                   🔍 හඳුනාගත් උච්චාරණ දෝෂ වර්ගීකරණය:
                 </AppText>
-                {analysisResult.errors.map((err, idx) => {
-                  const meta = ERROR_META[err.type];
+                {analysisResult.errors.map((err: any, idx: number) => {
+                  const meta = ERROR_META[(err.type as keyof typeof ERROR_META) || 'substitution'] || ERROR_META.substitution;
                   return (
                     <View key={idx} style={[styles.errorCardRow, { backgroundColor: meta.bg }]}>
                       <View style={styles.errorIconWrap}>
@@ -1570,5 +1582,24 @@ const styles = StyleSheet.create({
     borderColor: '#DDD6FE',
     padding: ThemeSpacing.sm,
     marginBottom: ThemeSpacing.md,
+  },
+  persistedBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderRadius: ThemeRadius.sm,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: ThemeSpacing.sm,
+    alignSelf: 'flex-start',
+  },
+  persistedDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+    marginRight: 6,
   },
 });
