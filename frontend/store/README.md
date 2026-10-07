@@ -10,7 +10,7 @@ Zustand-powered stores that act as the **single source of truth** for data share
 |:---|:---|:---:|
 | `authStore.ts` | Logged-in user snapshot (uid, name, email, role) | ❌ |
 | `childStore.ts` | Selected child + full children list | ✅ `@nena_man_child_store` |
-| `sessionStore.ts` | One active reading session end-to-end | ❌ |
+| `sessionStore.ts` | One active reading session end-to-end | ✅ `@nena_man_session_store` |
 | `settingsStore.ts` | Language, font size, accessibility flags | ✅ `@nena_man_settings_store` |
 | `networkStore.ts` | `isOnline` boolean | ❌ |
 | `types.ts` | All shared TypeScript interfaces | — |

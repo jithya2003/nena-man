@@ -14,7 +14,9 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSessionStoreBase } from '@/store/sessionStore';
-import { useSessionResults, useIsOnline, useCurrentChild } from '@/store/hooks';
+import { useSessionResults, useIsOnline, useCurrentChild, useAuthStore } from '@/store/hooks';
+import { sessionService } from '@/services/sessionService';
+import type { ReadingSessionRecord } from '@/types';
 import { runReadingSessionPipeline, PipelineResult } from '@/api/sessionPipeline';
 import {
   analyzeReading,
@@ -73,6 +75,11 @@ export interface UseReadingSessionReturn {
   hasIntervention: boolean;
   interventionType: string | null;
 
+  // Persistence Info
+  isPersisting: boolean;
+  savedSessionId: string | null;
+  saveCurrentSession: () => Promise<string | null>;
+
   // Actions
   startRecording: () => Promise<boolean>;
   stopRecording: () => Promise<void>;
@@ -107,13 +114,16 @@ export function useReadingSession({
   const [lastAudioUri, setLastAudioUri] = useState<string | null>(null);
   const [pendingOfflineAudioUri, setPendingOfflineAudioUri] = useState<string | null>(null);
   const [isRetryingModule, setIsRetryingModule] = useState<PipelineModule | null>(null);
+  const [isPersisting, setIsPersisting] = useState<boolean>(false);
+  const [savedSessionId, setSavedSessionId] = useState<string | null>(null);
+  const { user } = useAuthStore();
 
   // Resolved grade level (from props, child profile, or default to Grade 2)
   const effectiveGradeLevel = useMemo(() => {
     if (propGradeLevel !== undefined) return propGradeLevel;
-    if (currentChild?.gradeLevel) return currentChild.gradeLevel;
+    if (currentChild?.grade) return currentChild.grade;
     return 2;
-  }, [propGradeLevel, currentChild?.gradeLevel]);
+  }, [propGradeLevel, currentChild?.grade]);
 
   // ---------------------------------------------------------------------------
   // 1. Reactive Progressive Loading Stage Calculation
@@ -192,6 +202,9 @@ export function useReadingSession({
           } else {
             setSessionStatus('done');
           }
+
+          // Automatically persist completed reading session data to Firestore & local storage
+          persistCompletedSession();
 
           onSuccess?.();
         } else {
@@ -309,7 +322,7 @@ export function useReadingSession({
 
           case 'behaviorState': {
             const currentResults = useSessionStoreBase.getState().results;
-            const m1Raw = currentResults.errorAnalysis?.raw;
+            const m1Raw: any = currentResults.errorAnalysis?.raw;
             const behaviorInput: BehaviorStateInput = {
               faceVisibility: true,
               eyeGaze: 'center',
@@ -346,15 +359,15 @@ export function useReadingSession({
 
           case 'recommendation': {
             const currentResults = useSessionStoreBase.getState().results;
-            const m1Raw = currentResults.errorAnalysis?.raw;
-            const m2Raw = currentResults.textDifficulty?.raw;
-            const m4Raw = currentResults.behaviorState?.raw;
+            const m1Raw: any = currentResults.errorAnalysis?.raw;
+            const m2Raw: any = currentResults.textDifficulty?.raw;
+            const m4Raw: any = currentResults.behaviorState?.raw;
 
             const recInput: RecommendationInput = {
               readingAccuracy: m1Raw?.readingAccuracy ?? 80,
               errorPatternSummary: m1Raw?.errorPatternSummary ?? 'Mild hesitation',
-              difficultyLevel: m2Raw?.difficultyLevel ?? 'Medium',
-              behavioralState: m4Raw?.behavioralState ?? 'Engaged',
+              difficultyLevel: (m2Raw?.difficultyLevel ?? 'Medium') as any,
+              behavioralState: (m4Raw?.behavioralState ?? 'Engaged') as any,
               responseLatency: 1.2,
               previousAccuracy: m1Raw?.readingAccuracy ?? 80,
               activityHistory: [text.id],
@@ -391,11 +404,127 @@ export function useReadingSession({
   }, [lastAudioUri, executePipeline]);
 
   // ---------------------------------------------------------------------------
-  // 7. Session Completion and Reset
+  // 7. Session Persistence Handler
+  // ---------------------------------------------------------------------------
+  const persistCompletedSession = useCallback(async (): Promise<string | null> => {
+    const state = useSessionStoreBase.getState();
+    const sessionId = state.sessionId;
+    const currentResults = state.results;
+
+    if (!sessionId || !currentResults.errorAnalysis) {
+      return null;
+    }
+
+    const startTime = state.startTime || Date.now() - 30000;
+    const endTime = Date.now();
+    const durationSeconds = Math.max(1, Math.round((endTime - startTime) / 1000));
+
+    const m1Raw: any = currentResults.errorAnalysis.raw;
+    const m2Raw: any = currentResults.textDifficulty?.raw;
+    const m4Raw: any = currentResults.behaviorState?.raw;
+    const m3Raw: any = currentResults.recommendation?.raw;
+
+    const rawAcc = m1Raw?.readingAccuracy;
+    const accuracy =
+      rawAcc !== undefined
+        ? (rawAcc <= 1.0 ? Math.round(rawAcc * 100) : Math.round(rawAcc))
+        : Math.round((1 - currentResults.errorAnalysis.severity) * 100);
+
+    const rawFluency = m1Raw?.fluencyScore;
+    const fluencyScore =
+      rawFluency !== undefined
+        ? (rawFluency <= 1.0 ? Math.round(rawFluency * 100) : Math.round(rawFluency))
+        : 80;
+
+    const childId = currentChild?.id || user?.uid || 'child_default';
+    const childName = currentChild?.name || user?.name || 'ශිෂ්‍යයා';
+
+    const record: ReadingSessionRecord = {
+      sessionId,
+      childId,
+      childName,
+      textId: text.id,
+      textContent: text.content,
+      startTime,
+      endTime,
+      durationSeconds,
+      status: 'completed',
+      starsEarned: accuracy >= 85 ? 3 : accuracy >= 60 ? 2 : 1,
+      overallAccuracy: accuracy,
+      createdAt: new Date().toISOString(),
+      results: {
+        errorAnalysis: {
+          accuracy,
+          severity: currentResults.errorAnalysis.severity,
+          errorCount: m1Raw?.errorCount ?? 0,
+          readingSpeed: m1Raw?.readingSpeed ?? 30,
+          pauseDuration: m1Raw?.pauseDuration ?? 1.2,
+          hesitationCount: m1Raw?.hesitationCount ?? 0,
+          fluencyScore,
+          words: currentResults.errorAnalysis.words || [],
+          errors: m1Raw?.detectedErrors || [],
+          transcription: m1Raw?.transcription || '',
+        },
+        textDifficulty: currentResults.textDifficulty
+          ? {
+              difficultyLevel: currentResults.textDifficulty.difficulty,
+              support: currentResults.textDifficulty.support,
+              simplificationNeeded: Boolean(m2Raw?.simplificationNeeded),
+              simplifiedText: m2Raw?.simplifiedText || null,
+              ruleApplied: m2Raw?.simplificationRule || '',
+            }
+          : null,
+        behaviorState: currentResults.behaviorState
+          ? {
+              behavioralState: currentResults.behaviorState.state,
+              predictionConfidence: currentResults.behaviorState.confidence,
+              interventionRequired: Boolean(currentResults.behaviorState.intervention),
+              recommendedIntervention: (currentResults.behaviorState.intervention as any) || null,
+              engagementScore: m4Raw?.engagementScore ?? 85,
+              fatigueLevel: m4Raw?.fatigueLevel ?? 0.2,
+              voiceMetrics: {
+                readingSpeed: m1Raw?.readingSpeed ?? 30,
+                hesitationCount: m1Raw?.hesitationCount ?? 0,
+                pauseDuration: m1Raw?.pauseDuration ?? 1.2,
+                fluencyScore: m1Raw?.fluencyScore ?? 80,
+              },
+            }
+          : null,
+        recommendation: currentResults.recommendation
+          ? {
+              difficultyAction: currentResults.recommendation.transition,
+              nextActivity: currentResults.recommendation.nextActivity,
+              recommendedActivities: m3Raw?.recommendedActivities || [],
+              rationale: currentResults.recommendation.rationale || [],
+            }
+          : null,
+      },
+    };
+
+    try {
+      setIsPersisting(true);
+      const res = await sessionService.saveCompletedSession(record);
+      state.markAsSaved(res.id);
+      setSavedSessionId(res.id);
+      return res.id;
+    } catch (saveErr) {
+      console.warn('[useReadingSession] Error persisting session:', saveErr);
+      return null;
+    } finally {
+      setIsPersisting(false);
+    }
+  }, [currentChild?.id, currentChild?.name, user?.uid, user?.name, text.id, text.content]);
+
+  // ---------------------------------------------------------------------------
+  // 8. Session Completion and Reset
   // ---------------------------------------------------------------------------
   const endSession = useCallback(() => {
     useSessionStoreBase.getState().endSession();
-  }, []);
+    // Ensure persisted if not already saved
+    if (!useSessionStoreBase.getState().isSavedToCloud) {
+      persistCompletedSession();
+    }
+  }, [persistCompletedSession]);
 
   const resetSession = useCallback(() => {
     useSessionStoreBase.getState().resetSession();
@@ -403,6 +532,7 @@ export function useReadingSession({
     setSessionStatus('idle');
     setLastAudioUri(null);
     setPendingOfflineAudioUri(null);
+    setSavedSessionId(null);
     setPipelineErrors({
       readingAnalysis: undefined,
       textDifficulty: undefined,
@@ -424,6 +554,9 @@ export function useReadingSession({
     errors: pipelineErrors,
     hasIntervention,
     interventionType,
+    isPersisting,
+    savedSessionId,
+    saveCurrentSession: persistCompletedSession,
     startRecording,
     stopRecording,
     retryStep,

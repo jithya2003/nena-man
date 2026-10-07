@@ -1,9 +1,9 @@
 /**
  * nena-man · frontend/store/sessionStore.ts
- * In-memory store for one active reading session end-to-end.
+ * Persisted store for active reading session end-to-end.
  *
- * NOT persisted — a session is live, in-flight state only.
- * If the app restarts mid-recording the session is cleanly discarded.
+ * Persisted via Zustand's `persist` middleware using AppStorage so an
+ * active session survives an app restart or page refresh without losing in-flight state.
  *
  * Lifecycle:
  *   1. startSession(textId)        — creates session ID + timestamps it
@@ -11,7 +11,8 @@
  *   3. setRecordingStatus(status)  — tracks the audio pipeline state
  *   4. attachResult(module, data)  — stores each module's API response
  *   5. endSession()                — marks session complete (keeps results for review)
- *   6. resetSession()              — full wipe (called on logout or new session start)
+ *   6. markAsSaved(sessionId)     — flags that the session has been persisted to Firestore
+ *   7. resetSession()              — clears active session state for next run
  *
  * Usage:
  *   import { useSession } from '@/store/hooks';
@@ -19,6 +20,7 @@
  */
 
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
   RecordingStatus,
   SessionText,
@@ -28,6 +30,7 @@ import type {
   BehaviorStateResult,
   RecommendationResult,
 } from './types';
+import { zustandStorage } from './_storageAdapter';
 
 /** Maps module names to their result types for type-safe attachResult(). */
 type ModuleResultMap = {
@@ -48,6 +51,10 @@ interface SessionState {
   recordingStatus: RecordingStatus;
   /** Results from each of the four analysis modules. */
   results: SessionResults;
+  /** ID of the session after being persisted to Firestore */
+  lastSavedSessionId: string | null;
+  /** Whether the current session results have been written to Firestore/local storage */
+  isSavedToCloud: boolean;
 
   // ── Actions ─────────────────────────────────────────────────────────────────
 
@@ -66,9 +73,6 @@ interface SessionState {
   /**
    * Attach a module's result to the session.
    * Type-safe: TypeScript infers the correct result shape from the module name.
-   *
-   * Example:
-   *   attachResult('errorAnalysis', { words: [...], severity: 0.3 });
    */
   attachResult: <K extends keyof ModuleResultMap>(
     moduleName: K,
@@ -78,7 +82,10 @@ interface SessionState {
   /** Mark session as done. Keeps results in store for the results screen. */
   endSession: () => void;
 
-  /** Full reset — clears all session data. Called on logout or new session start. */
+  /** Mark that this session has been persisted to Firestore/local DB. */
+  markAsSaved: (sessionId: string) => void;
+
+  /** Full reset — clears active session data. Called on logout or new session start. */
   resetSession: () => void;
 }
 
@@ -89,49 +96,75 @@ const EMPTY_RESULTS: SessionResults = {
   recommendation: null,
 };
 
-/** Generates a lightweight session ID: timestamp + 4 random chars. */
-const generateSessionId = (): string =>
-  `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+/** Generates a unique session ID: timestamp + random alphanumeric chars. */
+export const generateSessionId = (): string =>
+  `session_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
-export const useSessionStoreBase = create<SessionState>()((set) => ({
-  sessionId: null,
-  startTime: null,
-  currentText: null,
-  recordingStatus: 'idle',
-  results: { ...EMPTY_RESULTS },
-
-  startSession: (textId) =>
-    set({
-      sessionId: generateSessionId(),
-      startTime: Date.now(),
-      currentText: null, // set later via setCurrentText once text is loaded
-      recordingStatus: 'idle',
-      results: { ...EMPTY_RESULTS },
-      // textId is embedded in the sessionId structure for tracing — store it
-      // on currentText once available.
-      _pendingTextId: textId,
-    } as Partial<SessionState> & { _pendingTextId: string }),
-
-  setCurrentText: (text) => set({ currentText: text }),
-
-  setRecordingStatus: (status) => set({ recordingStatus: status }),
-
-  attachResult: (moduleName, data) =>
-    set((state) => ({
-      results: {
-        ...state.results,
-        [moduleName]: data,
-      },
-    })),
-
-  endSession: () => set({ recordingStatus: 'done' }),
-
-  resetSession: () =>
-    set({
+export const useSessionStoreBase = create<SessionState>()(
+  persist(
+    (set) => ({
       sessionId: null,
       startTime: null,
       currentText: null,
       recordingStatus: 'idle',
       results: { ...EMPTY_RESULTS },
+      lastSavedSessionId: null,
+      isSavedToCloud: false,
+
+      startSession: (textId) =>
+        set({
+          sessionId: generateSessionId(),
+          startTime: Date.now(),
+          currentText: null,
+          recordingStatus: 'idle',
+          results: { ...EMPTY_RESULTS },
+          lastSavedSessionId: null,
+          isSavedToCloud: false,
+          _pendingTextId: textId,
+        } as Partial<SessionState> & { _pendingTextId: string }),
+
+      setCurrentText: (text) => set({ currentText: text }),
+
+      setRecordingStatus: (status) => set({ recordingStatus: status }),
+
+      attachResult: (moduleName, data) =>
+        set((state) => ({
+          results: {
+            ...state.results,
+            [moduleName]: data,
+          },
+        })),
+
+      endSession: () => set({ recordingStatus: 'done' }),
+
+      markAsSaved: (savedId: string) =>
+        set({
+          lastSavedSessionId: savedId,
+          isSavedToCloud: true,
+        }),
+
+      resetSession: () =>
+        set({
+          sessionId: null,
+          startTime: null,
+          currentText: null,
+          recordingStatus: 'idle',
+          results: { ...EMPTY_RESULTS },
+          isSavedToCloud: false,
+        }),
     }),
-}));
+    {
+      name: '@nena_man_session_store',
+      storage: createJSONStorage(() => zustandStorage),
+      partialize: (state) => ({
+        sessionId: state.sessionId,
+        startTime: state.startTime,
+        currentText: state.currentText,
+        recordingStatus: state.recordingStatus,
+        results: state.results,
+        lastSavedSessionId: state.lastSavedSessionId,
+        isSavedToCloud: state.isSavedToCloud,
+      }),
+    }
+  )
+);
