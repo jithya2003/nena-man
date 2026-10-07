@@ -56,6 +56,7 @@ export interface UserProfile {
   uid: string;
   email: string;
   displayName: string;
+  fullName?: string;
   role: UserRole;
   age?: number;
   grade?: number;
@@ -274,3 +275,6 @@ export interface ErrorBreakdown {
   reversal: number;
   hesitation: number;
 }
+
+// ── Session Persistence (Firestore sessions/{sessionId}) ───────────────────
+export * from './session';
