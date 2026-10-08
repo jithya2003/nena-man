@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -28,6 +28,7 @@ import { useRouter as useRouterM2 } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useChildStoreBase } from "@/store/childStore";
+import { CHARACTER_AVATAR_SOURCES } from "@/assets/avatars";
 
 // ── M2 AI Simplification Card ─────────────────────────────────────────────────
 function M2SimplificationCard() {
@@ -349,6 +350,7 @@ export default function StudentDashboard() {
       useChildStoreBase.getState().setCurrentGuardian(activeGuardian);
 
       if (user) {
+        const activeAvatar = currentChild?.avatar || user.avatar;
         useChildStoreBase.getState().setCurrentChild({
           id: user.uid,
           name: user.displayName || 'ශිෂ්‍යයා',
@@ -359,6 +361,7 @@ export default function StudentDashboard() {
           stars: 10,
           totalSessions: 0,
           avatarColor: '#4F46E5',
+          avatar: activeAvatar,
         });
       }
 
@@ -369,6 +372,27 @@ export default function StudentDashboard() {
   };
 
   const currentChild = useChildStoreBase((s) => s.currentChild);
+  const isParentOrTeacher = user?.role === 'parent' || user?.role === 'teacher';
+
+  // Ensure currentChild is populated in childStore when a child user is active
+  useEffect(() => {
+    if (!currentChild && user?.uid && !isParentOrTeacher) {
+      useChildStoreBase.getState().setCurrentChild({
+        id: user.uid,
+        name: user.displayName || 'ශිෂ්‍යයා',
+        age: user.age || 7,
+        grade: user.grade || 2,
+        readingLevel: 'medium',
+        streak: 1,
+        stars: 10,
+        totalSessions: 0,
+        avatarColor: '#4F46E5',
+        avatar: user.avatar,
+      });
+    }
+  }, [currentChild, user, isParentOrTeacher]);
+
+  const childAvatar = currentChild?.avatar || user?.avatar;
   const rawProfileName = user?.role === 'child'
     ? (user?.displayName || user?.fullName || '')
     : (currentChild?.name || user?.displayName || user?.fullName || '');
@@ -474,7 +498,21 @@ export default function StudentDashboard() {
             style={styles.welcomeAvatarTouch}
             accessibilityLabel="Go to Profile"
           >
-            <StudentAvatarPhoto size={48} showEditBadge={false} />
+            {childAvatar?.type === 'character' && CHARACTER_AVATAR_SOURCES[childAvatar.value] ? (
+              <Image
+                source={CHARACTER_AVATAR_SOURCES[childAvatar.value]}
+                style={styles.homeAvatarImage}
+                resizeMode="cover"
+              />
+            ) : childAvatar?.type === 'photo' && childAvatar.value ? (
+              <Image
+                source={{ uri: childAvatar.value }}
+                style={styles.homeAvatarImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <StudentAvatarPhoto size={48} showEditBadge={false} />
+            )}
           </TouchableOpacity>
         </View>
 
@@ -939,6 +977,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#EAF7EE",
     borderWidth: 2,
     borderColor: "#A7F3D0",
+  },
+  homeAvatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   redDot: {
     position: "absolute",

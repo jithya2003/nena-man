@@ -34,6 +34,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   switchRole: (role: UserRole) => void;
   setUserSession: (user: UserProfile, token: string) => Promise<void>;
+  updateUser: (updates: Partial<UserProfile>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -173,6 +174,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateUser = (updates: Partial<UserProfile>) => {
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, ...updates };
+      AppStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updated)).catch((err) => {
+        console.warn('[AuthContext] AppStorage update warning:', err);
+      });
+      if (updates.displayName || updates.role) {
+        storeSetUser({
+          uid: updated.uid,
+          name: updated.displayName,
+          email: updated.email,
+          role: updated.role,
+        });
+      }
+      return updated;
+    });
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -187,6 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         switchRole,
         setUserSession,
+        updateUser,
       }}
     >
       {children}

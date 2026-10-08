@@ -8,6 +8,8 @@
 export type {
   UserRole,
   Child,
+  CharacterAvatarId,
+  ChildAvatar,
   DifficultyLevel,
   BehaviorState,
   Intervention,

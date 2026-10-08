@@ -7,6 +7,7 @@ import {
   Switch,
   Platform,
   Alert,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,13 +22,18 @@ import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { StudentAvatarPhoto } from '@/components/Illustrations';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { connectionService } from '@/services/connectionService';
+import { Child, LinkedPerson, ChildAvatar } from '@/types';
+import AvatarPickerModal from '@/components/AvatarPickerModal';
+import EditProfileModal from '@/components/EditProfileModal';
+import { CHARACTER_AVATAR_SOURCES } from '@/assets/avatars';
 import { useChildStoreBase } from '@/store/childStore';
-import { LinkedPerson } from '@/types';
 
 export default function StudentProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const currentChild = useChildStoreBase((s) => s.currentChild);
   const isParentOrTeacher = user?.role === 'parent' || user?.role === 'teacher';
 
@@ -36,7 +42,64 @@ export default function StudentProfileScreen() {
   const [connectedGuardians, setConnectedGuardians] = useState<LinkedPerson[]>([]);
   const [connectedChildren, setConnectedChildren] = useState<LinkedPerson[]>([]);
 
-  const studentGradeNumber = user?.grade || 2;
+  // Modals state
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Local reactive states for instantaneous UI updates without waiting on external store sync
+  const [localAvatar, setLocalAvatar] = useState<ChildAvatar | undefined>(
+    currentChild?.avatar || user?.avatar
+  );
+  const [localProfile, setLocalProfile] = useState<{
+    name?: string;
+    grade?: number;
+    age?: number;
+  }>({});
+
+  // Sync localAvatar if store or user changes externally
+  useEffect(() => {
+    if (currentChild?.avatar) {
+      setLocalAvatar(currentChild.avatar);
+    } else if (user?.avatar) {
+      setLocalAvatar(user.avatar);
+    }
+  }, [currentChild?.avatar, user?.avatar]);
+
+  // Ensure currentChild is populated in childStore when a child user is active
+  useEffect(() => {
+    if (!currentChild && user?.uid && !isParentOrTeacher) {
+      useChildStoreBase.getState().setCurrentChild({
+        id: user.uid,
+        name: user.displayName || 'ශිෂ්‍යයා',
+        age: user.age || 7,
+        grade: user.grade || 2,
+        readingLevel: 'medium',
+        streak: 1,
+        stars: 10,
+        totalSessions: 0,
+        avatarColor: '#4F46E5',
+        avatar: user.avatar,
+      });
+    }
+  }, [currentChild, user, isParentOrTeacher]);
+
+  const activeChildId = currentChild?.id || user?.uid || '';
+  const effectiveChild: Child = currentChild || {
+    id: user?.uid || '',
+    name: localProfile.name || user?.displayName || 'ශිෂ්‍යයා',
+    age: localProfile.age || user?.age || 7,
+    grade: localProfile.grade || user?.grade || 2,
+    readingLevel: 'medium',
+    streak: 1,
+    stars: 10,
+    totalSessions: 0,
+    avatarColor: '#4F46E5',
+    avatar: localAvatar || user?.avatar,
+  };
+
+  const childAvatar = localAvatar || currentChild?.avatar || user?.avatar;
+  const activeChildName = localProfile.name || currentChild?.name || user?.displayName || 'ශිෂ්‍ය ගිණුම';
+  const studentGradeNumber = localProfile.grade || currentChild?.grade || user?.grade || 2;
   const studentCode = connectionService.getStudentCode(user?.uid || '', user?.studentCode);
 
   useEffect(() => {
@@ -58,6 +121,11 @@ export default function StudentProfileScreen() {
   }, [user?.uid, user?.email, isParentOrTeacher]);
 
   const handleSwitchToChildSession = (child: LinkedPerson) => {
+    const childStoreState = useChildStoreBase.getState();
+    const existingChild = childStoreState.children.find((c) => c.id === child.uid);
+    const existingCurrent = childStoreState.currentChild?.id === child.uid ? childStoreState.currentChild : null;
+    const resolvedAvatar = existingCurrent?.avatar || existingChild?.avatar || (user?.uid === child.uid ? user?.avatar : undefined);
+
     useChildStoreBase.getState().setCurrentChild({
       id: child.uid,
       name: child.name,
@@ -68,6 +136,7 @@ export default function StudentProfileScreen() {
       stars: 10,
       totalSessions: 0,
       avatarColor: '#4F46E5',
+      avatar: resolvedAvatar,
     });
     router.replace('/(child)/home');
   };
@@ -206,13 +275,54 @@ export default function StudentProfileScreen() {
               <AppText size="xxl">{user?.role === 'teacher' ? '👩‍🏫' : '👨‍👩‍👧'}</AppText>
             </View>
           ) : (
-            <StudentAvatarPhoto size={76} showEditBadge={true} style={styles.avatarMargin} />
+            <TouchableOpacity
+              onPress={() => setIsAvatarModalOpen(true)}
+              activeOpacity={0.85}
+              style={styles.avatarMargin}
+              accessibilityLabel="Change profile avatar"
+            >
+              {childAvatar?.type === 'character' && CHARACTER_AVATAR_SOURCES[childAvatar.value] ? (
+                <View style={styles.customAvatarWrapper}>
+                  <Image
+                    source={CHARACTER_AVATAR_SOURCES[childAvatar.value]}
+                    style={styles.customAvatarImage}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.editBadge}>
+                    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M 3 17.25 L 3 21 L 6.75 21 L 17.81 9.94 L 14.06 6.19 L 3 17.25 Z M 20.71 7.04 C 21.1 6.65 21.1 6.02 20.71 5.63 L 18.37 3.29 C 17.98 2.9 17.35 2.9 16.96 3.29 L 15.13 5.12 L 18.88 8.87 L 20.71 7.04 Z"
+                        fill="#FFFFFF"
+                      />
+                    </Svg>
+                  </View>
+                </View>
+              ) : childAvatar?.type === 'photo' && childAvatar.value ? (
+                <View style={styles.customAvatarWrapper}>
+                  <Image
+                    source={{ uri: childAvatar.value }}
+                    style={styles.customAvatarImage}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.editBadge}>
+                    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M 3 17.25 L 3 21 L 6.75 21 L 17.81 9.94 L 14.06 6.19 L 3 17.25 Z M 20.71 7.04 C 21.1 6.65 21.1 6.02 20.71 5.63 L 18.37 3.29 C 17.98 2.9 17.35 2.9 16.96 3.29 L 15.13 5.12 L 18.88 8.87 L 20.71 7.04 Z"
+                        fill="#FFFFFF"
+                      />
+                    </Svg>
+                  </View>
+                </View>
+              ) : (
+                <StudentAvatarPhoto size={76} showEditBadge={true} />
+              )}
+            </TouchableOpacity>
           )}
 
           <AppText size="xl" weight="extrabold" color={ThemeColors.textPrimary} style={styles.studentName}>
             {isParentOrTeacher
               ? (user?.displayName || (user?.role === 'teacher' ? 'පන්ති භාර ගුරුතුමා' : 'දෙමාපියන්'))
-              : (user?.displayName || 'ශිෂ්‍ය ගිණුම')}
+              : activeChildName}
           </AppText>
 
           <AppText size="xs" color={ThemeColors.textSecondary} style={styles.schoolSubtitle}>
@@ -224,12 +334,18 @@ export default function StudentProfileScreen() {
           {/* Edit Profile Button */}
           <TouchableOpacity
             style={styles.editProfileBtn}
-            onPress={() => router.push('/(settings)/settings')}
+            onPress={() => {
+              if (isParentOrTeacher) {
+                router.push('/(settings)/settings');
+              } else {
+                setIsEditModalOpen(true);
+              }
+            }}
             activeOpacity={0.8}
           >
-            <AppText size="xs">{isParentOrTeacher ? '⚙️' : '👤'}</AppText>
+            <AppText size="xs">{isParentOrTeacher ? '⚙️' : '✏️'}</AppText>
             <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={{ marginLeft: 4 }}>
-              {isParentOrTeacher ? 'සැකසුම් (Settings)' : 'පැතිකඩ සංස්කරණය'}
+              {isParentOrTeacher ? 'සැකසුම් (Settings)' : t('profile.editProfile')}
             </AppText>
           </TouchableOpacity>
         </View>
@@ -656,6 +772,23 @@ export default function StudentProfileScreen() {
 
       {/* 5-Tab Sinhala Bottom Navigation with Profile Active (Child Only) */}
       {!isParentOrTeacher && <BottomNav role="child" activeTab="profile" />}
+
+      {/* ── Modals ── */}
+      <AvatarPickerModal
+        visible={isAvatarModalOpen}
+        onClose={() => setIsAvatarModalOpen(false)}
+        currentAvatar={childAvatar}
+        childId={activeChildId}
+        onAvatarSelect={(avatar) => setLocalAvatar(avatar)}
+      />
+
+      <EditProfileModal
+        visible={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        child={effectiveChild}
+        childId={activeChildId}
+        onProfileSaved={(updates) => setLocalProfile(updates)}
+      />
     </SafeAreaView>
   );
 }
@@ -707,6 +840,38 @@ const styles = StyleSheet.create({
     marginBottom: ThemeSpacing.sm,
     borderWidth: 2,
     borderColor: '#BAE6FD',
+  },
+  avatarMargin: {
+    marginBottom: ThemeSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customAvatarWrapper: {
+    position: 'relative',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+  customAvatarImage: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: ThemeColors.primary,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   connectMiniBtn: {
     backgroundColor: ThemeColors.primary,

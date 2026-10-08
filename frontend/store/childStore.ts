@@ -34,6 +34,8 @@ interface ChildState {
   setChildren: (list: Child[]) => void;
   /** Deselect the current child (called on logout). */
   clearCurrentChild: () => void;
+  /** Update specific fields of a child locally in state and list. */
+  updateChild: (childId: string, updates: Partial<Child>) => void;
 }
 
 export const useChildStoreBase = create<ChildState>()(
@@ -43,10 +45,54 @@ export const useChildStoreBase = create<ChildState>()(
       children: [],
       currentGuardian: null,
 
-      setCurrentChild: (child) => set({ currentChild: child }),
+      setCurrentChild: (child) =>
+        set((state) => {
+          const existingChild = state.children.find((c) => c.id === child.id);
+          const currentMatching = state.currentChild?.id === child.id ? state.currentChild : null;
+          const preservedAvatar = child.avatar || currentMatching?.avatar || existingChild?.avatar;
+
+          const updatedChild: Child = {
+            ...child,
+            ...(preservedAvatar ? { avatar: preservedAvatar } : {}),
+          };
+
+          return { currentChild: updatedChild };
+        }),
       setCurrentGuardian: (guardian) => set({ currentGuardian: guardian }),
       setChildren: (list) => set({ children: list }),
       clearCurrentChild: () => set({ currentChild: null, currentGuardian: null, children: [] }),
+      updateChild: (childId, updates) =>
+        set((state) => {
+          let updatedCurrent = state.currentChild;
+          if (state.currentChild && state.currentChild.id === childId) {
+            updatedCurrent = { ...state.currentChild, ...updates };
+          } else if (!state.currentChild && childId) {
+            updatedCurrent = {
+              id: childId,
+              name: 'ශිෂ්‍යයා',
+              age: 7,
+              grade: 2,
+              readingLevel: 'medium',
+              streak: 1,
+              stars: 10,
+              totalSessions: 0,
+              avatarColor: '#4F46E5',
+              ...updates,
+            };
+          }
+
+          const hasChild = state.children.some((c) => c.id === childId);
+          const updatedChildren = hasChild
+            ? state.children.map((c) => (c.id === childId ? { ...c, ...updates } : c))
+            : updatedCurrent
+            ? [...state.children, updatedCurrent]
+            : state.children;
+
+          return {
+            currentChild: updatedCurrent,
+            children: updatedChildren,
+          };
+        }),
     }),
     {
       name: '@nena_man_child_store',

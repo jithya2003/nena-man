@@ -217,6 +217,7 @@ export const authService = {
             studentCode: docData.studentCode,
             linkedChildren: docData.linkedChildren,
             linkedGuardians: docData.linkedGuardians,
+            avatar: docData.avatar || docData.childProfile?.avatar,
           };
         }
       } catch (firestoreErr) {
