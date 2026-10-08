@@ -7,6 +7,12 @@
 
 export type UserRole = 'child' | 'parent' | 'teacher';
 
+export type CharacterAvatarId = 'lion' | 'elephant' | 'owl' | 'rabbit';
+
+export type ChildAvatar =
+  | { type: 'character'; value: CharacterAvatarId }
+  | { type: 'photo'; value: string }; // base64 data URI
+
 export interface Child {
   id: string;
   name: string;
@@ -17,6 +23,7 @@ export interface Child {
   stars: number;
   totalSessions: number;
   avatarColor: string;
+  avatar?: ChildAvatar;
 }
 
 export interface ParentUser {
@@ -67,6 +74,7 @@ export interface UserProfile {
   studentCode?: string;
   linkedChildren?: LinkedPerson[];
   linkedGuardians?: LinkedPerson[];
+  avatar?: ChildAvatar;
 }
 
 export interface RegisterData {
