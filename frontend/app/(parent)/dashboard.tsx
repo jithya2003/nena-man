@@ -135,6 +135,11 @@ export default function ParentDashboardScreen() {
 
   const applySwitchToChild = (selected: LinkedPerson) => {
     setShowChildSelectModal(false);
+    const childStoreState = useChildStoreBase.getState();
+    const existingChild = childStoreState.children.find((c) => c.id === selected.uid);
+    const existingCurrent = childStoreState.currentChild?.id === selected.uid ? childStoreState.currentChild : null;
+    const resolvedAvatar = existingCurrent?.avatar || existingChild?.avatar || (user?.uid === selected.uid ? user?.avatar : undefined);
+
     useChildStoreBase.getState().setCurrentChild({
       id: selected.uid,
       name: selected.name,
@@ -145,6 +150,7 @@ export default function ParentDashboardScreen() {
       stars: 10,
       totalSessions: 0,
       avatarColor: '#4F46E5',
+      avatar: resolvedAvatar,
     });
 
     router.replace('/(child)/home');
