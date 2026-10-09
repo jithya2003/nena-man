@@ -29,11 +29,15 @@ import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useChildStoreBase } from "@/store/childStore";
 import { CHARACTER_AVATAR_SOURCES } from "@/assets/avatars";
+import DevicePermissionModal from "@/components/DevicePermissionModal";
+import { useConsentPrivacy } from "@/hooks/useConsentPrivacy";
 
 // ── M2 AI Simplification Card ─────────────────────────────────────────────────
 function M2SimplificationCard() {
   const [simplified, setSimplified] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const { hasActiveConsent } = useConsentPrivacy();
   const router = useRouterM2();
   const { t } = useLanguage();
 
@@ -62,10 +66,21 @@ function M2SimplificationCard() {
             🪄 AI මැජික් සහායකයා
           </AppText>
         </View>
-        <View style={m2Styles.badgePill}>
-          <AppText size="xs" weight="bold" color="#B45309">
-            ✨ පහසු කියවීම
-          </AppText>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <TouchableOpacity
+            onPress={() => router.push("/(child)/consent-privacy")}
+            style={m2Styles.privacyBadge}
+            activeOpacity={0.7}
+          >
+            <AppText size="xs" weight="bold" color="#047857">
+              🛡️ දෙමාපිය අවසර
+            </AppText>
+          </TouchableOpacity>
+          <View style={m2Styles.badgePill}>
+            <AppText size="xs" weight="bold" color="#B45309">
+              ✨ පහසු කියවීම
+            </AppText>
+          </View>
         </View>
       </View>
 
@@ -149,7 +164,13 @@ function M2SimplificationCard() {
 
         <TouchableOpacity
           style={m2Styles.practiceBtn}
-          onPress={() => router.push("/(child)/m1-session")}
+          onPress={() => {
+            if (!hasActiveConsent) {
+              setShowPermissionModal(true);
+            } else {
+              router.push("/(child)/m1-session");
+            }
+          }}
           activeOpacity={0.8}
         >
           <AppText
@@ -163,6 +184,23 @@ function M2SimplificationCard() {
           </AppText>
         </TouchableOpacity>
       </View>
+
+      {/* Camera & Microphone Permission Dialog */}
+      <DevicePermissionModal
+        visible={showPermissionModal}
+        onClose={() => setShowPermissionModal(false)}
+        onGranted={() => router.push("/(child)/m1-session")}
+        onDenied={() => {
+          Alert.alert(
+            "දැනුම්දීම",
+            "කැමරා සහ මයික්‍රෆෝන අවසර නොමැතිව මූලික කියවීමේ සැසිය ආරම්භ වේ.",
+            [
+              { text: "අවලංගු කරන්න", style: "cancel" },
+              { text: "ඉදිරියට යන්න", onPress: () => router.push("/(child)/m1-session") },
+            ]
+          );
+        }}
+      />
     </View>
   );
 }
@@ -204,6 +242,14 @@ const m2Styles = StyleSheet.create({
     borderRadius: ThemeRadius.full,
     borderWidth: 1,
     borderColor: "#FDE68A",
+  },
+  privacyBadge: {
+    backgroundColor: "#ECFDF5",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: ThemeRadius.full,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
   },
   labelRow: {
     marginBottom: 6,

@@ -17,7 +17,7 @@ import { useSessionStoreBase } from '@/store/sessionStore';
 import { useSessionResults, useIsOnline, useCurrentChild, useAuthStore } from '@/store/hooks';
 import { sessionService } from '@/services/sessionService';
 import type { ReadingSessionRecord } from '@/types';
-import { runReadingSessionPipeline, PipelineResult } from '@/api/sessionPipeline';
+import { runReadingSessionPipeline, PipelineResult, CameraInteractionData } from '@/api/sessionPipeline';
 import {
   analyzeReading,
   analyzeText,
@@ -53,6 +53,7 @@ export interface UseReadingSessionParams {
     difficulty?: string;
   };
   gradeLevel?: number | string;
+  interactionData?: Partial<CameraInteractionData>;
   onSuccess?: () => void;
 }
 
@@ -74,6 +75,7 @@ export interface UseReadingSessionReturn {
   errors: Record<PipelineModule, ApiError | undefined>;
   hasIntervention: boolean;
   interventionType: string | null;
+  interventionRequired: boolean;
 
   // Persistence Info
   isPersisting: boolean;
@@ -92,6 +94,7 @@ export interface UseReadingSessionReturn {
 export function useReadingSession({
   text,
   gradeLevel: propGradeLevel,
+  interactionData,
   onSuccess,
 }: UseReadingSessionParams): UseReadingSessionReturn {
   const { t } = useLanguage();
@@ -124,6 +127,11 @@ export function useReadingSession({
     if (currentChild?.grade) return currentChild.grade;
     return 2;
   }, [propGradeLevel, currentChild?.grade]);
+
+  const interactionDataRef = useRef(interactionData);
+  useEffect(() => {
+    interactionDataRef.current = interactionData;
+  }, [interactionData]);
 
   // ---------------------------------------------------------------------------
   // 1. Reactive Progressive Loading Stage Calculation
@@ -180,8 +188,7 @@ export function useReadingSession({
           audioUriToProcess,
           { id: text.id, content: text.content },
           effectiveGradeLevel,
-          // TODO: Pushpakumara's module owns populating this camera/interaction telemetry later
-          {}
+          interactionDataRef.current || {}
         );
 
         setPipelineErrors({
@@ -554,6 +561,9 @@ export function useReadingSession({
     errors: pipelineErrors,
     hasIntervention,
     interventionType,
+    interventionRequired: Boolean(
+      (results.behaviorState?.raw as any)?.interventionRequired ?? hasIntervention
+    ),
     isPersisting,
     savedSessionId,
     saveCurrentSession: persistCompletedSession,
