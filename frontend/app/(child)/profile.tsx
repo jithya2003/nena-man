@@ -893,9 +893,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FECACA',
   },
-  avatarMargin: {
-    marginBottom: ThemeSpacing.sm,
-  },
   studentName: {
     marginBottom: 2,
   },

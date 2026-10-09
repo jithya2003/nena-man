@@ -4,7 +4,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,73 +24,101 @@ import AppText from '@/components/AppText';
 import Card from '@/components/Card';
 import ProgressBar from '@/components/ProgressBar';
 import NavBar from '@/components/NavBar';
-import BottomNav from '@/components/BottomNav';
-import Button from '@/components/Button';
 import M3RecommendationCard from '@/components/M3RecommendationCard';
+import EmailReportModal from '@/components/EmailReportModal';
 import { sessionService } from '@/services/sessionService';
+import { recommendationService } from '@/services/recommendationService';
 import { useCurrentChild, useAuthStore } from '@/store/hooks';
-import type { SessionData } from '@/types';
-
-const ERROR_DETAIL = {
-  substitution: {
-    label: 'Substitution Errors',
-    icon: '🔄',
-    description: 'Child replaces a word with a different word (e.g. says "ගස්" instead of "ගස").',
-    tip: 'Practice the target word in isolation with syllable split, then in short context.',
-    color: ThemeColors.m1,
-    bg: ThemeColors.m1Surface,
-    border: ThemeColors.border,
-  },
-  omission: {
-    label: 'Omission Errors',
-    icon: '❌',
-    description: 'Child skips a word or syllable while reading aloud.',
-    tip: 'Use finger-pointing or the Word Focus (L1) mode to track each akuru unit.',
-    color: ThemeColors.error,
-    bg: ThemeColors.errorSurface,
-    border: ThemeColors.errorBorder,
-  },
-  reversal: {
-    label: 'Reversal Errors',
-    icon: '↩️',
-    description: 'Child reverses letters or the order of Sinhala syllables (kombuwa/al-lakuna).',
-    tip: 'Use syllable-split support (L2) and color-coded stroke highlighting.',
-    color: ThemeColors.warning,
-    bg: ThemeColors.warningSurface,
-    border: ThemeColors.warningBorder,
-  },
-  hesitation: {
-    label: 'Hesitation & Pauses',
-    icon: '⏸️',
-    description: 'Child pauses significantly before or during a word due to cognitive load.',
-    tip: 'Reduce text complexity; use picture cues (L4) to activate semantic memory.',
-    color: ThemeColors.info,
-    bg: ThemeColors.infoSurface,
-    border: ThemeColors.infoBorder,
-  },
-};
-
-const totalErrors = Object.values(MOCK_ERROR_BREAKDOWN).reduce((a, b) => a + b, 0);
+import { useLanguage } from '@/context/LanguageContext';
+import type { SessionData, M3Response, ReadingSessionRecord } from '@/types';
 
 export default function ReportsScreen() {
   const router = useRouter();
-  const [filterSession, setFilterSession] = useState<'all' | 'recent'>('all');
+  const { language } = useLanguage();
   const [sessions, setSessions] = useState<SessionData[]>(MOCK_SESSIONS);
+  const [rawSessions, setRawSessions] = useState<ReadingSessionRecord[]>([]);
+  const [m3Data, setM3Data] = useState<M3Response>(MOCK_M3_RESPONSE);
   const [isRealData, setIsRealData] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const { currentChild } = useCurrentChild();
   const { user } = useAuthStore();
 
-  const activeChildName = currentChild?.name || user?.name || MOCK_CHILD.name;
+  const activeChildName = currentChild?.name || user?.name || (language === 'si' ? 'සෙනුලි පෙරේරා' : 'Senuli Perera');
+  const activeChildGrade = currentChild?.grade || 2;
   const activeChildId = currentChild?.id || user?.uid || 'child_default';
+
+  const ERROR_DETAIL = {
+    substitution: {
+      label: language === 'si' ? 'ආදේශන දෝෂ (Substitution)' : 'Substitution Errors',
+      icon: '🔄',
+      description: language === 'si'
+        ? 'දරුවා වචනයක් වෙනුවට වෙනත් වචනයක් හෝ ශබ්දයක් ආදේශ කර කියවීම (උදා: "ගස" වෙනුවට "ගස්" කීම).'
+        : 'Child replaces a word with a different word (e.g. says "ගස්" instead of "ගස").',
+      tip: language === 'si'
+        ? '🏡 ගෙදරදී උපදෙස්: ඉලක්කගත වචනය අක්ෂර/මාත්‍රා වලට කඩා (Syllable split) වෙන වෙනම සෙමින් කියවන්න.'
+        : '🏡 Home Tip: Practice the target word in isolation with syllable split, then in short context.',
+      color: ThemeColors.m1,
+      bg: ThemeColors.m1Surface,
+      border: ThemeColors.border,
+    },
+    omission: {
+      label: language === 'si' ? 'මඟහැරීම් දෝෂ (Omission)' : 'Omission Errors',
+      icon: '❌',
+      description: language === 'si'
+        ? 'ශබ්ද නගා කියවීමේදී අකුරු, පිල්ලම් හෝ සම්පූර්ණ වචන මඟහැරීම.'
+        : 'Child skips a word or syllable while reading aloud.',
+      tip: language === 'si'
+        ? '🏡 ගෙදරදී උපදෙස්: ඇඟිල්ල හෝ පාලකය (Ruler/Finger-pointer) තබා අකුරෙන් අකුර පෙන්වමින් කියවීමට හුරු කරන්න.'
+        : '🏡 Home Tip: Use finger-pointing or a bookmark tracker to follow each character.',
+      color: ThemeColors.error,
+      bg: ThemeColors.errorSurface,
+      border: ThemeColors.errorBorder,
+    },
+    reversal: {
+      label: language === 'si' ? 'අකුරු පෙරලීම (Reversal)' : 'Reversal Errors',
+      icon: '↩️',
+      description: language === 'si'
+        ? 'කොම්බුව, ඇලපිල්ල හෝ අකුරු පිළිවෙළ මාරු කර කියවීම (උදා: කොම්බුව අකුරට පසුපසින් කියවීම).'
+        : 'Child reverses letter order or Sinhala syllable modifiers (kombuwa/al-lakuna).',
+      tip: language === 'si'
+        ? '🏡 ගෙදරදී උපදෙස්: අහසේ හෝ වැලි පිඟානක ඇඟිල්ලෙන් අකුරේ හැඩය සහ කොම්බුව මුලින් ලියන පිළිවෙල පුහුණු කරන්න.'
+        : '🏡 Home Tip: Use air-writing or sand tray tracing to reinforce the left-to-right modifier sequence.',
+      color: ThemeColors.warning,
+      bg: ThemeColors.warningSurface,
+      border: ThemeColors.warningBorder,
+    },
+    hesitation: {
+      label: language === 'si' ? 'චකිතය හා දීර්ඝ නැවතීම් (Hesitation)' : 'Hesitation & Pauses',
+      icon: '⏸️',
+      description: language === 'si'
+        ? 'වචනයක් හඳුනාගැනීමට අපහසු වී තත්පර 2කට වඩා දීර්ඝ ලෙස නිහඬව සිටීම.'
+        : 'Child pauses significantly before or during a word due to cognitive load.',
+      tip: language === 'si'
+        ? '🏡 ගෙදරදී උපදෙස්: පින්තූර ආශ්‍රිත ඉඟි ලබා දෙමින් දරුවාගේ ආත්ම විශ්වාසය නංවන්න. කියවීමට බල නොකරන්න.'
+        : '🏡 Home Tip: Reduce sentence complexity; use picture cues and praise reading attempts.',
+      color: ThemeColors.info,
+      bg: ThemeColors.infoSurface,
+      border: ThemeColors.infoBorder,
+    },
+  };
+
+  const totalErrors = Object.values(MOCK_ERROR_BREAKDOWN).reduce((a, b) => a + b, 0);
 
   useEffect(() => {
     async function loadSessions() {
       try {
-        const records = await sessionService.getChildSessions(activeChildId);
+        const records = await sessionService.getChildSessions(activeChildId, 15);
         if (records && records.length > 0) {
           const mapped = records.map((r) => sessionService.toSessionData(r));
           setSessions(mapped);
+          setRawSessions(records);
           setIsRealData(true);
+
+          const rec = await recommendationService.getNextRecommendation(activeChildId, records[0]);
+          setM3Data(rec);
+        } else {
+          const rec = await recommendationService.getNextRecommendation(activeChildId, null);
+          setM3Data(rec);
         }
       } catch (err) {
         console.warn('[ReportsScreen] Error loading real sessions:', err);
@@ -104,8 +131,8 @@ export default function ReportsScreen() {
     <SafeAreaView style={styles.container}>
       {/* Universal Top Navigation */}
       <NavBar
-        title="Clinical Error Reports"
-        subtitle={`${activeChildName} · ${sessions.length} Sessions ${isRealData ? '(Real Data)' : ''}`}
+        title={language === 'si' ? 'සායනික කියවීමේ වාර්තාව' : 'Clinical Reading Report'}
+        subtitle={`${activeChildName} · ${sessions.length} ${language === 'si' ? 'සැසි' : 'Sessions'} ${isRealData ? (language === 'si' ? '(සජීවී දත්ත)' : '(Live Sync)') : ''}`}
         showBack={true}
         fallbackRoute="/(parent)/dashboard"
         showSettings={true}
@@ -117,15 +144,15 @@ export default function ReportsScreen() {
         <View style={styles.childHeaderCard}>
           <View style={styles.childAvatar}>
             <AppText size="lg" weight="bold" color={ThemeColors.textPrimary}>
-              {MOCK_CHILD.name.charAt(0)}
+              {activeChildName.charAt(0)}
             </AppText>
           </View>
           <View style={{ flex: 1 }}>
             <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
-              {MOCK_CHILD.name} — Progress Report
+              {activeChildName} — {language === 'si' ? 'ප්‍රගති වාර්තාව' : 'Progress Report'}
             </AppText>
             <AppText size="xs" color={ThemeColors.textSecondary}>
-              Grade {MOCK_CHILD.grade} · Primary Language: Sinhala
+              {activeChildGrade} {language === 'si' ? 'ශ්‍රේණිය · මව්භාෂාව: සිංහල' : 'Grade · Sinhala Dyslexia Support'}
             </AppText>
           </View>
           <TouchableOpacity
@@ -134,20 +161,51 @@ export default function ReportsScreen() {
             activeOpacity={0.7}
           >
             <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-              ← Dashboard
+              ← {language === 'si' ? 'පුවරුවට' : 'Dashboard'}
             </AppText>
           </TouchableOpacity>
         </View>
 
-        {/* ── Adaptive Recommendation Engine & XAI ──────────────── */}
-        <AppText size="lg" weight="bold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
-          🧠 Clinical Learning Recommendation (AI Engine)
-        </AppText>
-        <M3RecommendationCard data={MOCK_M3_RESPONSE} showLauncher={false} />
+        {/* ── PDF EMAIL PROGRESS REPORT PROMO CARD ── */}
+        <View style={[styles.pdfPromoCard, ThemeShadow.sm]}>
+          <View style={styles.pdfPromoInner}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={styles.pdfIconCircle}>
+                <AppText size="lg">📄</AppText>
+              </View>
+              <View style={{ marginLeft: 10, flex: 1 }}>
+                <AppText size="sm" weight="extrabold" color="#0B7A44">
+                  {language === 'si' ? 'සතිපතා / මාසික PDF වාර්තාව' : 'Weekly / Monthly PDF Report'}
+                </AppText>
+                <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 2, lineHeight: 17 }}>
+                  {language === 'si'
+                    ? 'දරුවාගේ සම්පූර්ණ ප්‍රගතිය PDF ලෙස බාගත කරගන්න හෝ ඊමේල් ලිපිනයට ස්වයංක්‍රීයව යවා ගන්න.'
+                    : 'Download full progress report as PDF or auto-dispatch to parent/teacher inbox.'}
+                </AppText>
+              </View>
+            </View>
 
-        {/* Error deep-dive */}
-        <AppText size="lg" weight="bold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
-          Error Analysis by Classification
+            <TouchableOpacity
+              style={styles.openPdfModalBtn}
+              onPress={() => setShowEmailModal(true)}
+              activeOpacity={0.8}
+            >
+              <AppText size="xs" weight="extrabold" color="#FFFFFF">
+                📧 {language === 'si' ? 'වාර්තාව ලබාගන්න' : 'Get PDF Report'}
+              </AppText>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── M3 Adaptive Recommendation & XAI Guidance ──────────────── */}
+        <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
+          🧠 {language === 'si' ? 'AI අනුවර්තී මගපෙන්වීම සහ XAI විග්‍රහය' : 'AI Adaptive Recommendation & Explainable AI'}
+        </AppText>
+        <M3RecommendationCard data={m3Data} showLauncher={false} />
+
+        {/* Error Deep-Dive */}
+        <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
+          📊 {language === 'si' ? 'දෝෂ වර්ගීකරණය සහ ගෙදරදී කළ හැකි අභ්‍යාස' : 'Error Classification & Home Intervention Tips'}
         </AppText>
         {(
           Object.entries(ERROR_DETAIL) as [
@@ -185,12 +243,11 @@ export default function ReportsScreen() {
                 color={meta.color}
                 height={6}
               />
-              <AppText size="sm" color={ThemeColors.textSecondary} style={{ marginTop: ThemeSpacing.sm, lineHeight: 20 }}>
+              <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: ThemeSpacing.sm, lineHeight: 18 }}>
                 {meta.description}
               </AppText>
               <View style={styles.tipBox}>
-                <AppText size="sm">💡</AppText>
-                <AppText size="xs" color={ThemeColors.info} style={{ flex: 1, lineHeight: 18 }}>
+                <AppText size="xs" color="#9A3412" style={{ flex: 1, lineHeight: 18, fontWeight: '600' }}>
                   {meta.tip}
                 </AppText>
               </View>
@@ -198,9 +255,9 @@ export default function ReportsScreen() {
           );
         })}
 
-        {/* Session breakdown */}
-        <AppText size="lg" weight="bold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
-          Session-by-Session Breakdown {isRealData && '☁️ (Firestore & Local)'}
+        {/* Session-by-Session Breakdown */}
+        <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
+          📜 {language === 'si' ? 'සැසි අනුව විස්තරාත්මක ඉතිහාසය' : 'Session History'} {isRealData && (language === 'si' ? '☁️ (සජීවී වාර්තා)' : '☁️ (Live Synced)')}
         </AppText>
         {sessions.map((s) => (
           <Card key={s.id} style={styles.sessionCard}>
@@ -216,7 +273,7 @@ export default function ReportsScreen() {
                   {s.accuracy}%
                 </AppText>
                 <AppText size="xs" color={ThemeColors.textMuted}>
-                  Accuracy
+                  {language === 'si' ? 'නිරවද්‍යතාව' : 'Accuracy'}
                 </AppText>
               </View>
               <View style={styles.sessionStat}>
@@ -224,7 +281,7 @@ export default function ReportsScreen() {
                   {s.errorCount}
                 </AppText>
                 <AppText size="xs" color={ThemeColors.textMuted}>
-                  Errors
+                  {language === 'si' ? 'දෝෂ ගණන' : 'Errors'}
                 </AppText>
               </View>
               <View style={styles.sessionStat}>
@@ -232,44 +289,32 @@ export default function ReportsScreen() {
                   {Math.round(s.durationSeconds / 60)}m
                 </AppText>
                 <AppText size="xs" color={ThemeColors.textMuted}>
-                  Duration
+                  {language === 'si' ? 'කාලය' : 'Duration'}
                 </AppText>
               </View>
               <View style={styles.sessionStat}>
                 <AppText size="sm">{'⭐'.repeat(s.starsEarned)}</AppText>
                 <AppText size="xs" color={ThemeColors.textMuted}>
-                  Stars
+                  {language === 'si' ? 'තරු' : 'Stars'}
                 </AppText>
               </View>
             </View>
-            <ProgressBar
-              value={s.accuracy}
-              color={
-                s.accuracy >= 75
-                  ? ThemeColors.success
-                  : s.accuracy >= 60
-                  ? ThemeColors.warning
-                  : ThemeColors.error
-              }
-              height={6}
-            />
           </Card>
         ))}
-
-        {/* Return to Dashboard CTA */}
-        <Button
-          label="← Return to Dashboard"
-          onPress={() => router.replace('/(parent)/dashboard')}
-          fullWidth
-          size="lg"
-          style={{ marginTop: ThemeSpacing.md, marginBottom: ThemeSpacing.sm }}
-        />
 
         <View style={{ height: ThemeSpacing.xl }} />
       </ScrollView>
 
-      {/* Universal Bottom Navigation */}
-      <BottomNav role="parent" activeTab="reports" />
+      {/* ── EMAIL REPORT MODAL ── */}
+      <EmailReportModal
+        visible={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        childId={activeChildId}
+        childName={activeChildName}
+        grade={activeChildGrade}
+        sessions={rawSessions}
+        m3Recommendation={m3Data}
+      />
     </SafeAreaView>
   );
 }
@@ -278,111 +323,118 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: ThemeColors.background,
-    ...(Platform.OS === 'web' ? { minHeight: '100vh' as any, height: '100vh' as any } : {}),
   },
   scroll: {
-    paddingHorizontal: ThemeSpacing.lg,
-    paddingTop: ThemeSpacing.md,
-    paddingBottom: ThemeSpacing.xxxl,
+    padding: ThemeSpacing.md,
+    gap: ThemeSpacing.md,
   },
   childHeaderCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ThemeSpacing.sm,
-    backgroundColor: ThemeColors.surface,
-    padding: ThemeSpacing.md,
+    backgroundColor: '#FFFFFF',
     borderRadius: ThemeRadius.lg,
+    padding: ThemeSpacing.md,
     borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
-    marginBottom: ThemeSpacing.md,
+    borderColor: ThemeColors.border,
+    gap: 12,
   },
   childAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: ThemeRadius.full,
-    backgroundColor: ThemeColors.surfaceElevated,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: ThemeColors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: ThemeColors.border,
+    borderColor: ThemeColors.primaryBorder,
   },
   backDashBtn: {
-    backgroundColor: ThemeColors.surfaceElevated,
-    paddingHorizontal: ThemeSpacing.sm + 2,
-    paddingVertical: ThemeSpacing.xs + 2,
-    borderRadius: ThemeRadius.full,
-    borderWidth: 1,
-    borderColor: ThemeColors.border,
+    backgroundColor: ThemeColors.surfaceMuted,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: ThemeRadius.md,
   },
-  m3Card: {
+  pdfPromoCard: {
+    backgroundColor: '#ECFDF5',
+    borderRadius: ThemeRadius.lg,
+    borderWidth: 1.5,
+    borderColor: '#A7F3D0',
     padding: ThemeSpacing.md,
-    backgroundColor: ThemeColors.m3Surface,
-    borderColor: ThemeColors.successBorder,
   },
-  moduleRow: {
+  pdfPromoInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ThemeSpacing.xs,
-    marginBottom: ThemeSpacing.xs,
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  moduleDot: {
-    width: 8,
-    height: 8,
-    borderRadius: ThemeRadius.full,
-  },
-  m3RecRow: {
-    flexDirection: 'row',
+  pdfIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
-    gap: ThemeSpacing.sm,
-    marginVertical: ThemeSpacing.xs,
+    justifyContent: 'center',
+  },
+  openPdfModalBtn: {
+    backgroundColor: ThemeColors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: ThemeRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionTitle: {
-    marginTop: ThemeSpacing.xl,
-    marginBottom: ThemeSpacing.sm,
+    marginTop: ThemeSpacing.sm,
   },
   errorDetailCard: {
     padding: ThemeSpacing.md,
-    marginBottom: ThemeSpacing.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: ThemeRadius.lg,
+    borderWidth: 1,
+    borderColor: ThemeColors.border,
+    gap: 8,
   },
   errorDetailHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: ThemeSpacing.sm,
   },
   errorDetailBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ThemeSpacing.xs,
-    paddingHorizontal: ThemeSpacing.sm,
-    paddingVertical: ThemeSpacing.xxs + 2,
-    borderRadius: ThemeRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: ThemeRadius.md,
     borderWidth: 1,
+    gap: 6,
   },
   tipBox: {
-    flexDirection: 'row',
-    gap: ThemeSpacing.xs,
-    marginTop: ThemeSpacing.sm,
-    backgroundColor: ThemeColors.infoSurface,
-    borderRadius: ThemeRadius.sm,
-    padding: ThemeSpacing.sm,
+    backgroundColor: '#FFF7ED',
     borderWidth: 1,
-    borderColor: ThemeColors.infoBorder,
+    borderColor: '#FED7AA',
+    padding: 10,
+    borderRadius: ThemeRadius.md,
+    marginTop: 4,
   },
   sessionCard: {
     padding: ThemeSpacing.md,
-    marginBottom: ThemeSpacing.sm,
+    backgroundColor: '#FFFFFF',
+    borderRadius: ThemeRadius.lg,
+    borderWidth: 1,
+    borderColor: ThemeColors.border,
+    gap: 10,
   },
   sessionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: ThemeSpacing.sm,
   },
   sessionStats: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: ThemeSpacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: ThemeColors.borderLight,
+    paddingTop: 8,
   },
   sessionStat: {
     alignItems: 'center',
