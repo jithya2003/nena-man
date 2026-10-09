@@ -186,7 +186,6 @@ export const translations: Record<Language, Record<string, string>> = {
     'session.intervention.playBtn': '🎮 සන්සුන් ක්‍රීඩා වෙත',
 
     // Child Profile & Edit Profile Modal
-    'profile.title': 'මගේ ගිණුම',
     'profile.editProfile': 'පැතිකඩ සංස්කරණය',
     'profile.settings': 'සැකසුම්',
     'profile.edit.title': 'දරුවාගේ පැතිකඩ සංස්කරණය',
@@ -400,7 +399,6 @@ export const translations: Record<Language, Record<string, string>> = {
     'session.intervention.playBtn': 'Play Cooldown Game 🎮',
 
     // Child Profile & Edit Profile Modal
-    'profile.title': 'My Profile',
     'profile.editProfile': 'Edit Profile',
     'profile.settings': 'Settings',
     'profile.edit.title': 'Edit Child Profile',
