@@ -126,9 +126,16 @@ def create_app(config_name: str = None) -> Flask:
     except ImportError as e:
         app.logger.info("[M4 Behavior] Module not yet initialized: %s", e)
 
+    # ── Register Reports Blueprint ────────────────────────────────────────────
+    try:
+        from .modules.reports.controller import reports_bp
+        app.register_blueprint(reports_bp)
+    except ImportError as e:
+        app.logger.warning("[Reports] Module import failed: %s", e)
+
     app.logger.info("=" * 60)
     app.logger.info("🌟 Nena Man Flask API — create_app() complete")
-    app.logger.info("   Registered blueprints: auth, m1-speech, m2-text, m3-rec, m4-behavior")
+    app.logger.info("   Registered blueprints: auth, reports, m1-speech, m2-text, m3-rec, m4-behavior")
     app.logger.info("=" * 60)
 
     return app
