@@ -122,47 +122,22 @@ function M2SimplificationCard() {
         </View>
       )}
 
-      {/* Action Buttons Row */}
-      <View style={m2Styles.actionRow}>
-        <TouchableOpacity
-          style={[
-            m2Styles.simplifyBtn,
-            simplified && m2Styles.simplifyBtnActive,
-          ]}
-          onPress={handleSimplify}
-          activeOpacity={0.8}
+      {/* Primary Action: Let's Read! */}
+      <TouchableOpacity
+        style={m2Styles.letsReadBtn}
+        onPress={() => router.push("/(child)/progressive-reading")}
+        activeOpacity={0.85}
+      >
+        <AppText
+          size="lg"
+          weight="extrabold"
+          color="#FFFFFF"
+          align="center"
+          style={m2Styles.letsReadBtnText}
         >
-          <AppText
-            size="sm"
-            weight="extrabold"
-            color={simplified ? "#92400E" : "#FFFFFF"}
-            align="center"
-            style={m2Styles.btnText}
-          >
-            {processing
-              ? t("child.home.simplifyingBtn")
-              : simplified
-                ? t("child.home.originalSentenceBtn")
-                : t("child.home.simplifyBtn")}
-          </AppText>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={m2Styles.practiceBtn}
-          onPress={() => router.push("/(child)/m1-session")}
-          activeOpacity={0.8}
-        >
-          <AppText
-            size="sm"
-            weight="extrabold"
-            color="#FFFFFF"
-            align="center"
-            style={m2Styles.btnText}
-          >
-            {t("child.home.readOutLoudBtn")}
-          </AppText>
-        </TouchableOpacity>
-      </View>
+          📖 අපි කියවමු!
+        </AppText>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -266,39 +241,26 @@ const m2Styles = StyleSheet.create({
     gap: ThemeSpacing.sm,
     marginTop: 4,
   },
-  simplifyBtn: {
-    flex: 1,
-    backgroundColor: "#F59E0B",
-    borderRadius: ThemeRadius.full,
-    paddingVertical: ThemeSpacing.sm + 4,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "#D97706",
-    borderBottomWidth: 4,
-    borderBottomColor: "#B45309",
-    minHeight: 48,
-  },
-  simplifyBtnActive: {
-    backgroundColor: "#FEF3C7",
-    borderColor: "#FCD34D",
-    borderBottomColor: "#F59E0B",
-  },
-  practiceBtn: {
-    flex: 1,
+  letsReadBtn: {
     backgroundColor: ThemeColors.primary,
     borderRadius: ThemeRadius.full,
     paddingVertical: ThemeSpacing.sm + 4,
+    paddingHorizontal: ThemeSpacing.lg,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
     borderColor: ThemeColors.primaryDark,
     borderBottomWidth: 4,
     borderBottomColor: "#064E2A",
-    minHeight: 48,
+    marginTop: ThemeSpacing.xs,
+    elevation: 3,
+    shadowColor: "#0B7A44",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
   },
-  btnText: {
-    textAlign: "center",
+  letsReadBtnText: {
+    letterSpacing: 0.5,
   },
 });
 // ─────────────────────────────────────────────────────────────────────────────
