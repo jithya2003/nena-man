@@ -19,7 +19,9 @@ import {
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
 import VoiceAssessmentModal from '@/components/VoiceAssessmentModal';
+import RewardsModal from '@/components/RewardsModal';
 import { useReadingSession } from '@/hooks/useReadingSession';
+import { useInteractionTracker } from '@/hooks/useInteractionTracker';
 import { useLanguage } from '@/context/LanguageContext';
 import { LoadingView, ErrorView, OfflineBanner } from '@/components/shared-states';
 
@@ -191,6 +193,10 @@ export default function SpeechSessionScreen() {
   const [simplifying, setSimplifying] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showGamePopup, setShowGamePopup] = useState(false);
+  const [showRewardsModal, setShowRewardsModal] = useState(false);
+
+  // Interaction telemetry tracker for Module 4 (Pushpakumara)
+  const interactionTracker = useInteractionTracker();
 
   // Audio Comparison Player State
   const [playingAudio, setPlayingAudio] = useState<'child' | 'target' | null>(null);
@@ -207,6 +213,7 @@ export default function SpeechSessionScreen() {
       content: currentSentence.sinhala,
       difficulty: 'medium',
     },
+    interactionData: interactionTracker.getTelemetry(),
     onSuccess: () => {
       Animated.spring(resultAnim, {
         toValue: 1,
@@ -216,6 +223,16 @@ export default function SpeechSessionScreen() {
       }).start();
     },
   });
+
+  // Feature 3: Auto-prompt cooldown when behavioral intervention is required
+  useEffect(() => {
+    if (
+      (session.sessionStatus === 'done' || session.sessionStatus === 'partial_error') &&
+      session.interventionRequired
+    ) {
+      setShowGamePopup(true);
+    }
+  }, [session.sessionStatus, session.interventionRequired]);
 
   // End session cleanly when leaving the screen
   useEffect(() => {
@@ -302,12 +319,14 @@ export default function SpeechSessionScreen() {
 
   const handleReset = useCallback(() => {
     if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
+    interactionTracker.recordRetry();
+    interactionTracker.resetTracker();
     session.resetSession();
     setIsSimplified(false);
     setShowGamePopup(false);
     setPlayingAudio(null);
     resultAnim.setValue(0);
-  }, [session, resultAnim]);
+  }, [session, resultAnim, interactionTracker]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -335,12 +354,21 @@ export default function SpeechSessionScreen() {
           </AppText>
         </View>
 
-        {/* AI Status Badge */}
-        <View style={styles.statusBadge}>
-          <View style={styles.statusDot} />
-          <AppText size="xs" weight="bold" color={ThemeColors.primary}>
-            AI සක්‍රීයයි
-          </AppText>
+        {/* AI Status Badge & Privacy Settings Link */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={styles.statusBadge}>
+            <View style={styles.statusDot} />
+            <AppText size="xs" weight="bold" color={ThemeColors.primary}>
+              AI සක්‍රීයයි
+            </AppText>
+          </View>
+          <TouchableOpacity
+            style={styles.privacyIconBtn}
+            onPress={() => router.push('/(child)/consent-privacy')}
+            activeOpacity={0.8}
+          >
+            <AppText size="xs">🛡️</AppText>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -449,7 +477,14 @@ export default function SpeechSessionScreen() {
                   styles.circleMicButton,
                   session.isRecording && styles.circleMicButtonRecording,
                 ]}
-                onPress={session.isRecording ? session.stopRecording : session.startRecording}
+                onPress={() => {
+                  interactionTracker.recordTap();
+                  if (session.isRecording) {
+                    session.stopRecording();
+                  } else {
+                    session.startRecording();
+                  }
+                }}
                 activeOpacity={0.85}
               >
                 <AppText size="display" style={{ fontSize: 38 }}>
@@ -860,18 +895,36 @@ export default function SpeechSessionScreen() {
             <View style={styles.resultActionsRow}>
               <TouchableOpacity style={styles.retryActionBtn} onPress={handleReset} activeOpacity={0.85}>
                 <AppText size="xs" weight="bold" color="#FFFFFF">
-                  🔄 නැවත කියවන්න
+                  🔄 නැවත
+                </AppText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.rewardsActionBtn}
+                onPress={() => setShowRewardsModal(true)}
+                activeOpacity={0.85}
+              >
+                <AppText size="xs" weight="bold" color="#FFFFFF">
+                  🏆 ජයග්‍රහණ
                 </AppText>
               </TouchableOpacity>
 
               {analysisResult.errors.length > 0 && (
                 <TouchableOpacity
                   style={styles.gameActionBtn}
-                  onPress={() => router.push('/(child)/cooldown')}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(child)/cooldown',
+                      params: {
+                        intervention: session.interventionType || 'cooldown_activity',
+                        mode: session.interventionType === 'focus_game' ? 'focus' : 'calm',
+                      },
+                    })
+                  }
                   activeOpacity={0.85}
                 >
                   <AppText size="xs" weight="bold" color="#FFFFFF">
-                    🎮 සන්සුන් ක්‍රීඩා
+                    🎮 සන්සුන්
                   </AppText>
                 </TouchableOpacity>
               )}
@@ -879,13 +932,15 @@ export default function SpeechSessionScreen() {
               <TouchableOpacity
                 style={styles.nextSentenceBtn}
                 onPress={() => {
+                  interactionTracker.recordTap();
+                  interactionTracker.resetTracker();
                   setCurrentTextIndex((prev) => (prev + 1) % PRACTICE_SENTENCES.length);
                   handleReset();
                 }}
                 activeOpacity={0.85}
               >
                 <AppText size="xs" weight="bold" color="#FFFFFF">
-                  ඊළඟ වාක්‍යය →
+                  ඊළඟ →
                 </AppText>
               </TouchableOpacity>
             </View>
@@ -1011,7 +1066,13 @@ export default function SpeechSessionScreen() {
                 style={styles.playGameBtn}
                 onPress={() => {
                   setShowGamePopup(false);
-                  router.push('/(child)/cooldown');
+                  router.push({
+                    pathname: '/(child)/cooldown',
+                    params: {
+                      intervention: session.interventionType || 'cooldown_activity',
+                      mode: session.interventionType === 'focus_game' ? 'focus' : 'calm',
+                    },
+                  });
                 }}
                 activeOpacity={0.85}
               >
@@ -1033,6 +1094,12 @@ export default function SpeechSessionScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Rewards & Badges Modal */}
+      <RewardsModal
+        visible={showRewardsModal}
+        onClose={() => setShowRewardsModal(false)}
+      />
 
       {/* Voice Assessment Modal for live mic recording */}
       <VoiceAssessmentModal
@@ -1396,6 +1463,24 @@ const styles = StyleSheet.create({
     paddingVertical: ThemeSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  rewardsActionBtn: {
+    flex: 1,
+    backgroundColor: '#10B981',
+    borderRadius: ThemeRadius.md,
+    paddingVertical: ThemeSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  privacyIconBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
   },
   gameActionBtn: {
     flex: 1,

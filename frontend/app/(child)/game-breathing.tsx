@@ -1,4 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+/**
+ * nena-man · frontend/app/(child)/game-breathing.tsx
+ * Module 4: Guided Breathing Calming Activity (Pushpakumara · IT23177246)
+ *
+ * Visual animated guided breathing cycle (Inhale / Hold / Exhale).
+ * Includes countdown timer, session completion card with restart & route to cooldown games.
+ */
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -17,50 +25,79 @@ import {
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
 
+const SESSION_DURATION = 60; // 60 seconds (1 minute default)
+
 export default function GuidedBreathingScreen() {
   const router = useRouter();
 
-  const [phase, setPhase] = useState<'exhale' | 'inhale' | 'hold'>('exhale');
-  const [activeDot, setActiveDot] = useState(2); // 3rd dot active like mockup
-  const [timeLeft, setTimeLeft] = useState(90); // 1:30
+  const [phase, setPhase] = useState<'exhale' | 'inhale' | 'hold'>('inhale');
+  const [activeDot, setActiveDot] = useState(1);
+  const [timeLeft, setTimeLeft] = useState(SESSION_DURATION);
+  const [isFinished, setIsFinished] = useState(false);
 
   const breatheAnim = useRef(new Animated.Value(0.75)).current;
+  const isRunningRef = useRef(true);
 
+  // Breathing animation cycle
+  const runBreathingCycle = useCallback(() => {
+    if (!isRunningRef.current) return;
+
+    setPhase('inhale');
+    setActiveDot(1);
+    Animated.timing(breatheAnim, {
+      toValue: 1.15,
+      duration: 3500,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (!finished || !isRunningRef.current) return;
+      setPhase('hold');
+      setActiveDot(2);
+      setTimeout(() => {
+        if (!isRunningRef.current) return;
+        setPhase('exhale');
+        setActiveDot(3);
+        Animated.timing(breatheAnim, {
+          toValue: 0.7,
+          duration: 3800,
+          useNativeDriver: true,
+        }).start(({ finished: finishExhale }) => {
+          if (finishExhale && isRunningRef.current) {
+            runBreathingCycle();
+          }
+        });
+      }, 1500);
+    });
+  }, [breatheAnim]);
+
+  // Countdown timer
   useEffect(() => {
-    // Timer
+    isRunningRef.current = true;
+    runBreathingCycle();
+
     const timer = setInterval(() => {
-      setTimeLeft((t) => (t > 0 ? t - 1 : 0));
+      setTimeLeft((t) => {
+        if (t <= 1) {
+          clearInterval(timer);
+          isRunningRef.current = false;
+          setIsFinished(true);
+          return 0;
+        }
+        return t - 1;
+      });
     }, 1000);
 
-    // Breathing Animation Cycle
-    const cycle = () => {
-      setPhase('inhale');
-      setActiveDot(1);
-      Animated.timing(breatheAnim, {
-        toValue: 1.15,
-        duration: 3500,
-        useNativeDriver: true,
-      }).start(() => {
-        setPhase('hold');
-        setActiveDot(2);
-        setTimeout(() => {
-          setPhase('exhale');
-          setActiveDot(3);
-          Animated.timing(breatheAnim, {
-            toValue: 0.7,
-            duration: 4000,
-            useNativeDriver: true,
-          }).start(() => {
-            cycle();
-          });
-        }, 1500);
-      });
+    return () => {
+      isRunningRef.current = false;
+      clearInterval(timer);
     };
+  }, [runBreathingCycle]);
 
-    cycle();
-
-    return () => clearInterval(timer);
-  }, []);
+  const handleRestart = () => {
+    setIsFinished(false);
+    setTimeLeft(SESSION_DURATION);
+    isRunningRef.current = true;
+    runBreathingCycle();
+  };
 
   const formatTimer = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -69,17 +106,17 @@ export default function GuidedBreathingScreen() {
   };
 
   const getPhaseText = () => {
-    if (phase === 'inhale') return 'සෙමින් ආශ්වාස කරන්න';
-    if (phase === 'hold') return 'හුස්ම රඳවා ගන්න';
-    return 'සෙමින් පිට කරන්න';
+    if (phase === 'inhale') return 'සෙමින් ආශ්වාස කරන්න 🍃';
+    if (phase === 'hold') return 'හුස්ම රඳවා ගන්න 🌸';
+    return 'සෙමින් ප්‍රාශ්වාස කරන්න 💨';
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header */}
+      {/* ── Top Header ──────────────────────────────────────────────────────── */}
       <View style={styles.topBar}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => router.push('/(child)/cooldown')}
           style={styles.navIconBtn}
           activeOpacity={0.7}
         >
@@ -91,70 +128,114 @@ export default function GuidedBreathingScreen() {
           </Svg>
         </TouchableOpacity>
 
-        <AppText size="sm" weight="bold" color={ThemeColors.textSecondary}>
-          {formatTimer(timeLeft)}
-        </AppText>
-
-        <View style={{ width: 36 }} />
-      </View>
-
-      {/* Main Breathing Area */}
-      <View style={styles.bodyWrap}>
-        {/* Pulsing Soothing Breathing Circle */}
-        <View style={styles.circleOuterContainer}>
-          <View style={styles.whiteCircleBase}>
-            <Animated.View
-              style={[
-                styles.breathingCircle,
-                {
-                  transform: [{ scale: breatheAnim }],
-                },
-              ]}
-            />
-          </View>
-        </View>
-
-        {/* Phase Prompt Text */}
-        <AppText size="md" weight="bold" color={ThemeColors.primary} align="center" style={styles.phasePrompt}>
-          {getPhaseText()}
-        </AppText>
-
-        {/* 4-Dot Stepper */}
-        <View style={styles.dotStepperRow}>
-          {[0, 1, 2, 3].map((idx) => (
-            <View
-              key={idx}
-              style={[
-                styles.dot,
-                activeDot === idx ? styles.dotActive : styles.dotInactive,
-              ]}
-            />
-          ))}
-        </View>
-
-        {/* Encouraging Footer Note */}
-        <View style={styles.encouragementRow}>
-          <AppText size="xs" color={ThemeColors.textSecondary}>
-            ඔබ හොඳින් කරනවා.
-          </AppText>
-          <AppText size="xs" style={{ marginLeft: 4 }}>
-            💚
+        <View style={styles.timerBadge}>
+          <AppText size="xs">⏱️</AppText>
+          <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 4 }}>
+            {formatTimer(timeLeft)}
           </AppText>
         </View>
-      </View>
 
-      {/* Bottom Finish Button */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.finishBtn}
-          onPress={() => router.push('/(child)/cooldown')}
-          activeOpacity={0.85}
-        >
-          <AppText size="md" weight="bold" color="#FFFFFF">
-            අවසන් කරමු
-          </AppText>
+        <TouchableOpacity onPress={handleRestart} style={styles.navIconBtn} activeOpacity={0.7}>
+          <AppText size="sm">🔄</AppText>
         </TouchableOpacity>
       </View>
+
+      {/* ── Main Breathing Area ─────────────────────────────────────────────── */}
+      <View style={styles.bodyWrap}>
+        {!isFinished ? (
+          <>
+            {/* Pulsing Soothing Breathing Circle */}
+            <View style={styles.circleOuterContainer}>
+              <View style={styles.whiteCircleBase}>
+                <Animated.View
+                  style={[
+                    styles.breathingCircle,
+                    {
+                      transform: [{ scale: breatheAnim }],
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+
+            {/* Phase Prompt Text */}
+            <AppText size="lg" weight="extrabold" color={ThemeColors.primary} align="center" style={styles.phasePrompt}>
+              {getPhaseText()}
+            </AppText>
+
+            {/* 4-Dot Stepper */}
+            <View style={styles.dotStepperRow}>
+              {[0, 1, 2, 3].map((idx) => (
+                <View
+                  key={idx}
+                  style={[
+                    styles.dot,
+                    activeDot === idx ? styles.dotActive : styles.dotInactive,
+                  ]}
+                />
+              ))}
+            </View>
+
+            {/* Encouraging Footer Note */}
+            <View style={styles.encouragementRow}>
+              <AppText size="xs" color={ThemeColors.textSecondary}>
+                ඔබ ඉතා හොඳින් හුස්ම ගන්නවා
+              </AppText>
+              <AppText size="xs" style={{ marginLeft: 4 }}>
+                💚
+              </AppText>
+            </View>
+          </>
+        ) : (
+          /* Session Completed Celebration Card */
+          <View style={[styles.finishedCard, ThemeShadow.md]}>
+            <AppText size="display">🌸</AppText>
+            <AppText size="xl" weight="extrabold" color={ThemeColors.primary} style={{ marginTop: 8 }}>
+              විශිෂ්ටයි! සැසිය අවසන්!
+            </AppText>
+            <AppText size="sm" color={ThemeColors.textSecondary} align="center" style={{ marginTop: 6, lineHeight: 20 }}>
+              ඔබගේ මනස දැන් සැහැල්ලු සහ සන්සුන් වී ඇත. ඔබට නැවත හුස්ම ගැනීමේ අභ්‍යාසය කළ හැක හෝ ක්‍රීඩා පිටුවට යා හැක.
+            </AppText>
+
+            <View style={styles.finishedActionsRow}>
+              <TouchableOpacity
+                style={styles.restartActionBtn}
+                onPress={handleRestart}
+                activeOpacity={0.85}
+              >
+                <AppText size="sm" weight="bold" color="#FFFFFF">
+                  🔄 නැවත ආරම්භ කරමු
+                </AppText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.gamesActionBtn}
+                onPress={() => router.push('/(child)/cooldown')}
+                activeOpacity={0.85}
+              >
+                <AppText size="sm" weight="bold" color="#FFFFFF">
+                  🎮 ක්‍රීඩා පිටුවට යමු
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </View>
+
+      {/* ── Bottom Bar ──────────────────────────────────────────────────────── */}
+      {!isFinished && (
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={styles.finishBtn}
+            onPress={() => router.push('/(child)/cooldown')}
+            activeOpacity={0.85}
+          >
+            <AppText size="md" weight="bold" color="#FFFFFF">
+              🎮 ක්‍රීඩා පිටුවට යමු
+            </AppText>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -162,7 +243,7 @@ export default function GuidedBreathingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ThemeColors.background,
+    backgroundColor: '#F0FDF4',
     justifyContent: 'space-between',
     ...(Platform.OS === 'web' ? { minHeight: '100vh' as any, height: '100vh' as any } : {}),
   },
@@ -172,7 +253,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: ThemeSpacing.md,
     paddingVertical: ThemeSpacing.xs + 2,
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: ThemeColors.borderLight,
   },
   navIconBtn: {
     width: 36,
@@ -181,6 +264,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  timerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: ThemeRadius.full,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
   bodyWrap: {
     flex: 1,
     alignItems: 'center',
@@ -188,47 +281,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: ThemeSpacing.lg,
   },
   circleOuterContainer: {
-    width: 220,
-    height: 220,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: ThemeSpacing.xl,
+    marginBottom: ThemeSpacing.lg,
   },
   whiteCircleBase: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    ...ThemeShadow.md,
+    shadowColor: '#10B981',
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 4,
   },
   breathingCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#86EFAC',
-    opacity: 0.85,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: '#6EE7B7',
   },
   phasePrompt: {
-    marginBottom: ThemeSpacing.lg,
+    marginBottom: ThemeSpacing.md,
   },
   dotStepperRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
     marginBottom: ThemeSpacing.md,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  dotActive: {
-    backgroundColor: ThemeColors.primary,
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  dotActive: {
+    backgroundColor: ThemeColors.primary,
   },
   dotInactive: {
     backgroundColor: '#CBD5E1',
@@ -237,16 +326,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  bottomBar: {
-    paddingHorizontal: ThemeSpacing.lg,
-    paddingBottom: ThemeSpacing.xl,
+  finishedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: ThemeRadius.xl,
+    padding: ThemeSpacing.xl,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#6EE7B7',
+    maxWidth: 340,
   },
-  finishBtn: {
-    flexDirection: 'row',
+  finishedActionsRow: {
+    width: '100%',
+    gap: 10,
+    marginTop: ThemeSpacing.lg,
+  },
+  restartActionBtn: {
+    backgroundColor: '#F59E0B',
+    borderRadius: ThemeRadius.md,
+    paddingVertical: ThemeSpacing.sm + 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#10B981',
+  },
+  gamesActionBtn: {
+    backgroundColor: ThemeColors.primary,
     borderRadius: ThemeRadius.md,
-    height: 48,
+    paddingVertical: ThemeSpacing.sm + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomBar: {
+    paddingHorizontal: ThemeSpacing.lg,
+    paddingBottom: ThemeSpacing.lg,
+  },
+  finishBtn: {
+    backgroundColor: ThemeColors.primary,
+    borderRadius: ThemeRadius.md,
+    paddingVertical: ThemeSpacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...ThemeShadow.sm,
   },
 });

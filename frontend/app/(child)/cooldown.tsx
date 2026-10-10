@@ -18,11 +18,58 @@ import {
 import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { RelaxTreeIllustration } from '@/components/Illustrations';
+import { useLocalSearchParams } from 'expo-router';
+import RewardsModal from '@/components/RewardsModal';
 
 export default function CoolDownGamesScreen() {
   const router = useRouter();
+  const { mode, intervention } = useLocalSearchParams<{ mode?: string; intervention?: string }>();
+  const [showRewards, setShowRewards] = useState(false);
 
   const games = [
+    {
+      id: 'star-catch',
+      icon: '⭐',
+      title: 'තරු අල්ලමු',
+      desc: 'Catch calm stars & affirmations',
+      duration: 'මිනිත්තු 2',
+      bgColor: '#FEF3C7',
+      iconColor: '#F59E0B',
+      route: '/(child)/game-star',
+      badge: '✨ ජනප්‍රියයි',
+    },
+    {
+      id: 'guided-breathing',
+      icon: '🌬️',
+      title: 'හුස්ම ගනිමු',
+      desc: 'Guided breathing relaxation',
+      duration: 'මිනිත්තු 2',
+      bgColor: '#E0F2FE',
+      iconColor: '#0284C7',
+      route: '/(child)/game-breathing',
+      badge: intervention === 'cooldown_activity' || mode === 'calm' ? '🌿 නිර්දේශිතයි' : undefined,
+    },
+    {
+      id: 'memory-game',
+      icon: '🧠',
+      title: 'මතක ක්‍රීඩාව',
+      desc: 'Memory card matching',
+      duration: 'මිනිත්තු 3',
+      bgColor: '#DCFCE7',
+      iconColor: '#10B981',
+      route: '/(child)/game-memory',
+      badge: intervention === 'focus_game' || mode === 'focus' ? '🎯 අවධානය' : undefined,
+    },
+    {
+      id: 'bubble-calm',
+      icon: '🫧',
+      title: 'බුබුළු සන්සුන් කිරීම',
+      desc: 'Relaxing interactive bubbles',
+      duration: 'මිනිත්තු 2',
+      bgColor: '#E0E7FF',
+      iconColor: '#6366F1',
+      route: '/(child)/game-bubble',
+    },
     {
       id: 'letter-puzzle',
       icon: '🧩',
@@ -31,6 +78,7 @@ export default function CoolDownGamesScreen() {
       duration: 'මිනිත්තු 2',
       bgColor: '#DBEAFE',
       iconColor: '#3B82F6',
+      route: '/(child)/game-puzzle',
     },
     {
       id: 'color-match',
@@ -40,36 +88,7 @@ export default function CoolDownGamesScreen() {
       duration: 'මිනිත්තු 2',
       bgColor: '#FFEDD5',
       iconColor: '#F97316',
-    },
-    {
-      id: 'memory-game',
-      icon: '🧠',
-      title: 'මතක ක්‍රීඩාව',
-      desc: 'Memory matching',
-      duration: 'මිනිත්තු 3',
-      bgColor: '#DCFCE7',
-      iconColor: '#10B981',
-      route: '/(child)/game-memory',
-    },
-    {
-      id: 'bubble-calm',
-      icon: '🫧',
-      title: 'බුබුළු සන්සුන් කිරීම',
-      desc: 'Relaxing interaction',
-      duration: 'මිනිත්තු 2',
-      bgColor: '#E0E7FF',
-      iconColor: '#6366F1',
-      route: '/(child)/game-breathing',
-    },
-    {
-      id: 'guided-breathing',
-      icon: '🌬️',
-      title: 'හුස්ම ගනිමු',
-      desc: 'Guided breathing',
-      duration: 'මිනිත්තු 2',
-      bgColor: '#E0F2FE',
-      iconColor: '#0284C7',
-      route: '/(child)/game-breathing',
+      route: '/(child)/game-color',
     },
   ];
 
@@ -99,7 +118,23 @@ export default function CoolDownGamesScreen() {
           </AppText>
         </View>
 
-        <View style={{ width: 36 }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <TouchableOpacity
+            style={styles.navIconBtn}
+            onPress={() => router.push('/(child)/consent-privacy')}
+            activeOpacity={0.7}
+          >
+            <AppText size="md">🛡️</AppText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.navIconBtn}
+            onPress={() => setShowRewards(true)}
+            activeOpacity={0.7}
+          >
+            <AppText size="md">🏆</AppText>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -116,7 +151,9 @@ export default function CoolDownGamesScreen() {
           <RelaxTreeIllustration size={150} />
         </View>
 
-        {/* 5 Calming Game Cards */}
+
+
+        {/* 6 Calming Game Cards */}
         <View style={styles.gamesListWrap}>
           {games.map((g) => (
             <TouchableOpacity
@@ -136,9 +173,18 @@ export default function CoolDownGamesScreen() {
 
               {/* Game Title & English Description */}
               <View style={{ flex: 1 }}>
-                <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary}>
-                  {g.title}
-                </AppText>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary}>
+                    {g.title}
+                  </AppText>
+                  {g.badge && (
+                    <View style={styles.cardBadge}>
+                      <AppText size="xs" weight="bold" color="#B45309">
+                        {g.badge}
+                      </AppText>
+                    </View>
+                  )}
+                </View>
                 <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 1 }}>
                   {g.desc}
                 </AppText>
@@ -168,6 +214,12 @@ export default function CoolDownGamesScreen() {
 
         <View style={{ height: ThemeSpacing.xl }} />
       </ScrollView>
+
+      {/* Rewards & Badges Modal */}
+      <RewardsModal
+        visible={showRewards}
+        onClose={() => setShowRewards(false)}
+      />
 
       {/* 5-Tab Bottom Navigation with Games active */}
       <BottomNav role="child" activeTab="games" />
@@ -222,6 +274,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginVertical: ThemeSpacing.xs,
   },
+  privacyCard: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 16,
+    paddingVertical: ThemeSpacing.sm + 2,
+    paddingHorizontal: ThemeSpacing.md,
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+    gap: 10,
+    marginVertical: ThemeSpacing.xs,
+  },
+  privacyIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   gamesListWrap: {
     width: '100%',
     gap: ThemeSpacing.sm,
@@ -243,6 +316,12 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cardBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
   },
   durationWrap: {
     flexDirection: 'row',

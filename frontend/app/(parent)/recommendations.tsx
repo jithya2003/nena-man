@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,7 +15,6 @@ import {
 } from '@/constants/theme';
 import {
   MOCK_M3_RESPONSE,
-  MOCK_CHILD,
 } from '@/mock/data';
 import AppText from '@/components/AppText';
 import Card from '@/components/Card';
@@ -26,26 +24,52 @@ import LearningRoadmap from '@/components/LearningRoadmap';
 import PeerClusterRadar from '@/components/PeerClusterRadar';
 import RecommendationSimulator from '@/components/RecommendationSimulator';
 import M3RecommendationCard from '@/components/M3RecommendationCard';
+import { sessionService } from '@/services/sessionService';
+import { recommendationService } from '@/services/recommendationService';
+import { useCurrentChild, useAuthStore } from '@/store/hooks';
+import { useLanguage } from '@/context/LanguageContext';
+import type { M3Response } from '@/types';
 
-type TabKey = 'roadmap' | 'simulator' | 'peer_cluster' | 'xai';
+type TabKey = 'roadmap' | 'xai' | 'peer_cluster' | 'simulator';
 
 export default function RecommendationsScreen() {
   const router = useRouter();
+  const { language } = useLanguage();
+  const { currentChild } = useCurrentChild();
+  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<TabKey>('roadmap');
+  const [m3Data, setM3Data] = useState<M3Response>(MOCK_M3_RESPONSE);
+
+  const activeChildName = currentChild?.name || user?.name || (language === 'si' ? 'සෙනුලි පෙරේරා' : 'Senuli Perera');
+  const activeChildId = currentChild?.id || user?.uid || 'child_default';
+
+  useEffect(() => {
+    async function loadM3() {
+      try {
+        const records = await sessionService.getChildSessions(activeChildId, 1);
+        const latest = records && records.length > 0 ? records[0] : null;
+        const res = await recommendationService.getNextRecommendation(activeChildId, latest);
+        setM3Data(res);
+      } catch (err) {
+        console.warn('[RecommendationsScreen] Error loading M3 recommendation:', err);
+      }
+    }
+    loadM3();
+  }, [activeChildId]);
 
   const tabs: { key: TabKey; label: string; icon: string }[] = [
-    { key: 'roadmap', label: 'Roadmap', icon: '🗺️' },
-    { key: 'simulator', label: 'Simulator', icon: '🧪' },
-    { key: 'peer_cluster', label: 'Peer KNN', icon: '👥' },
-    { key: 'xai', label: 'XAI Logic', icon: '🔍' },
+    { key: 'roadmap', label: language === 'si' ? 'ඉගෙනුම් මාවත' : 'Roadmap', icon: '🗺️' },
+    { key: 'xai', label: language === 'si' ? 'AI මගපෙන්වීම' : 'XAI Logic', icon: '🧠' },
+    { key: 'peer_cluster', label: language === 'si' ? 'සම වයස් Radar' : 'Peer KNN', icon: '👥' },
+    { key: 'simulator', label: language === 'si' ? 'උපකල්පන Simulator' : 'Simulator', icon: '🧪' },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Universal App Bar */}
       <NavBar
-        title="AI Recommendation Hub"
-        subtitle={`Adaptive Learning Engine · ${MOCK_CHILD.name}`}
+        title={language === 'si' ? 'AI නිර්දේශ හබ් (Module 3)' : 'AI Recommendation Hub'}
+        subtitle={`Adaptive Learning Engine · ${activeChildName}`}
         showBack={true}
         fallbackRoute="/(parent)/dashboard"
         showSettings={true}
@@ -57,14 +81,20 @@ export default function RecommendationsScreen() {
           <View style={styles.moduleTag}>
             <View style={[styles.moduleDot, { backgroundColor: ThemeColors.m3 }]} />
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
-              Adaptive Recommendation & Learning Pathway Engine
+              {language === 'si'
+                ? 'අනුවර්තී ඉගෙනුම් මාර්ග සහ නිර්දේශ එන්ජිම (M3)'
+                : 'Adaptive Recommendation & Learning Pathway Engine'}
             </AppText>
           </View>
           <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginVertical: 2 }}>
-            Personalized Dyslexia Scaffolding & Explainable AI
+            {language === 'si'
+              ? 'පුද්ගලානුබද්ධ ඩිස්ලෙක්සියා ඉගෙනුම් සැලසුම් සහ Explainable AI'
+              : 'Personalized Dyslexia Scaffolding & Explainable AI'}
           </AppText>
           <AppText size="xs" color={ThemeColors.textSecondary} style={{ lineHeight: 18 }}>
-            Random Forest classifiers and KNN peer-similarity modeling predict optimal text difficulty, phonological milestones, and scaffolding strategies tailored for Sinhala readers.
+            {language === 'si'
+              ? 'M1 කථන දෝෂ, M2 වාක්‍ය සංකීර්ණතාව සහ M4 හැසිරීම් දත්ත පදනම් කරගෙන Random Forest හා KNN ඇල්ගොරිතම මගින් දරුවාට වඩාත්ම උචිත ඊළඟ අභ්‍යාසය තීරණය කරයි.'
+              : 'Random Forest classifiers and KNN peer-similarity modeling predict optimal text difficulty, phonological milestones, and scaffolding strategies tailored for Sinhala readers.'}
           </AppText>
         </Card>
 
@@ -100,19 +130,19 @@ export default function RecommendationsScreen() {
         {activeTab === 'roadmap' && (
           <View style={styles.tabContent}>
             <AppText size="sm" weight="bold" color={ThemeColors.textSecondary} style={styles.sectionHeading}>
-              🗺️ Multi-Stage Sinhala Curriculum Roadmap
+              🗺️ {language === 'si' ? 'සිංහල කියවීමේ පියවරෙන් පියවර ඉගෙනුම් සැලැස්ම' : 'Multi-Stage Sinhala Curriculum Roadmap'}
             </AppText>
             <LearningRoadmap />
           </View>
         )}
 
-        {/* ── Tab 2: What-If Pedagogical Simulator ────────────────────────── */}
-        {activeTab === 'simulator' && (
+        {/* ── Tab 2: Explainable AI (XAI) Deep-Dive ───────────────────────── */}
+        {activeTab === 'xai' && (
           <View style={styles.tabContent}>
             <AppText size="sm" weight="bold" color={ThemeColors.textSecondary} style={styles.sectionHeading}>
-              🧪 Interactive "What-If" Teaching Strategy Simulator
+              🧠 {language === 'si' ? 'AI තීරණ පැහැදිලි කිරීම සහ දෙමාපිය මගපෙන්වීම' : 'Full Explainable AI Decision Breakdown'}
             </AppText>
-            <RecommendationSimulator />
+            <M3RecommendationCard data={m3Data} showLauncher={true} />
           </View>
         )}
 
@@ -120,19 +150,19 @@ export default function RecommendationsScreen() {
         {activeTab === 'peer_cluster' && (
           <View style={styles.tabContent}>
             <AppText size="sm" weight="bold" color={ThemeColors.textSecondary} style={styles.sectionHeading}>
-              👥 KNN Peer-Cohort Clustering (Grade 2 Norms)
+              👥 {language === 'si' ? 'සම වයස් ළමුන්ගේ දක්ෂතා සැසඳීම (Grade 2 KNN)' : 'KNN Peer-Cohort Clustering (Grade 2 Norms)'}
             </AppText>
             <PeerClusterRadar />
           </View>
         )}
 
-        {/* ── Tab 4: Explainable AI (XAI) Deep-Dive ───────────────────────── */}
-        {activeTab === 'xai' && (
+        {/* ── Tab 4: What-If Pedagogical Simulator ────────────────────────── */}
+        {activeTab === 'simulator' && (
           <View style={styles.tabContent}>
             <AppText size="sm" weight="bold" color={ThemeColors.textSecondary} style={styles.sectionHeading}>
-              🔍 Full Explainable AI Decision Breakdown
+              🧪 {language === 'si' ? 'අන්තර්ක්‍රියාකාරී "What-If" ඉගැන්වීම් උපකල්පන Simulator' : 'Interactive "What-If" Teaching Strategy Simulator'}
             </AppText>
-            <M3RecommendationCard data={MOCK_M3_RESPONSE} showLauncher={true} />
+            <RecommendationSimulator />
           </View>
         )}
 
@@ -149,55 +179,54 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: ThemeColors.background,
-    ...(Platform.OS === 'web' ? { minHeight: '100vh' as any, height: '100vh' as any } : {}),
   },
   scroll: {
-    paddingHorizontal: ThemeSpacing.lg,
-    paddingTop: ThemeSpacing.sm,
-    paddingBottom: ThemeSpacing.xxxl,
+    padding: ThemeSpacing.md,
+    gap: ThemeSpacing.md,
   },
   introCard: {
+    backgroundColor: ThemeColors.card,
+    borderRadius: ThemeRadius.lg,
     padding: ThemeSpacing.md,
-    backgroundColor: ThemeColors.surfaceElevated,
-    marginBottom: ThemeSpacing.md,
+    borderWidth: 1,
+    borderColor: ThemeColors.border,
+    gap: 4,
   },
   moduleTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ThemeSpacing.xs,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   moduleDot: {
     width: 8,
     height: 8,
-    borderRadius: ThemeRadius.full,
+    borderRadius: 4,
+    marginRight: 6,
   },
   tabBar: {
     flexDirection: 'row',
     gap: ThemeSpacing.xs,
-    marginBottom: ThemeSpacing.sm,
+    justifyContent: 'space-between',
   },
   tabButton: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    backgroundColor: ThemeColors.surface,
     paddingVertical: ThemeSpacing.sm,
+    backgroundColor: ThemeColors.surface,
     borderRadius: ThemeRadius.md,
-    borderWidth: 1.5,
-    borderColor: ThemeColors.borderLight,
+    borderWidth: 1,
+    borderColor: ThemeColors.border,
+    gap: 2,
   },
   tabButtonActive: {
     backgroundColor: ThemeColors.accentLight,
-    borderColor: ThemeColors.accentDark,
-    borderWidth: 2,
+    borderColor: ThemeColors.accentBorder,
   },
   tabContent: {
-    marginTop: ThemeSpacing.xs,
+    gap: ThemeSpacing.sm,
   },
   sectionHeading: {
-    marginBottom: ThemeSpacing.xs,
+    marginBottom: 4,
   },
 });

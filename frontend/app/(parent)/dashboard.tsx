@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -23,25 +23,38 @@ import { StudentAvatarPhoto } from '@/components/Illustrations';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { connectionService } from '@/services/connectionService';
-import { LinkedPerson } from '@/types';
+import { sessionService } from '@/services/sessionService';
+import { recommendationService, ParentRecommendationInsight } from '@/services/recommendationService';
+import { LinkedPerson, ReadingSessionRecord } from '@/types';
 import { useChildStoreBase } from '@/store/childStore';
+import { MOCK_SESSIONS } from '@/mock/data';
+import EmailReportModal from '@/components/EmailReportModal';
 
 export default function ParentDashboardScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user, logout } = useAuth();
   const currentGuardian = useChildStoreBase((s) => s.currentGuardian);
   const currentChild = useChildStoreBase((s) => s.currentChild);
   const isChildViewingParent = user?.role === 'child';
+  const isTeacher = user?.role === 'teacher';
 
   const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'insights'>('overview');
   const [linkedStudents, setLinkedStudents] = useState<LinkedPerson[]>([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState(true);
   const [showChildSelectModal, setShowChildSelectModal] = useState(false);
+  const [recentSessions, setRecentSessions] = useState<ReadingSessionRecord[]>([]);
+  const [aiInsight, setAiInsight] = useState<ParentRecommendationInsight | null>(null);
+  const [showEmailReportModal, setShowEmailReportModal] = useState(false);
+  const [rawM3, setRawM3] = useState<any>(null);
 
   const effectiveParentName = isChildViewingParent
-    ? (currentGuardian?.name || 'දෙමාපියන්')
-    : (user?.displayName || 'සුභ උදෑසනක්!');
+    ? (currentGuardian?.name || (language === 'si' ? 'දෙමාපියන්' : 'Parent'))
+    : (user?.displayName || (language === 'si' ? 'සුභ උදෑසනක්!' : 'Welcome!'));
+
+  const activeChildId = currentChild?.id || (linkedStudents.length > 0 ? linkedStudents[0].uid : 'child_001');
+  const activeChildName = currentChild?.name || (linkedStudents.length > 0 ? linkedStudents[0].name : (language === 'si' ? 'සෙනුලි පෙරේරා' : 'Senuli Perera'));
+  const activeChildGrade = currentChild?.grade || (linkedStudents.length > 0 && linkedStudents[0].grade ? linkedStudents[0].grade : 2);
 
   const loadStudents = async () => {
     try {
@@ -59,11 +72,11 @@ export default function ParentDashboardScreen() {
           const list = await connectionService.getLinkedChildren(guardian.uid, guardian.email);
           const childAsLinked: LinkedPerson = {
             uid: user?.uid || '',
-            name: user?.displayName || 'ශිෂ්‍යයා',
+            name: user?.displayName || (language === 'si' ? 'ශිෂ්‍යයා' : 'Student'),
             email: user?.email || '',
             role: 'child',
             grade: user?.grade || 2,
-            relationship: guardian.relationship || 'ශිෂ්‍යයා',
+            relationship: guardian.relationship || (language === 'si' ? 'ශිෂ්‍යයා' : 'Student'),
             linkedAt: guardian.linkedAt || new Date().toISOString(),
           };
           const combined = [...(list || [])];
@@ -85,9 +98,28 @@ export default function ParentDashboardScreen() {
     }
   };
 
+  const loadChildData = async () => {
+    try {
+      const sessions = await sessionService.getChildSessions(activeChildId, 10);
+      setRecentSessions(sessions || []);
+
+      const latest = sessions && sessions.length > 0 ? sessions[0] : null;
+      const rec = await recommendationService.getNextRecommendation(activeChildId, latest);
+      setRawM3(rec);
+      const insight = recommendationService.getParentExplanation(rec);
+      setAiInsight(insight);
+    } catch (err) {
+      console.warn('[ParentDashboard] loadChildData error:', err);
+    }
+  };
+
   useEffect(() => {
     loadStudents();
   }, [user?.uid, user?.email, isChildViewingParent, currentGuardian?.uid]);
+
+  useEffect(() => {
+    loadChildData();
+  }, [activeChildId]);
 
   const handleLogout = async () => {
     await logout();
@@ -96,25 +128,23 @@ export default function ParentDashboardScreen() {
 
   const handleSwitchToChild = (targetChild?: LinkedPerson) => {
     if (!linkedStudents || linkedStudents.length === 0) {
+      const promptTitle = language === 'si' ? 'ශිෂ්‍ය ගිණුමක් නැත' : 'No Student Connected';
+      const promptMsg = language === 'si'
+        ? 'තවමත් ඔබගේ ගිණුමට කිසිදු ශිෂ්‍යයෙකු සම්බන්ධ කර නැත.\n\nදැන්ම ශිෂ්‍යයෙකු සම්බන්ධ කිරීමේ පිටුවට යන්නද?'
+        : 'No student account has been linked to your profile yet.\n\nWould you like to link a student now?';
+
       if (Platform.OS === 'web') {
-        const confirm = window.confirm(
-          'තවමත් ඔබගේ ගිණුමට කිසිදු ශිෂ්‍යයෙකු සම්බන්ධ කර නැත.\n\nදැන්ම ශිෂ්‍යයෙකු සම්බන්ධ කිරීමේ පිටුවට යන්නද? (Connect a student now?)'
-        );
-        if (confirm) {
+        if (window.confirm(promptMsg)) {
           router.push('/(parent)/connect-student');
         }
       } else {
-        Alert.alert(
-          'ශිෂ්‍ය ගිණුමක් නැත',
-          'තවමත් ඔබගේ ගිණුමට කිසිදු ශිෂ්‍යයෙකු සම්බන්ධ කර නැත. කරුණාකර පළමුව ශිෂ්‍යයෙකු සම්බන්ධ කරන්න.',
-          [
-            { text: 'අවලංගු කරන්න', style: 'cancel' },
-            {
-              text: 'සම්බන්ධ කරන්න',
-              onPress: () => router.push('/(parent)/connect-student'),
-            },
-          ]
-        );
+        Alert.alert(promptTitle, promptMsg, [
+          { text: language === 'si' ? 'අවලංගු කරන්න' : 'Cancel', style: 'cancel' },
+          {
+            text: language === 'si' ? 'සම්බන්ධ කරන්න' : 'Connect',
+            onPress: () => router.push('/(parent)/connect-student'),
+          },
+        ]);
       }
       return;
     }
@@ -129,7 +159,6 @@ export default function ParentDashboardScreen() {
       return;
     }
 
-    // Multiple children connected: open selection modal to choose!
     setShowChildSelectModal(true);
   };
 
@@ -146,10 +175,10 @@ export default function ParentDashboardScreen() {
       age: 7,
       grade: selected.grade || 2,
       readingLevel: 'medium',
-      streak: 1,
-      stars: 10,
-      totalSessions: 0,
-      avatarColor: '#4F46E5',
+      streak: currentChild?.streak || 3,
+      stars: currentChild?.stars || 15,
+      totalSessions: recentSessions.length || 5,
+      avatarColor: '#0B7A44',
       avatar: resolvedAvatar,
     });
 
@@ -203,42 +232,41 @@ export default function ParentDashboardScreen() {
     }
   };
 
-  const students = [
-    {
-      id: 1,
-      name: 'සෙනුලි පෙරේරා',
-      grade: 5,
-      progress: 78,
-      status: 'හොඳයි',
-      statusType: 'good',
-      avatarBg: '#DCFCE7',
-      errorPattern: 'ස්වර දිගුකිරීම් (Vowel Length)',
-    },
-    {
-      id: 2,
-      name: 'කවිඳු සිල්වා',
-      grade: 5,
-      progress: 62,
-      status: 'අවධානය',
-      statusType: 'attention',
-      avatarBg: '#FEF3C7',
-      errorPattern: 'ර/ල අකුරු මාරුව (Liquid Confusion)',
-    },
-    {
-      id: 3,
-      name: 'සහන් ප්‍රනාන්දු',
-      grade: 4,
-      progress: 44,
-      status: 'සහාය අවශ්‍යයි',
-      statusType: 'help',
-      avatarBg: '#FEE2E2',
-      errorPattern: 'පිල්ලම් මඟහැරීම (Pillam Omission)',
-    },
-  ];
+  // Dynamic statistics calculations
+  const stats = useMemo(() => {
+    const hasLiveSessions = recentSessions.length > 0;
+    const totalSessions = hasLiveSessions ? recentSessions.length : (currentChild?.totalSessions || 12);
+
+    let totalAcc = 0;
+    let totalStars = 0;
+
+    if (hasLiveSessions) {
+      recentSessions.forEach((s) => {
+        totalAcc += s.overallAccuracy ?? s.results.errorAnalysis?.accuracy ?? 80;
+        totalStars += s.starsEarned ?? 3;
+      });
+      const avgAcc = Math.round(totalAcc / recentSessions.length);
+      return {
+        totalSessions,
+        avgAccuracy: avgAcc,
+        totalStars: totalStars || (currentChild?.stars ?? 36),
+        streak: currentChild?.streak ?? 5,
+        isDemo: false,
+      };
+    }
+
+    return {
+      totalSessions: 8,
+      avgAccuracy: 76,
+      totalStars: currentChild?.stars ?? 24,
+      streak: currentChild?.streak ?? 4,
+      isDemo: true,
+    };
+  }, [recentSessions, currentChild]);
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ── TOP MOBILE HEADER ── */}
+      {/* ── TOP HEADER ── */}
       <View style={styles.topHeader}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.push('/(auth)/role-select')} activeOpacity={0.7}>
@@ -247,7 +275,7 @@ export default function ParentDashboardScreen() {
 
           <View style={{ marginLeft: 10, flexShrink: 1 }}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
-              {t('dashboard.parentTitle')}
+              {isTeacher ? (language === 'si' ? 'ගුරු පුවරුව' : 'Teacher Portal') : t('dashboard.parentTitle')}
             </AppText>
             <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
               {effectiveParentName} 👏
@@ -256,7 +284,7 @@ export default function ParentDashboardScreen() {
         </View>
 
         <View style={styles.headerRight}>
-          {/* Switch to Child Account Mode — 1-click button in the top bar */}
+          {/* 1-Click Switch to Child Account Mode */}
           <TouchableOpacity
             style={[
               styles.childSwitchBtn,
@@ -267,11 +295,9 @@ export default function ParentDashboardScreen() {
             accessibilityLabel="Switch to Student Account"
           >
             <AppText size="sm">🌟</AppText>
-            {linkedStudents.length > 1 && (
-              <AppText size="xs" weight="extrabold" color="#047857" style={{ marginLeft: 4 }}>
-                {linkedStudents.length}
-              </AppText>
-            )}
+            <AppText size="xs" weight="extrabold" color="#047857" style={{ marginLeft: 4 }}>
+              {language === 'si' ? 'ශිෂ්‍ය මාදිලිය' : 'Student'}
+            </AppText>
           </TouchableOpacity>
 
           {/* Notification Bell */}
@@ -284,16 +310,7 @@ export default function ParentDashboardScreen() {
             <View style={styles.redDot} />
           </TouchableOpacity>
 
-          {/* Teacher / Parent Avatar Photo */}
-          <TouchableOpacity
-            style={styles.teacherAvatarWrap}
-            onPress={() => router.push('/(child)/profile')}
-            activeOpacity={0.8}
-          >
-            <AppText size="md">👩‍🏫</AppText>
-          </TouchableOpacity>
-
-          {/* Log Out Button (Exit Icon Only) */}
+          {/* Log Out Button */}
           <TouchableOpacity
             style={styles.logoutBtn}
             onPress={handleLogout}
@@ -316,6 +333,30 @@ export default function ParentDashboardScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
+        {/* ── TEACHER CLASSROOM BANNER (IF APPLICABLE) ── */}
+        {isTeacher && (
+          <TouchableOpacity
+            style={[styles.teacherPromoBanner, ThemeShadow.sm]}
+            onPress={() => router.push('/(parent)/teacher')}
+            activeOpacity={0.85}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <AppText size="lg">🏫</AppText>
+              <View style={{ marginLeft: 10, flex: 1 }}>
+                <AppText size="sm" weight="extrabold" color="#1E3A8A">
+                  {t('dashboard.teacherBanner.title')}
+                </AppText>
+                <AppText size="xs" color="#3B82F6" style={{ marginTop: 2 }}>
+                  {t('dashboard.teacherBanner.desc')}
+                </AppText>
+              </View>
+              <AppText size="sm" weight="extrabold" color="#1E3A8A">
+                →
+              </AppText>
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* ── TOP CATEGORY PILLS ── */}
         <View style={styles.tabPillsRow}>
           <TouchableOpacity
@@ -330,7 +371,7 @@ export default function ParentDashboardScreen() {
               color={activeTab === 'overview' ? '#FFFFFF' : ThemeColors.textSecondary}
               style={{ marginLeft: 6 }}
             >
-              සාරාංශය
+              {t('dashboard.tabs.overview')}
             </AppText>
           </TouchableOpacity>
 
@@ -346,7 +387,7 @@ export default function ParentDashboardScreen() {
               color={activeTab === 'students' ? '#FFFFFF' : ThemeColors.textSecondary}
               style={{ marginLeft: 6 }}
             >
-              සිසුන් (24)
+              {t('dashboard.tabs.students')} ({linkedStudents.length || 1})
             </AppText>
           </TouchableOpacity>
 
@@ -362,366 +403,268 @@ export default function ParentDashboardScreen() {
               color={activeTab === 'insights' ? '#FFFFFF' : ThemeColors.textSecondary}
               style={{ marginLeft: 6 }}
             >
-              AI නිර්දේශ
+              {t('dashboard.tabs.recommendations')}
             </AppText>
           </TouchableOpacity>
         </View>
 
-        {/* ── CONNECT STUDENT PROMINENT BANNER / CTA ── */}
-        <View style={[styles.connectBanner, ThemeShadow.sm]}>
-          {/* Top row: icon + text */}
-          <View style={styles.connectBannerTop}>
-            <View style={styles.connectIconCircle}>
-              <AppText size="lg">🔗</AppText>
-            </View>
-            <View style={styles.connectBannerTextWrap}>
-              <AppText size="sm" weight="extrabold" color={ThemeColors.primary}>
-                ශිෂ්‍ය ගිණුම් සම්බන්ධතාවය
-              </AppText>
+        {/* ── CARD 1: ACTIVE CHILD HERO CARD (PARENT-FOCUSED) ── */}
+        <View style={[styles.childHeroCard, ThemeShadow.md]}>
+          <View style={styles.childHeroTop}>
+            <StudentAvatarPhoto size={56} showEditBadge={false} />
+            <View style={{ marginLeft: 14, flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
+                  {activeChildName}
+                </AppText>
+                <View style={styles.gradeBadge}>
+                  <AppText size="xs" weight="extrabold" color={ThemeColors.primary}>
+                    {activeChildGrade} {language === 'si' ? 'ශ්‍රේණිය' : 'Grade'}
+                  </AppText>
+                </View>
+              </View>
               <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 2 }}>
-                {linkedStudents.length > 0
-                  ? `සම්බන්ධිත සිසුන් ${linkedStudents.length}ක් සිටී.`
-                  : 'ඔබගේ දරුවා හෝ ශිෂ්‍යයා සමඟ ගිණුම සම්බන්ධ කරන්න.'}
+                {language === 'si' ? 'සිංහල කියවීමේ සහාය · මධ්‍යම මට්ටම' : 'Sinhala Reading Assistant · Medium Level'}
               </AppText>
             </View>
           </View>
 
-          {/* Bottom row: action buttons */}
-          <View style={styles.connectBannerActions}>
-            {linkedStudents.length > 1 && (
-              <TouchableOpacity
-                style={styles.chooseChildBannerBtn}
-                onPress={() => setShowChildSelectModal(true)}
-                activeOpacity={0.8}
-                accessibilityLabel="Choose Student"
-              >
-                <AppText size="xs" weight="extrabold" color="#0369A1">
-                  👥 තෝරන්න
-                </AppText>
-              </TouchableOpacity>
-            )}
+          <View style={styles.childHeroActions}>
             <TouchableOpacity
-              style={styles.connectCtaBtn}
+              style={styles.practiceNowBtn}
+              onPress={() => handleSwitchToChild()}
+              activeOpacity={0.85}
+            >
+              <AppText size="xs" weight="extrabold" color="#FFFFFF">
+                🚀 {language === 'si' ? 'අද කියවීමේ අභ්‍යාසයට පිවිසෙන්න' : 'Start Reading Exercise'}
+              </AppText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.connectOtherBtn}
               onPress={() => router.push('/(parent)/connect-student')}
               activeOpacity={0.8}
             >
-              <AppText size="xs" weight="extrabold" color="#FFFFFF">
-                + සම්බන්ධ කරන්න
+              <AppText size="xs" weight="bold" color={ThemeColors.primary}>
+                + {language === 'si' ? 'දරුවෙකු එක්කරන්න' : 'Link Child'}
+              </AppText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.emailReportQuickBtn}
+              onPress={() => setShowEmailReportModal(true)}
+              activeOpacity={0.8}
+            >
+              <AppText size="xs" weight="bold" color="#0369A1">
+                📧 {language === 'si' ? 'PDF වාර්තාව' : 'PDF Report'}
               </AppText>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* ── 4 SUMMARY METRIC CARDS (2x2 Clean Mobile Grid) ── */}
+        {/* ── 4 SUMMARY METRIC CARDS (REAL DYNAMIC SESSION METRICS) ── */}
         <View style={styles.metricsGrid}>
-          {/* Card 1: සිසුන් */}
-          <View style={[styles.metricCard, ThemeShadow.sm]}>
-            <View style={[styles.metricIconWrap, { backgroundColor: '#E0F2FE' }]}>
-              <AppText size="md">👥</AppText>
-            </View>
-            <View style={{ marginLeft: 10 }}>
-              <AppText size="xs" color={ThemeColors.textSecondary} weight="bold">
-                මුළු සිසුන්
-              </AppText>
-              <AppText size="xl" weight="extrabold" color={ThemeColors.textPrimary}>
-                24
-              </AppText>
-            </View>
-          </View>
-
-          {/* Card 2: සම්පූර්ණ කළ */}
+          {/* Card 1: කියවූ සැසි */}
           <View style={[styles.metricCard, ThemeShadow.sm]}>
             <View style={[styles.metricIconWrap, { backgroundColor: '#DCFCE7' }]}>
-              <AppText size="md">✓</AppText>
+              <AppText size="md">📖</AppText>
             </View>
             <View style={{ marginLeft: 10 }}>
               <AppText size="xs" color={ThemeColors.textSecondary} weight="bold">
-                සම්පූර්ණ සැසි
+                {t('dashboard.metrics.totalSessions')}
               </AppText>
               <AppText size="xl" weight="extrabold" color="#047857">
-                156
+                {stats.totalSessions}
               </AppText>
             </View>
           </View>
 
-          {/* Card 3: සාමාන්‍ය ප්‍රගතිය */}
+          {/* Card 2: නිරවද්‍යතාව */}
+          <View style={[styles.metricCard, ThemeShadow.sm]}>
+            <View style={[styles.metricIconWrap, { backgroundColor: '#E0F2FE' }]}>
+              <AppText size="md">🎯</AppText>
+            </View>
+            <View style={{ marginLeft: 10 }}>
+              <AppText size="xs" color={ThemeColors.textSecondary} weight="bold">
+                {t('dashboard.metrics.avgAccuracy')}
+              </AppText>
+              <AppText size="xl" weight="extrabold" color="#0369A1">
+                {stats.avgAccuracy}%
+              </AppText>
+            </View>
+          </View>
+
+          {/* Card 3: තරු එකතුව */}
           <View style={[styles.metricCard, ThemeShadow.sm]}>
             <View style={[styles.metricIconWrap, { backgroundColor: '#FEF3C7' }]}>
-              <AppText size="md">📈</AppText>
+              <AppText size="md">⭐</AppText>
             </View>
             <View style={{ marginLeft: 10 }}>
               <AppText size="xs" color={ThemeColors.textSecondary} weight="bold">
-                සාමාන්‍ය ප්‍රගතිය
+                {t('dashboard.metrics.starsEarned')}
               </AppText>
               <AppText size="xl" weight="extrabold" color="#B45309">
-                72%
+                {stats.totalStars}
               </AppText>
             </View>
           </View>
 
-          {/* Card 4: අවධානය අවශ්‍යයි */}
+          {/* Card 4: දින සටහන */}
           <View style={[styles.metricCard, ThemeShadow.sm]}>
             <View style={[styles.metricIconWrap, { backgroundColor: '#FEE2E2' }]}>
-              <AppText size="md">⚠️</AppText>
+              <AppText size="md">🔥</AppText>
             </View>
             <View style={{ marginLeft: 10 }}>
               <AppText size="xs" color={ThemeColors.textSecondary} weight="bold">
-                අවධානය අවශ්‍ය
+                {t('dashboard.metrics.currentStreak')}
               </AppText>
               <AppText size="xl" weight="extrabold" color="#DC2626">
-                5
+                {stats.streak} {language === 'si' ? 'දින' : 'Days'}
               </AppText>
             </View>
           </View>
         </View>
 
-        {/* ── CARD 2: සිසුන්ගේ ප්‍රගතිය (STUDENT PROGRESS LIST) ── */}
+        {/* ── CARD 2: ACTIONABLE HOME PRACTICE GUIDANCE FOR PARENTS ── */}
+        <View style={[styles.homeTipsCard, ThemeShadow.sm]}>
+          <View style={styles.cardHeaderRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <AppText size="sm">🏡</AppText>
+              <AppText size="md" weight="extrabold" color="#9A3412" style={{ marginLeft: 6 }}>
+                {t('dashboard.homeTips.title')}
+              </AppText>
+            </View>
+            <TouchableOpacity onPress={() => router.push('/(parent)/reports')} activeOpacity={0.7}>
+              <AppText size="xs" weight="bold" color="#C2410C">
+                {t('dashboard.homeTips.viewGuide')}
+              </AppText>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.tipBox}>
+            <AppText size="xs" weight="extrabold" color="#9A3412">
+              1. {language === 'si' ? 'අකුරු පෙරලීම සහ කොම්බුව පිහිටීම (Reversal Support):' : 'Diacritic Sequencing Support:'}
+            </AppText>
+            <AppText size="xs" color="#7C2D12" style={{ marginTop: 2, lineHeight: 18 }}>
+              {language === 'si'
+                ? 'දරුවාට කොම්බුව සහිත අකුරු ලියන විට, කොම්බුව මුලින් තබා අකුර පසුව ලියන අනුපිළිවෙල ඇඟිල්ලෙන් ඇඳ පෙන්වන්න.'
+                : 'Guide your child to trace the kombuwa stroke order in the air before reading words.'}
+            </AppText>
+          </View>
+
+          <View style={[styles.tipBox, { marginTop: 8 }]}>
+            <AppText size="xs" weight="extrabold" color="#9A3412">
+              2. {language === 'si' ? 'දිගු ස්වර පැහැදිලිව උච්චාරණය (Vowel Length):' : 'Long Vowel Articulation:'}
+            </AppText>
+            <AppText size="xs" color="#7C2D12" style={{ marginTop: 2, lineHeight: 18 }}>
+              {language === 'si'
+                ? '"ගොඩක්" සහ "ගොඩාක්" අතර වෙනස හඳුනාගැනීමට "ඩා" ශබ්දය දිගු කර ශබ්ද කරන ලෙස දරුවාට සිනහමුසු මුහුණින් පෙන්වන්න.'
+                : 'Practice distinguishing short and elongated vowel sounds like "ගොඩක්" vs "ගොඩාක්".'}
+            </AppText>
+          </View>
+        </View>
+
+        {/* ── CARD 3: AI ADAPTIVE RECOMMENDATION PREVIEW (MODULE 3) ── */}
+        {aiInsight && (
+          <View style={[styles.insightsCard, ThemeShadow.sm]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <AppText size="sm">🧠</AppText>
+                <AppText size="md" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
+                  {language === 'si' ? 'AI අනුවර්තී මගපෙන්වීම (Module 3)' : 'AI Adaptive Recommendation (M3)'}
+                </AppText>
+              </View>
+              <View style={styles.confidenceBadge}>
+                <AppText size="xs" weight="bold" color={ThemeColors.primary}>
+                  {aiInsight.confidencePercent}% {language === 'si' ? 'විශ්වාසය' : 'Match'}
+                </AppText>
+              </View>
+            </View>
+
+            <View style={styles.insightInnerBox}>
+              <AppText size="xs" weight="extrabold" color="#0369A1">
+                {language === 'si' ? aiInsight.title : aiInsight.recommendation}
+              </AppText>
+              <AppText size="xs" color="#0C4A6E" style={{ marginTop: 4, lineHeight: 18 }}>
+                {language === 'si' ? aiInsight.plainLanguageReasonSi : aiInsight.plainLanguageReason}
+              </AppText>
+              <View style={styles.targetPhonemePill}>
+                <AppText size="xs" weight="bold" color="#0369A1">
+                  🎯 {language === 'si' ? 'ඉලක්කය:' : 'Target:'} {aiInsight.targetSkill}
+                </AppText>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.viewRecsBtn}
+              onPress={() => router.push('/(parent)/recommendations')}
+              activeOpacity={0.85}
+            >
+              <AppText size="xs" weight="extrabold" color={ThemeColors.primary}>
+                {language === 'si' ? 'සම්පූර්ණ AI Roadmap එක බලන්න →' : 'Explore Learning Roadmap →'}
+              </AppText>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ── CARD 4: RECENT SESSIONS SUMMARY TABLE ── */}
         <View style={[styles.progressCard, ThemeShadow.sm]}>
           <View style={styles.cardHeaderRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <AppText size="sm">📊</AppText>
+              <AppText size="sm">📜</AppText>
               <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginLeft: 6 }}>
-                සිසුන්ගේ දෛනික ප්‍රගතිය
+                {t('dashboard.recentSessions.title')}
               </AppText>
             </View>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <TouchableOpacity
-                onPress={() => router.push('/(parent)/connect-student')}
-                activeOpacity={0.7}
-              >
-                <AppText size="xs" weight="bold" color={ThemeColors.primary}>
-                  + එක්කරන්න
-                </AppText>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push('/(parent)/reports')} activeOpacity={0.7}>
-                <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
-                  වාර්තා →
-                </AppText>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity onPress={() => router.push('/(parent)/reports')} activeOpacity={0.7}>
+              <AppText size="xs" weight="bold" color={ThemeColors.primary}>
+                {t('dashboard.recentSessions.viewAll')}
+              </AppText>
+            </TouchableOpacity>
           </View>
 
-          {/* Real Linked Students List */}
-          {linkedStudents.length > 0 ? (
-            <View style={{ gap: 10, marginBottom: 14 }}>
-              <AppText size="xs" weight="extrabold" color={ThemeColors.primary}>
-                ✓ ඔබගේ සම්බන්ධිත සිසුන් ({linkedStudents.length})
-              </AppText>
-              {linkedStudents.map((ls) => {
-                const isActive = currentChild?.id === ls.uid;
+          {recentSessions.length > 0 ? (
+            <View style={{ gap: 8 }}>
+              {recentSessions.slice(0, 3).map((sess, idx) => {
+                const acc = sess.overallAccuracy ?? sess.results.errorAnalysis?.accuracy ?? 80;
+                const dateStr = sess.createdAt ? new Date(sess.createdAt).toLocaleDateString() : 'අද දින';
                 return (
-                  <View
-                    key={ls.uid}
-                    style={[
-                      styles.studentItemCard,
-                      {
-                        backgroundColor: isActive ? '#F0FDF4' : '#FFFFFF',
-                        borderColor: isActive ? '#86EFAC' : '#E2E8F0',
-                        borderWidth: 1.5,
-                      },
-                    ]}
-                  >
-                    <View style={styles.studentTopLine}>
-                      <View style={styles.studentNameWrap}>
-                        <View style={[styles.miniAvatarCircle, { backgroundColor: isActive ? '#DCFCE7' : '#E0F2FE' }]}>
-                          <AppText size="xs" weight="extrabold" color={isActive ? '#047857' : '#0369A1'}>
-                            {ls.name.charAt(0)}
-                          </AppText>
-                        </View>
-                        <View style={{ marginLeft: 8 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <AppText size="sm" weight="bold" color={ThemeColors.textPrimary}>
-                              {ls.name}
-                            </AppText>
-                            {isActive && (
-                              <View style={styles.activePillBadge}>
-                                <AppText size="xs" weight="bold" color="#047857">
-                                  ✓ සක්‍රීයයි
-                                </AppText>
-                              </View>
-                            )}
-                          </View>
-                          <AppText size="xs" color={ThemeColors.textSecondary}>
-                            ශ්‍රේණිය {ls.grade || 2} · {ls.relationship || 'ශිෂ්‍යයා'}
-                          </AppText>
-                        </View>
-                      </View>
+                  <View key={sess.sessionId || idx} style={styles.sessionItemRow}>
+                    <View style={{ flex: 1 }}>
+                      <AppText size="xs" weight="extrabold" color={ThemeColors.textPrimary} numberOfLines={1}>
+                        "{sess.textContent || 'මම මගේ රටට ආදරෙයි'}"
+                      </AppText>
+                      <AppText size="xs" color={ThemeColors.textMuted} style={{ marginTop: 2 }}>
+                        {dateStr} · {sess.durationSeconds || 45}s · ⭐ {sess.starsEarned || 3}
+                      </AppText>
+                    </View>
 
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <TouchableOpacity
-                          style={[styles.switchSessionBtn, isActive && { backgroundColor: '#059669' }]}
-                          onPress={() => applySwitchToChild(ls)}
-                          activeOpacity={0.8}
-                        >
-                          <AppText size="xs" weight="bold" color="#FFFFFF">
-                            {isActive ? 'පිවිසෙන්න 🚀' : 'තෝරන්න 🚀'}
-                          </AppText>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={styles.detachBtn}
-                          onPress={() => handleRemoveStudent(ls)}
-                          activeOpacity={0.7}
-                          accessibilityLabel="Remove student connection"
-                        >
-                          <AppText size="xs" weight="bold" color="#DC2626">
-                            ✕ ඉවත් කරන්න
-                          </AppText>
-                        </TouchableOpacity>
-                      </View>
+                    <View style={[styles.accBadge, { backgroundColor: acc >= 75 ? '#DCFCE7' : '#FEF3C7' }]}>
+                      <AppText size="xs" weight="extrabold" color={acc >= 75 ? '#047857' : '#B45309'}>
+                        {acc}%
+                      </AppText>
                     </View>
                   </View>
                 );
               })}
             </View>
           ) : (
-            <View style={styles.emptyStudentsBox}>
-              <AppText size="lg">👥</AppText>
-              <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginTop: 4 }}>
-                තවමත් කිසිදු ශිෂ්‍යයෙකු සම්බන්ධ කර නැත
-              </AppText>
-              <AppText size="xs" color={ThemeColors.textSecondary} style={{ textAlign: 'center', marginTop: 4, lineHeight: 18 }}>
-                ඔබගේ දරුවාගේ හෝ පන්තියේ සිසුන්ගේ ප්‍රගතිය බැලීමට ශිෂ්‍ය ගිණුමක් සම්බන්ධ කරන්න.
+            <View style={styles.emptySessionsBox}>
+              <AppText size="xs" color={ThemeColors.textSecondary} style={{ textAlign: 'center', lineHeight: 18 }}>
+                {t('dashboard.recentSessions.empty')}
               </AppText>
               <TouchableOpacity
-                style={styles.connectFirstBtn}
-                onPress={() => router.push('/(parent)/connect-student')}
+                style={styles.startSessionSmallBtn}
+                onPress={() => handleSwitchToChild()}
                 activeOpacity={0.8}
               >
-                <AppText size="xs" weight="extrabold" color="#FFFFFF">
-                  + පළමු ශිෂ්‍යයා සම්බන්ධ කරන්න
+                <AppText size="xs" weight="bold" color="#FFFFFF">
+                  🚀 {language === 'si' ? 'අභ්‍යාසයක් අරඹමු' : 'Start Reading'}
                 </AppText>
               </TouchableOpacity>
             </View>
           )}
-
-          {/* Student Rows (Sample Cohort) */}
-          <View style={[styles.studentsListWrap, { marginTop: 8 }]}>
-            <AppText size="xs" weight="bold" color={ThemeColors.textMuted} style={{ marginBottom: 4 }}>
-              ආදර්ශ සිසුන්ගේ ප්‍රගතිය (Sample Cohort):
-            </AppText>
-            {students.map((stu) => (
-              <View key={stu.id} style={styles.studentItemCard}>
-                <View style={styles.studentTopLine}>
-                  <View style={styles.studentNameWrap}>
-                    <View style={[styles.miniAvatarCircle, { backgroundColor: stu.avatarBg }]}>
-                      <AppText size="xs" weight="extrabold" color={ThemeColors.textPrimary}>
-                        {stu.name.charAt(0)}
-                      </AppText>
-                    </View>
-                    <View style={{ marginLeft: 8 }}>
-                      <AppText size="sm" weight="bold" color={ThemeColors.textPrimary}>
-                        {stu.name}
-                      </AppText>
-                      <AppText size="xs" color={ThemeColors.textSecondary}>
-                        ශ්‍රේණිය {stu.grade} · {stu.errorPattern}
-                      </AppText>
-                    </View>
-                  </View>
-
-                  {/* Status Tag */}
-                  <View
-                    style={[
-                      styles.statusPillBadge,
-                      stu.statusType === 'good' && styles.statusGood,
-                      stu.statusType === 'attention' && styles.statusAttention,
-                      stu.statusType === 'help' && styles.statusHelp,
-                    ]}
-                  >
-                    <AppText
-                      size="xs"
-                      weight="bold"
-                      color={
-                        stu.statusType === 'good'
-                          ? '#047857'
-                          : stu.statusType === 'attention'
-                            ? '#B45309'
-                            : '#DC2626'
-                      }
-                    >
-                      {stu.status}
-                    </AppText>
-                  </View>
-                </View>
-
-                {/* Progress Bar & Percentage Line */}
-                <View style={styles.studentProgressBarRow}>
-                  <View style={styles.progressBarTrack}>
-                    <View
-                      style={[
-                        styles.progressBarFill,
-                        {
-                          width: `${stu.progress}%`,
-                          backgroundColor:
-                            stu.progress >= 70
-                              ? '#10B981'
-                              : stu.progress >= 50
-                                ? '#F59E0B'
-                                : '#EF4444',
-                        },
-                      ]}
-                    />
-                  </View>
-                  <AppText size="xs" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginLeft: 8 }}>
-                    {stu.progress}%
-                  </AppText>
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* ── CARD 3: AI නිර්දේශ සහ මගපෙන්වීම් (ADAPTIVE INSIGHTS) ── */}
-        <View style={[styles.insightsCard, ThemeShadow.sm]}>
-          <View style={styles.insightHeaderRow}>
-            <AppText size="sm">🧠</AppText>
-            <AppText size="md" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
-              AI ස්මාර්ට් ඉගෙනුම් නිර්දේශ
-            </AppText>
-          </View>
-
-          <View style={styles.insightInnerBox}>
-            <AppText size="xs" weight="bold" color="#0369A1">
-              • සිසුන් 8 දෙනෙකු සඳහා නව කථන අභ්‍යාස නිර්දේශ කර ඇත.
-            </AppText>
-            <AppText size="xs" color="#0C4A6E" style={{ marginTop: 4, lineHeight: 18 }}>
-              ර/ල අකුරු මාරුව සහ ස්වර දිගුකිරීම් ආශ්‍රිත දෝෂ සහිත සිසුන්ට පියවරෙන් පියවර සහාය ලබාදෙන්න.
-            </AppText>
-          </View>
-
-          <TouchableOpacity
-            style={styles.viewRecsBtn}
-            onPress={() => router.push('/(parent)/recommendations')}
-            activeOpacity={0.85}
-          >
-            <AppText size="xs" weight="bold" color={ThemeColors.primary}>
-              සම්පූර්ණ AI නිර්දේශ විමසන්න →
-            </AppText>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── CARD 4: ඉක්මන් පුහුණු සැසියක් (QUICK LAUNCHER) ── */}
-        <View style={[styles.quickLauncherCard, ThemeShadow.sm]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <AppText size="md">📋</AppText>
-            <AppText size="md" weight="extrabold" color="#FFFFFF" style={{ marginLeft: 8 }}>
-              විස්තරාත්මක වාර්තා සහ නිර්දේශ
-            </AppText>
-          </View>
-          <AppText size="xs" color="rgba(255,255,255,0.9)" style={{ marginTop: 4, lineHeight: 18 }}>
-            සිසුවාගේ උච්චාරණ දෝෂ විශ්ලේෂණය සහ ඉදිරි ඉගෙනුම් මාර්ගය පරිශීලනය කරන්න.
-          </AppText>
-
-          <TouchableOpacity
-            style={styles.launchBtn}
-            onPress={() => router.push('/(parent)/reports')}
-            activeOpacity={0.85}
-          >
-            <AppText size="sm" weight="extrabold" color={ThemeColors.primary}>
-              සම්පූර්ණ වාර්තාව බලන්න →
-            </AppText>
-          </TouchableOpacity>
         </View>
 
         <View style={{ height: ThemeSpacing.xl }} />
@@ -744,16 +687,15 @@ export default function ParentDashboardScreen() {
             activeOpacity={1}
             onPress={(e) => e.stopPropagation?.()}
           >
-            {/* Modal Header */}
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <AppText size="lg">👶</AppText>
                 <View style={{ marginLeft: 10 }}>
                   <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
-                    ශිෂ්‍ය ගිණුම තෝරන්න
+                    {language === 'si' ? 'ශිෂ්‍ය ගිණුම තෝරන්න' : 'Select Student'}
                   </AppText>
                   <AppText size="xs" color={ThemeColors.textSecondary}>
-                    ඉගෙනුමට පිවිසීමට අවශ්‍ය ශිෂ්‍යයා තෝරන්න:
+                    {language === 'si' ? 'ඉගෙනුමට පිවිසීමට අවශ්‍ය දරුවා තෝරන්න:' : 'Choose which child to switch into:'}
                   </AppText>
                 </View>
               </View>
@@ -768,7 +710,6 @@ export default function ParentDashboardScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* List of Connected Children */}
             <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
               <View style={{ gap: 10, paddingVertical: 6 }}>
                 {linkedStudents.map((child) => {
@@ -797,19 +738,19 @@ export default function ParentDashboardScreen() {
                           {isCurrent && (
                             <View style={styles.activePillBadge}>
                               <AppText size="xs" weight="bold" color="#047857">
-                                ✓ සක්‍රීයයි
+                                ✓ {language === 'si' ? 'සක්‍රීයයි' : 'Active'}
                               </AppText>
                             </View>
                           )}
                         </View>
                         <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 2 }}>
-                          ශ්‍රේණිය {child.grade || 2} · {child.relationship || 'ශිෂ්‍යයා'}
+                          {child.grade || 2} {language === 'si' ? 'ශ්‍රේණිය' : 'Grade'} · {child.relationship || (language === 'si' ? 'ශිෂ්‍යයා' : 'Student')}
                         </AppText>
                       </View>
 
                       <View style={[styles.selectActionPill, isCurrent && { backgroundColor: '#059669' }]}>
                         <AppText size="xs" weight="extrabold" color="#FFFFFF">
-                          {isCurrent ? 'පිවිසෙන්න 🚀' : 'තෝරන්න 🚀'}
+                          {isCurrent ? (language === 'si' ? 'පිවිසෙන්න 🚀' : 'Switch 🚀') : (language === 'si' ? 'තෝරන්න 🚀' : 'Select 🚀')}
                         </AppText>
                       </View>
                     </TouchableOpacity>
@@ -818,19 +759,29 @@ export default function ParentDashboardScreen() {
               </View>
             </ScrollView>
 
-            {/* Modal Cancel Button */}
             <TouchableOpacity
               style={styles.modalCancelBtn}
               onPress={() => setShowChildSelectModal(false)}
               activeOpacity={0.8}
             >
               <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
-                අවලංගු කරන්න (Cancel)
+                {language === 'si' ? 'අවලංගු කරන්න (Cancel)' : 'Cancel'}
               </AppText>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* ── EMAIL REPORT MODAL ── */}
+      <EmailReportModal
+        visible={showEmailReportModal}
+        onClose={() => setShowEmailReportModal(false)}
+        childId={activeChildId}
+        childName={activeChildName}
+        grade={activeChildGrade}
+        sessions={recentSessions}
+        m3Recommendation={rawM3}
+      />
     </SafeAreaView>
   );
 }
@@ -849,362 +800,301 @@ const styles = StyleSheet.create({
     paddingVertical: ThemeSpacing.sm,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: ThemeColors.borderLight,
+    borderBottomColor: ThemeColors.border,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+  },
+  childSwitchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1.5,
+    borderColor: '#6EE7B7',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: ThemeRadius.full,
   },
   bellBtn: {
-    position: 'relative',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
   redDot: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 7,
+    right: 7,
     width: 7,
     height: 7,
     borderRadius: 3.5,
     backgroundColor: '#EF4444',
   },
-  childSwitchBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#DCFCE7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#86EFAC',
-  },
-  teacherAvatarWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#DCFCE7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#86EFAC',
-  },
   logoutBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#FEE2E2',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEF2F2',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#FECACA',
   },
   scroll: {
     padding: ThemeSpacing.md,
     gap: ThemeSpacing.md,
-    paddingBottom: ThemeSpacing.xxl,
+  },
+  teacherPromoBanner: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+    borderRadius: ThemeRadius.lg,
+    padding: ThemeSpacing.md,
   },
   tabPillsRow: {
     flexDirection: 'row',
-    gap: 8,
+    backgroundColor: '#E2E8F0',
+    padding: 3,
+    borderRadius: ThemeRadius.full,
   },
   tabPill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: ThemeRadius.full,
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
   },
   tabPillActive: {
     backgroundColor: ThemeColors.primary,
-    borderColor: ThemeColors.primary,
+  },
+  childHeroCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: ThemeRadius.xl,
+    padding: ThemeSpacing.md,
+    borderWidth: 1,
+    borderColor: ThemeColors.primaryBorder,
+  },
+  childHeroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  gradeBadge: {
+    backgroundColor: ThemeColors.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: ThemeRadius.full,
+  },
+  childHeroActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: ThemeSpacing.md,
+    paddingTop: ThemeSpacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  practiceNowBtn: {
+    flex: 1,
+    backgroundColor: ThemeColors.primary,
+    paddingVertical: 10,
+    borderRadius: ThemeRadius.md,
+    alignItems: 'center',
+  },
+  connectOtherBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: ThemeRadius.md,
+    borderWidth: 1,
+    borderColor: ThemeColors.primaryBorder,
+    alignItems: 'center',
+  },
+  emailReportQuickBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: ThemeRadius.md,
+    borderWidth: 1.5,
+    borderColor: '#BAE6FD',
+    backgroundColor: '#F0F9FF',
+    alignItems: 'center',
   },
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: ThemeSpacing.sm,
-  },
-  metricCard: {
-    width: '48%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: ThemeSpacing.sm + 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
-  },
-  metricIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: ThemeSpacing.md,
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: ThemeSpacing.md,
-  },
-  studentsListWrap: {
     gap: 10,
   },
-  studentItemCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 12,
+  metricCard: {
+    flex: 1,
+    minWidth: '47%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: ThemeSpacing.md,
+    borderRadius: ThemeRadius.lg,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: ThemeColors.border,
   },
-  studentTopLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  studentNameWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  miniAvatarCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  metricIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statusPillBadge: {
+  homeTipsCard: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1.5,
+    borderColor: '#FED7AA',
+    borderRadius: ThemeRadius.xl,
+    padding: ThemeSpacing.md,
+  },
+  tipBox: {
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    borderRadius: ThemeRadius.md,
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    marginTop: 6,
+  },
+  insightsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: ThemeRadius.xl,
+    padding: ThemeSpacing.md,
+    borderWidth: 1,
+    borderColor: ThemeColors.border,
+  },
+  confidenceBadge: {
+    backgroundColor: ThemeColors.primaryLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: ThemeRadius.full,
   },
-  statusGood: {
-    backgroundColor: '#DCFCE7',
-  },
-  statusAttention: {
-    backgroundColor: '#FEF3C7',
-  },
-  statusHelp: {
-    backgroundColor: '#FEE2E2',
-  },
-  studentProgressBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  progressBarTrack: {
-    flex: 1,
-    height: 6,
-    backgroundColor: '#E2E8F0',
-    borderRadius: ThemeRadius.full,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: 6,
-    borderRadius: ThemeRadius.full,
-  },
-  insightsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: ThemeSpacing.md,
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
-  },
-  insightHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: ThemeSpacing.sm,
-  },
   insightInnerBox: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: ThemeRadius.md,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    marginVertical: 10,
+  },
+  targetPhonemePill: {
+    marginTop: 6,
     backgroundColor: '#E0F2FE',
-    borderRadius: 12,
-    padding: ThemeSpacing.sm + 2,
-    marginBottom: ThemeSpacing.sm,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: ThemeRadius.sm,
   },
   viewRecsBtn: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: ThemeRadius.md,
-    paddingVertical: 10,
     alignItems: 'center',
+    paddingVertical: 6,
+  },
+  progressCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: ThemeRadius.xl,
+    padding: ThemeSpacing.md,
     borderWidth: 1,
-    borderColor: '#86EFAC',
+    borderColor: ThemeColors.border,
   },
-  quickLauncherCard: {
-    backgroundColor: ThemeColors.primary,
-    borderRadius: 20,
-    padding: ThemeSpacing.md,
-  },
-  launchBtn: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: ThemeRadius.md,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginTop: ThemeSpacing.md,
-    ...ThemeShadow.sm,
-  },
-  connectBanner: {
-    flexDirection: 'column',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: ThemeSpacing.md,
-    borderWidth: 1.5,
-    borderColor: '#BBF7D0',
-    gap: 10,
-  },
-  connectBannerTop: {
+  cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: ThemeSpacing.sm,
   },
-  connectBannerTextWrap: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  connectBannerActions: {
+  sessionItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  connectIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#DCFCE7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  connectCtaBtn: {
-    backgroundColor: ThemeColors.primary,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    justifyContent: 'space-between',
     paddingVertical: 8,
-    marginLeft: 8,
-  },
-  switchSessionBtn: {
-    backgroundColor: ThemeColors.primary,
-    borderRadius: 10,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  detachBtn: {
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  emptyStudentsBox: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: ThemeSpacing.lg,
-    alignItems: 'center',
+    borderRadius: ThemeRadius.md,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 8,
   },
-  connectFirstBtn: {
+  accBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: ThemeRadius.sm,
+  },
+  emptySessionsBox: {
+    paddingVertical: ThemeSpacing.md,
+    alignItems: 'center',
+    gap: 8,
+  },
+  startSessionSmallBtn: {
     backgroundColor: ThemeColors.primary,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginTop: 10,
-  },
-  chooseChildBannerBtn: {
-    backgroundColor: '#E0F2FE',
-    borderWidth: 1.5,
-    borderColor: '#BAE6FD',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: ThemeRadius.md,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.48)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: ThemeSpacing.md,
+    padding: 16,
   },
   modalContent: {
+    backgroundColor: '#FFFFFF',
     width: '100%',
     maxWidth: 420,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
+    borderRadius: ThemeRadius.xl,
     padding: ThemeSpacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 8,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: ThemeSpacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: ThemeColors.borderLight,
-    paddingBottom: ThemeSpacing.sm,
   },
   modalCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 4,
   },
   childSelectCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    padding: ThemeSpacing.sm + 4,
-    borderWidth: 1.5,
-    borderColor: ThemeColors.borderLight,
+    padding: 10,
+    borderRadius: ThemeRadius.lg,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
   },
   childSelectCardActive: {
-    backgroundColor: '#F0FDF4',
     borderColor: '#86EFAC',
+    backgroundColor: '#F0FDF4',
+  },
+  miniAvatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   activePillBadge: {
     backgroundColor: '#DCFCE7',
     paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
   },
   selectActionPill: {
     backgroundColor: ThemeColors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: ThemeRadius.full,
   },
   modalCancelBtn: {
-    marginTop: ThemeSpacing.md,
-    paddingVertical: ThemeSpacing.sm + 2,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
+    paddingVertical: 10,
+    marginTop: ThemeSpacing.sm,
   },
 });

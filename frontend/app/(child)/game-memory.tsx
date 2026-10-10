@@ -1,4 +1,12 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * nena-man · frontend/app/(child)/game-memory.tsx
+ * Module 4: Memory Matching Calming Game (Pushpakumara · IT23177246)
+ *
+ * Fully interactive 4x3 memory matching mini-game with card shuffle, flip logic,
+ * move counter, timer, match detection, and completion reward celebration.
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -16,6 +24,7 @@ import {
   ThemeShadow,
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
+import RewardsModal from '@/components/RewardsModal';
 
 interface MemoryCard {
   id: number;
@@ -27,33 +36,43 @@ interface MemoryCard {
 
 const INITIAL_PAIRS = ['🍎', '⭐', '🐟', '🌸', '🚗', '🎈'];
 
+function createShuffledCards(): MemoryCard[] {
+  const cardList: MemoryCard[] = [];
+  let id = 1;
+  INITIAL_PAIRS.forEach((emoji, pairId) => {
+    cardList.push({ id: id++, pairId, emoji, isFlipped: false, isMatched: false });
+    cardList.push({ id: id++, pairId, emoji, isFlipped: false, isMatched: false });
+  });
+
+  // Fisher-Yates Shuffle
+  for (let i = cardList.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = cardList[i];
+    cardList[i] = cardList[j];
+    cardList[j] = temp;
+  }
+  return cardList;
+}
+
 export default function MemoryMatchingGame() {
   const router = useRouter();
 
-  const [cards, setCards] = useState<MemoryCard[]>(() => {
-    const cardList: MemoryCard[] = [];
-    let id = 1;
-    INITIAL_PAIRS.forEach((emoji, pairId) => {
-      cardList.push({ id: id++, pairId, emoji, isFlipped: false, isMatched: false });
-      cardList.push({ id: id++, pairId, emoji, isFlipped: false, isMatched: false });
-    });
-    // Set 2 pairs matched for instant mockup look
-    cardList[1].isFlipped = true;
-    cardList[4].isFlipped = true;
-    return cardList;
-  });
+  const [cards, setCards] = useState<MemoryCard[]>(() => createShuffledCards());
+  const [moves, setMoves] = useState(0);
+  const [matchedPairs, setMatchedPairs] = useState(0);
+  const [seconds, setSeconds] = useState(0);
+  const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [showRewards, setShowRewards] = useState(false);
 
-  const [moves, setMoves] = useState(5);
-  const [matchedPairs, setMatchedPairs] = useState(2);
-  const [seconds, setSeconds] = useState(45);
-  const [flippedIndices, setFlippedIndices] = useState<number[]>([1, 4]);
-
+  // Timer: active while playing
   useEffect(() => {
+    if (isCompleted) return;
     const timer = setInterval(() => {
       setSeconds((s) => s + 1);
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isCompleted]);
 
   const formatTimer = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -61,12 +80,22 @@ export default function MemoryMatchingGame() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const handleResetGame = useCallback(() => {
+    setCards(createShuffledCards());
+    setMoves(0);
+    setMatchedPairs(0);
+    setSeconds(0);
+    setFlippedIndices([]);
+    setIsCompleted(false);
+  }, []);
+
   const handleCardPress = (index: number) => {
     const card = cards[index];
     if (card.isFlipped || card.isMatched || flippedIndices.length >= 2) return;
 
+    // Flip card
     const newCards = [...cards];
-    newCards[index].isFlipped = true;
+    newCards[index] = { ...card, isFlipped: true };
     setCards(newCards);
 
     const newFlipped = [...flippedIndices, index];
@@ -75,32 +104,43 @@ export default function MemoryMatchingGame() {
     if (newFlipped.length === 2) {
       setMoves((m) => m + 1);
       const [firstIdx, secondIdx] = newFlipped;
-      if (cards[firstIdx].pairId === cards[secondIdx].pairId) {
-        // Matched
+
+      if (newCards[firstIdx].pairId === newCards[secondIdx].pairId) {
+        // MATCHED!
         setTimeout(() => {
-          const matchedCards = [...newCards];
-          matchedCards[firstIdx].isMatched = true;
-          matchedCards[secondIdx].isMatched = true;
-          setCards(matchedCards);
-          setMatchedPairs((p) => p + 1);
+          setCards((prev) => {
+            const matchedCards = [...prev];
+            matchedCards[firstIdx] = { ...matchedCards[firstIdx], isMatched: true };
+            matchedCards[secondIdx] = { ...matchedCards[secondIdx], isMatched: true };
+            return matchedCards;
+          });
+          setMatchedPairs((p) => {
+            const nextCount = p + 1;
+            if (nextCount === INITIAL_PAIRS.length) {
+              setIsCompleted(true);
+            }
+            return nextCount;
+          });
           setFlippedIndices([]);
-        }, 500);
+        }, 350);
       } else {
-        // Not matched - flip back
+        // NOT MATCHED - flip back after brief reveal
         setTimeout(() => {
-          const resetCards = [...newCards];
-          resetCards[firstIdx].isFlipped = false;
-          resetCards[secondIdx].isFlipped = false;
-          setCards(resetCards);
+          setCards((prev) => {
+            const resetCards = [...prev];
+            resetCards[firstIdx] = { ...resetCards[firstIdx], isFlipped: false };
+            resetCards[secondIdx] = { ...resetCards[secondIdx], isFlipped: false };
+            return resetCards;
+          });
           setFlippedIndices([]);
-        }, 900);
+        }, 750);
       }
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header */}
+      {/* ── Top Header ──────────────────────────────────────────────────────── */}
       <View style={styles.topBar}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -122,7 +162,13 @@ export default function MemoryMatchingGame() {
           </AppText>
         </View>
 
-        <View style={{ width: 36 }} />
+        <TouchableOpacity
+          onPress={handleResetGame}
+          style={styles.navIconBtn}
+          activeOpacity={0.7}
+        >
+          <AppText size="sm">🔄</AppText>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -131,7 +177,7 @@ export default function MemoryMatchingGame() {
       >
         {/* Subtitle */}
         <AppText size="xs" color={ThemeColors.textSecondary} align="center" style={styles.instructionText}>
-          එකම රූප දෙක සොයා ගන්න.
+          එකම රූප දෙක සොයා කාඩ්පත් ගළපන්න!
         </AppText>
 
         {/* Stats Pill Row */}
@@ -153,7 +199,7 @@ export default function MemoryMatchingGame() {
           <View style={styles.statPillItem}>
             <AppText size="xs">🏆</AppText>
             <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={{ marginLeft: 4 }}>
-              {matchedPairs} / 6
+              {matchedPairs} / {INITIAL_PAIRS.length}
             </AppText>
           </View>
         </View>
@@ -169,19 +215,20 @@ export default function MemoryMatchingGame() {
                 style={[
                   styles.cardBox,
                   isRevealed ? styles.cardRevealed : styles.cardCovered,
+                  card.isMatched && styles.cardMatched,
                   ThemeShadow.sm,
                 ]}
                 onPress={() => handleCardPress(idx)}
                 activeOpacity={0.8}
               >
                 {isRevealed ? (
-                  <AppText size="display" style={{ fontSize: 32 }}>
+                  <AppText size="display" style={{ fontSize: 34 }}>
                     {card.emoji}
                   </AppText>
                 ) : (
                   <View style={styles.cardCoverContent}>
                     <View style={styles.coverInnerSquare}>
-                      <AppText size="xs" color="#34D399" style={{ opacity: 0.6 }}>
+                      <AppText size="xs" color="#34D399" weight="bold">
                         නැණ
                       </AppText>
                     </View>
@@ -192,26 +239,69 @@ export default function MemoryMatchingGame() {
           })}
         </View>
 
-        {/* Good Effort Banner */}
+        {/* Encouraging Banner */}
         <View style={styles.goodEffortBanner}>
           <AppText size="xs" weight="bold" color={ThemeColors.accent}>
-            හොඳ උත්සාහයක්! 🌟
+            {matchedPairs === INITIAL_PAIRS.length
+              ? 'විශිෂ්ටයි! සියලුම රූප සාර්ථකව ගැළපුවා! 🎉'
+              : matchedPairs > 0
+              ? 'නියමයි! දිගටම ගළපන්න! 🌟'
+              : 'කාඩ්පතක් ස්පර්ශ කර ආරම්භ කරන්න 🌱'}
           </AppText>
         </View>
 
-        {/* Finish Button */}
+        {/* Completion Card */}
+        {isCompleted && (
+          <View style={[styles.completedCard, ThemeShadow.md]}>
+            <AppText size="display">🏆</AppText>
+            <AppText size="lg" weight="extrabold" color={ThemeColors.primary} style={{ marginTop: 4 }}>
+              සුබ පැතුම්! මතක ක්‍රීඩාව ජයගත්තා!
+            </AppText>
+            <AppText size="xs" color={ThemeColors.textSecondary} align="center" style={{ marginTop: 4 }}>
+              කාලය: {formatTimer(seconds)} · පියවර: {moves}
+            </AppText>
+            <View style={styles.completedButtonsRow}>
+              <TouchableOpacity
+                style={styles.completedActionBtn}
+                onPress={() => setShowRewards(true)}
+                activeOpacity={0.85}
+              >
+                <AppText size="xs" weight="bold" color="#FFFFFF">
+                  🏆 ජයග්‍රහණ බලන්න
+                </AppText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.playAgainBtn}
+                onPress={handleResetGame}
+                activeOpacity={0.85}
+              >
+                <AppText size="xs" weight="bold" color="#FFFFFF">
+                  🔄 නැවත සෙල්ලම් කරමු
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Finish / Return Button */}
         <TouchableOpacity
           style={styles.finishBtn}
           onPress={() => router.push('/(child)/cooldown')}
           activeOpacity={0.85}
         >
           <AppText size="sm" weight="bold" color="#FFFFFF">
-            🏁 අවසන් කරන්න
+            🏁 විවේක පිටුවට ආපසු යමු
           </AppText>
         </TouchableOpacity>
 
         <View style={{ height: ThemeSpacing.lg }} />
       </ScrollView>
+
+      {/* Rewards & Badges Modal */}
+      <RewardsModal
+        visible={showRewards}
+        onClose={() => setShowRewards(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -244,56 +334,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scroll: {
-    paddingHorizontal: ThemeSpacing.lg,
+    paddingHorizontal: ThemeSpacing.md,
     paddingTop: ThemeSpacing.sm,
     paddingBottom: ThemeSpacing.xl,
     alignItems: 'center',
   },
   instructionText: {
-    marginBottom: ThemeSpacing.sm,
+    marginVertical: ThemeSpacing.xs,
   },
   statsPillRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#E8F1F8',
+    backgroundColor: '#EFF6FF',
     borderRadius: ThemeRadius.full,
     paddingVertical: 6,
     paddingHorizontal: ThemeSpacing.md,
-    marginBottom: ThemeSpacing.lg,
+    marginVertical: ThemeSpacing.sm,
+    gap: 16,
     borderWidth: 1,
-    borderColor: '#D4E2EE',
+    borderColor: '#DBEAFE',
   },
   statPillItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 4,
   },
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    width: '100%',
-    maxWidth: 320,
+    justifyContent: 'center',
+    maxWidth: 340,
     gap: 10,
-    marginBottom: ThemeSpacing.lg,
+    marginVertical: ThemeSpacing.sm,
   },
   cardBox: {
-    width: '30%',
-    aspectRatio: 1,
-    borderRadius: 14,
+    width: 90,
+    height: 96,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
   },
   cardCovered: {
-    backgroundColor: '#10B981',
-    borderColor: '#059669',
+    backgroundColor: '#059669',
+    borderWidth: 2,
+    borderColor: '#10B981',
   },
   cardRevealed: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#059669',
+    borderWidth: 2,
+    borderColor: '#10B981',
+  },
+  cardMatched: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#34D399',
   },
   cardCoverContent: {
     width: '100%',
@@ -303,30 +394,59 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   coverInnerSquare: {
-    width: '80%',
-    height: '80%',
-    borderRadius: 8,
-    backgroundColor: '#059669',
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+    backgroundColor: '#047857',
     alignItems: 'center',
     justifyContent: 'center',
   },
   goodEffortBanner: {
-    backgroundColor: '#FDF4E9',
-    borderRadius: ThemeRadius.full,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: ThemeSpacing.md,
     paddingVertical: 6,
-    paddingHorizontal: ThemeSpacing.lg,
+    borderRadius: ThemeRadius.full,
+    marginVertical: ThemeSpacing.xs,
     borderWidth: 1,
-    borderColor: '#FBE8D0',
-    marginBottom: ThemeSpacing.md,
+    borderColor: '#FDE68A',
+  },
+  completedCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#FFFFFF',
+    borderRadius: ThemeRadius.lg,
+    padding: ThemeSpacing.md,
+    alignItems: 'center',
+    marginVertical: ThemeSpacing.sm,
+    borderWidth: 2,
+    borderColor: '#A7F3D0',
+  },
+  completedButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: ThemeSpacing.sm,
+  },
+  completedActionBtn: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: ThemeSpacing.sm + 2,
+    paddingVertical: ThemeSpacing.xs + 2,
+    borderRadius: ThemeRadius.full,
+  },
+  playAgainBtn: {
+    backgroundColor: ThemeColors.primary,
+    paddingHorizontal: ThemeSpacing.sm + 2,
+    paddingVertical: ThemeSpacing.xs + 2,
+    borderRadius: ThemeRadius.full,
   },
   finishBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: ThemeColors.primary,
-    borderRadius: ThemeRadius.md,
     width: '100%',
     maxWidth: 320,
-    height: 48,
+    backgroundColor: ThemeColors.primary,
+    borderRadius: ThemeRadius.md,
+    paddingVertical: ThemeSpacing.sm + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: ThemeSpacing.sm,
+    ...ThemeShadow.sm,
   },
 });

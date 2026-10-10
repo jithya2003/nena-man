@@ -145,6 +145,16 @@ export default function TeacherDashboardScreen() {
             </View>
 
             <View style={styles.topRightHeader}>
+              <TouchableOpacity
+                style={styles.switchParentBtn}
+                onPress={() => router.push('/(parent)/dashboard')}
+                activeOpacity={0.8}
+              >
+                <AppText size="xs" weight="bold" color={ThemeColors.primary}>
+                  👨‍👩‍👧 දෙමාපිය පුවරුව
+                </AppText>
+              </TouchableOpacity>
+
               <View style={styles.bellBtn}>
                 <AppText size="sm">🔔</AppText>
                 <View style={styles.redDot} />
@@ -507,6 +517,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  switchParentBtn: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: ThemeRadius.full,
+    marginRight: 6,
   },
   logoutBtn: {
     width: 36,
