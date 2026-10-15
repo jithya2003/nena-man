@@ -77,12 +77,16 @@ export interface PersistedBehaviorStateResult {
 export interface PersistedRecommendationResult {
   difficultyAction: 'Decrease' | 'Maintain' | 'Increase';
   nextActivity: string;
+  nextActivityId?: string;
   recommendedActivities: Array<{
     activityId: string;
     title: string;
     rank: number;
+    [key: string]: any;
   }>;
   rationale: string[];
+  xaiFactors?: any[];
+  shapExplanation?: any;
   raw?: any;
 }
 

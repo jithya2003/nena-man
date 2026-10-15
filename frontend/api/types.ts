@@ -137,4 +137,11 @@ export interface RecommendationResult {
   difficultyAction: DifficultyTransition;
   recommendedActivities: RecommendedActivity[]; // top-K, ranked
   rationale: string[]; // human-readable explanation lines
+  nextActivityId?: string;
+  nextActivityLabel?: string;
+  targetPhonemeSkill?: string;
+  confidence?: number;
+  xaiFactors?: any[];
+  shapExplanation?: any;
+  meta?: any;
 }

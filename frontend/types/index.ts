@@ -144,9 +144,36 @@ export type DifficultyTransition = 'Decrease' | 'Maintain' | 'Increase';
 
 export interface XAIFactor {
   name: string;
-  weight: number; // 0 – 100 percentage
+  weight: number; // 0 – 100 relative display weight
   direction: 'positive' | 'negative' | 'neutral';
   description: string;
+  featureKey?: string;
+  shapValue?: number;
+}
+
+export interface SHAPFeatureContribution {
+  feature: string;
+  featureKey: string;
+  rawValue: any;
+  shapValue: number;
+  direction: 'positive' | 'negative' | 'neutral';
+  description: string;
+}
+
+export interface SHAPExplanation {
+  method: string;
+  isShap: boolean;
+  predictedClass: string;
+  predictedClassIndex?: number;
+  baseProbability?: number;
+  predictedProbability?: number;
+  featureContributions: SHAPFeatureContribution[];
+  rawTransformedContributions?: Array<{
+    transformedFeature: string;
+    shapValue: number;
+    direction: 'positive' | 'negative' | 'neutral';
+  }>;
+  fallbackReason?: string | null;
 }
 
 export interface PeerBenchmark {
@@ -199,13 +226,15 @@ export interface SimulationOutputs {
 
 export interface M3Response {
   recommendation: DifficultyTransition;
+  difficultyAction?: DifficultyTransition;
   nextActivityId: string;
   nextActivityLabel: string;
   targetPhonemeSkill: string;
-  rationale: string;
+  rationale: string | string[];
   confidence: number;
   xaiFactors: XAIFactor[];
-  peerBenchmark: PeerBenchmark;
+  shapExplanation?: SHAPExplanation;
+  peerBenchmark?: PeerBenchmark;
   roadmapStages?: RoadmapStage[];
   skillDimensions?: SkillDimension[];
 }

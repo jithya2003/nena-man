@@ -223,6 +223,9 @@ export async function runReadingSessionPipeline(
         raw: recResult as any,
       });
     } catch (err: any) {
+      if (__DEV__) {
+        console.warn('[sessionPipeline] Step 3 (M3 Recommendation) failed:', err?.message || err);
+      }
       result.errors.recommendation = err as ApiError;
     }
   } else {

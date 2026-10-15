@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,7 +6,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import {
@@ -18,6 +18,7 @@ import {
 import AppText from '@/components/AppText';
 import { FishIllustration, FlowerIllustration } from '@/components/QuizIllustrations';
 import VoiceAssessmentModal from '@/components/VoiceAssessmentModal';
+import { ACTIVITY_REGISTRY } from '@/constants/activityRegistry';
 
 const WORD_QUESTIONS = [
   {
@@ -59,13 +60,50 @@ const WORD_QUESTIONS = [
 
 export default function WordMatchingQuiz() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ activityId?: string; mode?: string }>();
 
-  const [currentIndex, setCurrentIndex] = useState(2); // start on question 3 like mockup
-  const [selectedOption, setSelectedOption] = useState<number | null>(0); // option 0 ('මාළු') selected
+  const registryEntry =
+    params.activityId && ACTIVITY_REGISTRY[params.activityId]
+      ? ACTIVITY_REGISTRY[params.activityId]
+      : undefined;
+
+  const isSingleMode =
+    params.mode === 'single' &&
+    registryEntry !== undefined &&
+    registryEntry.route === '/(child)/quiz-word';
+
+  const [currentIndex, setCurrentIndex] = useState<number>(() => {
+    if (isSingleMode && registryEntry) {
+      const targetIdx = WORD_QUESTIONS.findIndex(
+        (q) => q.id === registryEntry.internalQuestionId
+      );
+      if (targetIdx !== -1) {
+        return targetIdx;
+      }
+    }
+    return 2; // start on question 3 like mockup
+  });
+
+  const [selectedOption, setSelectedOption] = useState<number | null>(() => {
+    return isSingleMode ? null : 0; // option 0 ('මාළු') selected
+  });
+
+  useEffect(() => {
+    if (isSingleMode && registryEntry) {
+      const targetIdx = WORD_QUESTIONS.findIndex(
+        (q) => q.id === registryEntry.internalQuestionId
+      );
+      if (targetIdx !== -1) {
+        setCurrentIndex(targetIdx);
+        setSelectedOption(null);
+      }
+    }
+  }, [params.activityId, params.mode]);
+
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
 
-  const currentQ = WORD_QUESTIONS[currentIndex];
+  const currentQ = WORD_QUESTIONS[currentIndex] ?? WORD_QUESTIONS[0];
 
   const handlePlaySound = () => {
     setIsPlayingAudio(true);
@@ -74,27 +112,27 @@ export default function WordMatchingQuiz() {
     }, 1200);
   };
 
-  const handleVoiceSuccess = () => {
-    setSelectedOption(currentQ.correctIndex);
-    setTimeout(() => {
-      if (currentIndex < WORD_QUESTIONS.length - 1) {
-        setCurrentIndex(currentIndex + 1);
-        setSelectedOption(null);
-      } else {
-        router.push('/(child)/reading');
-      }
-    }, 1000);
-  };
-
-  const handleConfirmAnswer = () => {
-    if (selectedOption === null) return;
-
-    if (currentIndex < WORD_QUESTIONS.length - 1) {
+  const handleCompleteQuestion = () => {
+    if (isSingleMode) {
+      router.push('/(child)/result');
+    } else if (currentIndex < WORD_QUESTIONS.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setSelectedOption(null);
     } else {
       router.push('/(child)/reading');
     }
+  };
+
+  const handleVoiceSuccess = () => {
+    setSelectedOption(currentQ.correctIndex);
+    setTimeout(() => {
+      handleCompleteQuestion();
+    }, 1000);
+  };
+
+  const handleConfirmAnswer = () => {
+    if (selectedOption === null) return;
+    handleCompleteQuestion();
   };
 
   return (

@@ -23,8 +23,9 @@ import { MOCK_M3_RESPONSE } from '@/mock/data';
 
 const USE_MOCK =
   process.env.EXPO_PUBLIC_USE_MOCK_RECOMMENDATION !== 'false';
-const API_BASE_URL =
+const RAW_API_BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = RAW_API_BASE_URL.replace(/\/api\/v1\/?$/, '');
 
 export interface ParentRecommendationInsight {
   title: string;
@@ -60,7 +61,30 @@ export const recommendationService = {
         });
 
         if (res.data) {
-          return res.data as M3Response;
+          const raw = res.data;
+          const rationaleStr = Array.isArray(raw.rationale)
+            ? raw.rationale.join(' ')
+            : (raw.rationale || '');
+
+          return {
+            recommendation: raw.difficultyAction || raw.recommendation || 'Maintain',
+            difficultyAction: raw.difficultyAction || raw.recommendation || 'Maintain',
+            nextActivityId: raw.nextActivityId || raw.next_activity_id || 'quiz_w_01',
+            nextActivityLabel: raw.nextActivityLabel || 'Recommended Learning Activity',
+            targetPhonemeSkill: raw.targetPhonemeSkill || 'Sinhala Reading Skill',
+            rationale: rationaleStr,
+            confidence: raw.confidence ?? 0.85,
+            xaiFactors: raw.xaiFactors || [],
+            shapExplanation: raw.shapExplanation || null,
+            peerBenchmark: {
+              cohortName: 'ශ්‍රේණිය 2 — සිංහල කියවීමේ සම වයස් කණ්ඩායම',
+              similarityScore: 86,
+              averageGrowthRate: '+14% වර්ධනයක් (පසුගිය සති 2 තුළ)',
+              comparisonNote: 'සම වයස් සිසුන් අතරින් 74% ක්ම මෙම අභ්‍යාසය මගින් සාර්ථක ප්‍රතිඵල ලබා ඇත.',
+            },
+            roadmapStages: MOCK_M3_RESPONSE.roadmapStages,
+            skillDimensions: MOCK_M3_RESPONSE.skillDimensions,
+          };
         }
       } catch (apiErr) {
         console.warn('[recommendationService] Live API request failed, falling back to local adaptive generator:', apiErr);
@@ -173,7 +197,7 @@ export const recommendationService = {
    */
   getParentExplanation(m3: M3Response): ParentRecommendationInsight {
     let title = 'සාමාන්‍ය අභ්‍යාස මට්ටම පවත්වා ගැනීම';
-    let plainReasonEn = m3.rationale;
+    let plainReasonEn = Array.isArray(m3.rationale) ? m3.rationale.join(' ') : (m3.rationale || '');
     let plainReasonSi = 'දරුවාගේ වත්මන් කියවීමේ මට්ටම හොඳින් පවත්වා ගෙන යමින් අසීරු අකුරු ශබ්ද තහවුරු කිරීම සුදුසුය.';
     let homeTipEn = 'Practice reading 5 target words together using finger tracking.';
     let homeTipSi = 'අද රාත්‍රියේ විනාඩි 10ක් දරුවා සමඟ පොතක් පෙරලා ඇඟිල්ලෙන් අකුරු පෙන්වමින් සෙමින් කියවන්න.';

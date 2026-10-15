@@ -18,23 +18,63 @@ import ProgressBar from '@/components/ProgressBar';
 import Button from '@/components/Button';
 import { useLanguage } from '@/context/LanguageContext';
 import { recommendationService } from '@/services/recommendationService';
+import { ACTIVITY_REGISTRY } from '@/constants/activityRegistry';
 
 interface M3RecommendationCardProps {
   data: M3Response;
   showLauncher?: boolean;
+  onLaunch?: (activityId: string) => void;
 }
 
 export default function M3RecommendationCard({
   data,
   showLauncher = true,
+  onLaunch,
 }: M3RecommendationCardProps) {
   const router = useRouter();
   const { language } = useLanguage();
   const [viewMode, setViewMode] = useState<'parent' | 'clinical'>('parent');
   const [showXaiDetails, setShowXaiDetails] = useState(true);
   const [showPeerDetails, setShowPeerDetails] = useState(false);
+  const [showAllShapFeatures, setShowAllShapFeatures] = useState(false);
 
   const parentInsight = recommendationService.getParentExplanation(data);
+
+  const isShap = Boolean(data.shapExplanation?.isShap);
+  const baseProb =
+    data.shapExplanation?.baseProbability !== undefined && data.shapExplanation?.baseProbability !== null
+      ? Math.round(data.shapExplanation.baseProbability * 100)
+      : null;
+  const predProb =
+    data.shapExplanation?.predictedProbability !== undefined && data.shapExplanation?.predictedProbability !== null
+      ? Math.round(data.shapExplanation.predictedProbability * 100)
+      : Math.round((data.confidence || 0.85) * 100);
+
+  const factorsToDisplay = data.xaiFactors || [];
+  const allContributions = data.shapExplanation?.featureContributions || [];
+
+  const handleLaunchActivity = () => {
+    if (onLaunch) {
+      onLaunch(data.nextActivityId);
+      return;
+    }
+
+    const activityId = data.nextActivityId;
+    if (activityId && ACTIVITY_REGISTRY[activityId]) {
+      const entry = ACTIVITY_REGISTRY[activityId];
+      router.push({
+        pathname: entry.route,
+        params: {
+          activityId: entry.id,
+          mode: 'single',
+        },
+      } as any);
+      return;
+    }
+
+    // Safe fallback to existing reading route
+    router.push('/(child)/reading');
+  };
 
   const getTransitionBadgeColor = () => {
     switch (data.recommendation) {
@@ -101,7 +141,7 @@ export default function M3RecommendationCard({
           activeOpacity={0.8}
         >
           <AppText size="xs" weight="bold" color={viewMode === 'clinical' ? '#FFFFFF' : ThemeColors.textSecondary}>
-            {language === 'si' ? '🔬 සායනික XAI විග්‍රහය' : '🔬 Clinical XAI (SHAP)'}
+            {language === 'si' ? '🔬 අධ්‍යාපනික XAI විග්‍රහය' : '🔬 Educator & Technical XAI (SHAP)'}
           </AppText>
         </TouchableOpacity>
       </View>
@@ -164,11 +204,11 @@ export default function M3RecommendationCard({
           </View>
         </View>
       ) : (
-        /* ── CLINICAL XAI VIEW ─────────────────────────────────────────────── */
+        /* ── EDUCATOR & TECHNICAL XAI VIEW ─────────────────────────────────── */
         <View style={styles.clinicalContentBox}>
           {/* Plain Language AI Rationale */}
           <AppText size="xs" color={ThemeColors.textSecondary} style={styles.rationaleText}>
-            {data.rationale}
+            {Array.isArray(data.rationale) ? data.rationale.join(' ') : data.rationale}
           </AppText>
 
           {/* 1. Explainable AI (XAI) Feature Importance Section */}
@@ -191,10 +231,33 @@ export default function M3RecommendationCard({
 
             {showXaiDetails && (
               <View style={styles.xaiBody}>
-                <AppText size="xs" color={ThemeColors.textMuted} style={{ marginBottom: ThemeSpacing.sm }}>
-                  Multi-signal learner state fusion (M1 Speech + M2 NLP + M4 Behavioral):
-                </AppText>
-                {data.xaiFactors.map((factor, idx) => {
+                {/* Method and Probability Context Capsule */}
+                <View style={styles.shapMetaCard}>
+                  <View style={styles.shapBadgeRow}>
+                    <View style={[styles.methodPill, isShap ? styles.methodPillShap : styles.methodPillFallback]}>
+                      <AppText size="xs" weight="bold" color={isShap ? '#047857' : '#9A3412'}>
+                        {isShap ? '✓ SHAP TreeExplainer (Local Attribution)' : '⚠️ Heuristic Attribution Fallback'}
+                      </AppText>
+                    </View>
+                    <AppText size="xs" color={ThemeColors.textSecondary}>
+                      {isShap && baseProb !== null
+                        ? `Base: ${baseProb}% → Pred: ${predProb}%`
+                        : `Confidence: ${predProb}%`}
+                    </AppText>
+                  </View>
+                  <AppText size="xs" color={ThemeColors.textMuted} style={styles.shapDisclaimer}>
+                    {isShap
+                      ? (language === 'si'
+                          ? '* ප්‍රස්ථාර ප්‍රතිශත මගින් මෙම සැසියේ නිර්දේශය සඳහා එක් එක් සාධකයේ සාපේක්ෂ බලපෑම පෙන්වයි (සායනික හේතු දැක්වීමක් නොවේ).'
+                          : '* Bar percentages represent normalized relative display weights for this session (not clinical causation).')
+                      : (language === 'si'
+                          ? '* SHAP ඇල්ගොරිතමය නොමැති අවස්ථාවක ආදේශක නීති මඟින් සාපේක්ෂ බලපෑම් ගණනය කර ඇත.'
+                          : '* Fallback rule-based weights displayed because SHAP explainer was unavailable.')}
+                  </AppText>
+                </View>
+
+                {/* Top Contributing Factors */}
+                {factorsToDisplay.map((factor, idx) => {
                   const barColor =
                     factor.direction === 'positive'
                       ? ThemeColors.success
@@ -208,7 +271,7 @@ export default function M3RecommendationCard({
                           {factor.name}
                         </AppText>
                         <AppText size="xs" weight="bold" color={barColor}>
-                          {factor.weight}%
+                          {factor.weight}% (Relative weight)
                         </AppText>
                       </View>
                       <ProgressBar value={factor.weight} color={barColor} height={6} />
@@ -218,6 +281,46 @@ export default function M3RecommendationCard({
                     </View>
                   );
                 })}
+
+                {/* Optional Detailed Model Feature Contributions */}
+                {allContributions.length > 4 && (
+                  <TouchableOpacity
+                    style={styles.expandFeaturesBtn}
+                    onPress={() => setShowAllShapFeatures(!showAllShapFeatures)}
+                    activeOpacity={0.7}
+                  >
+                    <AppText size="xs" weight="bold" color={ThemeColors.primary}>
+                      {showAllShapFeatures
+                        ? '▲ Hide Additional Features'
+                        : `▼ View All ${allContributions.length} SHAP Model Features`}
+                    </AppText>
+                  </TouchableOpacity>
+                )}
+
+                {showAllShapFeatures &&
+                  allContributions.slice(4).map((feat, idx) => {
+                    const barColor =
+                      feat.direction === 'positive'
+                        ? ThemeColors.success
+                        : feat.direction === 'negative'
+                        ? ThemeColors.error
+                        : ThemeColors.warning;
+                    return (
+                      <View key={idx + 4} style={[styles.xaiRow, { marginTop: 4 }]}>
+                        <View style={styles.xaiLabelRow}>
+                          <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
+                            {feat.feature}
+                          </AppText>
+                          <AppText size="xs" weight="bold" color={barColor}>
+                            {feat.shapValue > 0 ? '+' : ''}{feat.shapValue.toFixed(4)} SHAP
+                          </AppText>
+                        </View>
+                        <AppText size="xs" color={ThemeColors.textSecondary} style={styles.xaiDesc}>
+                          {feat.description}
+                        </AppText>
+                      </View>
+                    );
+                  })}
               </View>
             )}
           </View>
@@ -276,7 +379,7 @@ export default function M3RecommendationCard({
             label={language === 'si' ? 'අභ්‍යාසයට පිවිසෙන්න 🚀' : 'Launch Prescribed Activity 🚀'}
             variant="primary"
             size="md"
-            onPress={() => router.push('/(child)/reading')}
+            onPress={handleLaunchActivity}
             style={styles.launchBtn}
           />
         </View>
@@ -443,6 +546,42 @@ const styles = StyleSheet.create({
     marginBottom: ThemeSpacing.xs,
   },
   launchBtn: {
+    marginTop: 4,
+  },
+  shapMetaCard: {
+    backgroundColor: ThemeColors.surfaceMuted,
+    padding: 8,
+    borderRadius: ThemeRadius.sm,
+    marginBottom: ThemeSpacing.sm,
+    borderWidth: 1,
+    borderColor: ThemeColors.border,
+  },
+  shapBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  methodPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  methodPillShap: {
+    backgroundColor: '#D1FAE5',
+  },
+  methodPillFallback: {
+    backgroundColor: '#FFEDD5',
+  },
+  shapDisclaimer: {
+    fontSize: 9.5,
+    lineHeight: 14,
+    fontStyle: 'italic',
+  },
+  expandFeaturesBtn: {
+    alignSelf: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     marginTop: 4,
   },
 });

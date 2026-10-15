@@ -164,8 +164,14 @@ export const sessionService = {
               ? {
                   difficultyAction: sessionRecord.results.recommendation.difficultyAction,
                   nextActivity: sessionRecord.results.recommendation.nextActivity || '',
+                  nextActivityId:
+                    sessionRecord.results.recommendation.nextActivityId ||
+                    sessionRecord.results.recommendation.recommendedActivities?.[0]?.activityId ||
+                    '',
                   recommendedActivities: sessionRecord.results.recommendation.recommendedActivities || [],
                   rationale: sessionRecord.results.recommendation.rationale || [],
+                  xaiFactors: sessionRecord.results.recommendation.xaiFactors || [],
+                  shapExplanation: sessionRecord.results.recommendation.shapExplanation || null,
                 }
               : null,
           },
