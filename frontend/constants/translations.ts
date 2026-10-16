@@ -202,6 +202,13 @@ export const translations: Record<Language, Record<string, string>> = {
     'session.intervention.bannerDesc': 'කියවීමෙන් පසු මනස සැහැල්ලු කර ගැනීමට විනෝදජනක සන්සුන් ක්‍රීඩාවක් කරමු.',
     'session.intervention.playBtn': '🎮 සන්සුන් ක්‍රීඩා වෙත',
 
+    // Progressive Reading Support (M2)
+    'support.ladder.audio.label': 'ශ්‍රව්‍ය සහාය',
+    'support.ladder.audio.sublabel': 'Audio Support',
+    'support.audio.heading': 'නිවැරදි කියවීම අසන්න',
+    'support.audio.play': 'පෙළ අසන්න',
+    'support.audio.playing': 'වාදනය වේ...',
+
     // Child Profile & Edit Profile Modal
     'profile.title': 'මගේ ගිණුම',
     'profile.editProfile': 'පැතිකඩ සංස්කරණය',
@@ -432,6 +439,13 @@ export const translations: Record<Language, Record<string, string>> = {
     'session.intervention.bannerTitle': "Let's take a break! 🌿",
     'session.intervention.bannerDesc': 'A relaxing cooldown activity is recommended to help you reset.',
     'session.intervention.playBtn': 'Play Cooldown Game 🎮',
+
+    // Progressive Reading Support (M2)
+    'support.ladder.audio.label': 'Audio Support',
+    'support.ladder.audio.sublabel': 'Audio Support',
+    'support.audio.heading': 'Listen to the reading',
+    'support.audio.play': 'Listen',
+    'support.audio.playing': 'Playing...',
 
     // Child Profile & Edit Profile Modal
     'profile.title': 'My Profile',

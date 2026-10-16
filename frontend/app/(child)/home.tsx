@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -32,29 +32,27 @@ import { CHARACTER_AVATAR_SOURCES } from "@/assets/avatars";
 import DevicePermissionModal from "@/components/DevicePermissionModal";
 import { useConsentPrivacy } from "@/hooks/useConsentPrivacy";
 
+import ReadingTextSelectModal from "@/components/ReadingTextSelectModal";
+
 // ── M2 AI Simplification Card ─────────────────────────────────────────────────
 function M2SimplificationCard() {
-  const [simplified, setSimplified] = useState(false);
-  const [processing, setProcessing] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [showTextModal, setShowTextModal] = useState(false);
+  const [selectedReadingText, setSelectedReadingText] = useState("මම මගේ රටට ගොඩාක් ආදරෙයි");
+  const [selectedOptionId, setSelectedOptionId] = useState("case_c");
   const { hasActiveConsent } = useConsentPrivacy();
   const router = useRouterM2();
   const { t } = useLanguage();
 
-  const handleSimplify = useCallback(() => {
-    if (simplified) {
-      setSimplified(false);
-      return;
-    }
-    setProcessing(true);
-    setTimeout(() => {
-      setProcessing(false);
-      setSimplified(true);
-    }, 600);
-  }, [simplified]);
-
-  const original = "මම මගේ රටට ගොඩාක් ආදරෙයි";
-  const simplifiedText = "මම මගේ රටට ආදරෙයි";
+  const navigateToSession = () => {
+    router.push({
+      pathname: "/(child)/m1-session",
+      params: {
+        selectedText: selectedReadingText,
+        textId: selectedOptionId,
+      },
+    });
+  };
 
   return (
     <View style={m2Styles.card}>
@@ -84,91 +82,41 @@ function M2SimplificationCard() {
         </View>
       </View>
 
-      {/* Original Sentence Block */}
-      <View style={[m2Styles.sentenceBlock, simplified && m2Styles.sentenceBlockFaded]}>
+      {/* Target Sentence Block */}
+      <View style={m2Styles.sentenceBlock}>
         <View style={m2Styles.labelRow}>
           <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
             📖 අද කියවිය යුතු වාක්‍යය:
           </AppText>
+          <TouchableOpacity
+            onPress={() => setShowTextModal(true)}
+            style={m2Styles.changeTextBtn}
+            activeOpacity={0.7}
+          >
+            <AppText size="xs" weight="bold" color={ThemeColors.primary}>
+              ✏️ වෙනත් පාඨයක් තෝරන්න
+            </AppText>
+          </TouchableOpacity>
         </View>
         <AppText
           size="xxl"
           weight="extrabold"
           color={ThemeColors.textPrimary}
-          style={[
-            m2Styles.sentenceText,
-            simplified && m2Styles.originalTextStriked,
-          ]}
+          style={m2Styles.sentenceText}
         >
-          {original}
+          {selectedReadingText}
         </AppText>
       </View>
 
-      {/* AI Simplified Output */}
-      {simplified && (
-        <View style={m2Styles.simplifiedBlock}>
-          <View style={m2Styles.simplifiedArrowRow}>
-            <View style={m2Styles.magicPill}>
-              <AppText size="xs" weight="extrabold" color="#047857">
-                ⬇️ 'ගොඩාක්' ඉවත් කර වඩාත් පහසු කළා!
-              </AppText>
-            </View>
-          </View>
-          <View style={m2Styles.simplifiedSentenceBox}>
-            <View style={m2Styles.labelRow}>
-              <AppText size="xs" weight="extrabold" color="#047857">
-                ✨ සරල කළ වාක්‍යය:
-              </AppText>
-            </View>
-            <AppText
-              size="xxl"
-              weight="extrabold"
-              color={ThemeColors.textPrimary}
-              style={m2Styles.simplifiedText}
-            >
-              {simplifiedText}
-            </AppText>
-            <View style={m2Styles.translationRow}>
-              <AppText size="xs" color="#64748B" weight="medium">
-                🇬🇧 "I love my country"
-              </AppText>
-            </View>
-          </View>
-        </View>
-      )}
-
       {/* Action Buttons Row */}
       <View style={m2Styles.actionRow}>
-        <TouchableOpacity
-          style={[
-            m2Styles.simplifyBtn,
-            simplified && m2Styles.simplifyBtnActive,
-          ]}
-          onPress={handleSimplify}
-          activeOpacity={0.8}
-        >
-          <AppText
-            size="sm"
-            weight="extrabold"
-            color={simplified ? "#92400E" : "#FFFFFF"}
-            align="center"
-            style={m2Styles.btnText}
-          >
-            {processing
-              ? t("child.home.simplifyingBtn")
-              : simplified
-                ? t("child.home.originalSentenceBtn")
-                : t("child.home.simplifyBtn")}
-          </AppText>
-        </TouchableOpacity>
-
         <TouchableOpacity
           style={m2Styles.practiceBtn}
           onPress={() => {
             if (!hasActiveConsent) {
               setShowPermissionModal(true);
             } else {
-              router.push("/(child)/m1-session");
+              navigateToSession();
             }
           }}
           activeOpacity={0.8}
@@ -189,16 +137,27 @@ function M2SimplificationCard() {
       <DevicePermissionModal
         visible={showPermissionModal}
         onClose={() => setShowPermissionModal(false)}
-        onGranted={() => router.push("/(child)/m1-session")}
+        onGranted={navigateToSession}
         onDenied={() => {
           Alert.alert(
             "දැනුම්දීම",
             "කැමරා සහ මයික්‍රෆෝන අවසර නොමැතිව මූලික කියවීමේ සැසිය ආරම්භ වේ.",
             [
               { text: "අවලංගු කරන්න", style: "cancel" },
-              { text: "ඉදිරියට යන්න", onPress: () => router.push("/(child)/m1-session") },
+              { text: "ඉදිරියට යන්න", onPress: navigateToSession },
             ]
           );
+        }}
+      />
+
+      {/* Reading Text Selection Modal (List & Custom Input) */}
+      <ReadingTextSelectModal
+        visible={showTextModal}
+        onClose={() => setShowTextModal(false)}
+        selectedText={selectedReadingText}
+        onSelectText={(text, optionId) => {
+          setSelectedReadingText(text);
+          if (optionId) setSelectedOptionId(optionId);
         }}
       />
     </View>
@@ -252,7 +211,20 @@ const m2Styles = StyleSheet.create({
     borderColor: "#A7F3D0",
   },
   labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 6,
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  changeTextBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: "#EAF7EE",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#BCE6CB",
   },
   sentenceBlock: {
     backgroundColor: "#FFFFFF",
