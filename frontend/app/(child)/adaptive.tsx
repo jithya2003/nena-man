@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import {
@@ -19,15 +19,38 @@ import AppText from '@/components/AppText';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/context/AuthContext';
 import { useChildStoreBase } from '@/store/childStore';
+import { ACTIVITY_REGISTRY } from '@/constants/activityRegistry';
 
 export default function AdaptiveRecommendationsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ activityId?: string }>();
   const { user } = useAuth();
   const currentChild = useChildStoreBase((s) => s.currentChild);
   const childName =
     currentChild?.name?.split(' ')[0] ||
     (user?.role === 'child' ? user?.displayName?.split(' ')[0] : null) ||
     'පුංචි යාළුවා';
+
+  const featuredActivity =
+    params.activityId && ACTIVITY_REGISTRY[params.activityId]
+      ? ACTIVITY_REGISTRY[params.activityId]
+      : undefined;
+
+  const handleLaunchActivity = (activityId?: string, fallbackRoute: string = '/(child)/reading') => {
+    if (activityId && ACTIVITY_REGISTRY[activityId]) {
+      const entry = ACTIVITY_REGISTRY[activityId];
+      router.push({
+        pathname: entry.route,
+        params: {
+          activityId: entry.id,
+          mode: 'single',
+        },
+      } as any);
+      return;
+    }
+    // Safe fallback: do not navigate to a broken route
+    router.push(fallbackRoute as any);
+  };
 
   const levels = [
     { num: 1, label: 'ආරම්භක', active: true },
@@ -88,14 +111,16 @@ export default function AdaptiveRecommendationsScreen() {
           {/* Activity Inner Box */}
           <View style={styles.activityBox}>
             <AppText size="lg" weight="extrabold" color={ThemeColors.textPrimary} style={styles.actTitle}>
-              සරල වාක්‍ය කියවීම
+              {featuredActivity ? featuredActivity.nameSi : 'සරල වාක්‍ය කියවීම'}
             </AppText>
 
             {/* Bullets: Level, Time, Stars */}
             <View style={styles.actSpecs}>
               <View style={styles.specBadge}>
                 <AppText size="xs" color={ThemeColors.textSecondary}>
-                  • පහසු මට්ටම
+                  {featuredActivity
+                    ? (featuredActivity.difficultyLevel === 1 ? '• පහසු මට්ටම' : '• මධ්‍යම මට්ටම')
+                    : '• පහසු මට්ටම'}
                 </AppText>
               </View>
               <View style={styles.specBadge}>
@@ -115,7 +140,7 @@ export default function AdaptiveRecommendationsScreen() {
             {/* Green Action Button */}
             <TouchableOpacity
               style={styles.startNowBtn}
-              onPress={() => router.push('/(child)/quiz-word')}
+              onPress={() => handleLaunchActivity(params.activityId || 'quiz_w_01', '/(child)/quiz-word')}
               activeOpacity={0.85}
             >
               <AppText size="md" weight="bold" color="#FFFFFF">
@@ -221,7 +246,7 @@ export default function AdaptiveRecommendationsScreen() {
           {/* Activity 1 */}
           <TouchableOpacity
             style={[styles.subActCard, ThemeShadow.sm]}
-            onPress={() => router.push('/(child)/quiz-word')}
+            onPress={() => handleLaunchActivity('quiz_w_01', '/(child)/quiz-word')}
             activeOpacity={0.8}
           >
             <View style={styles.subActLeft}>
@@ -248,7 +273,7 @@ export default function AdaptiveRecommendationsScreen() {
           {/* Activity 2 */}
           <TouchableOpacity
             style={[styles.subActCard, ThemeShadow.sm]}
-            onPress={() => router.push('/(child)/quiz-letter')}
+            onPress={() => handleLaunchActivity('quiz_l_02', '/(child)/quiz-letter')}
             activeOpacity={0.8}
           >
             <View style={styles.subActLeft}>
@@ -269,7 +294,7 @@ export default function AdaptiveRecommendationsScreen() {
           {/* Activity 3 */}
           <TouchableOpacity
             style={[styles.subActCard, ThemeShadow.sm]}
-            onPress={() => router.push('/(child)/quiz-word')}
+            onPress={() => handleLaunchActivity('quiz_w_02', '/(child)/quiz-word')}
             activeOpacity={0.8}
           >
             <View style={styles.subActLeft}>

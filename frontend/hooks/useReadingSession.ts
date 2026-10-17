@@ -390,6 +390,7 @@ export function useReadingSession({
             });
             setPipelineErrors((prev) => ({ ...prev, recommendation: undefined }));
             setSessionStatus('done');
+            persistCompletedSession();
             return true;
           }
         }
@@ -501,8 +502,14 @@ export function useReadingSession({
           ? {
               difficultyAction: currentResults.recommendation.transition,
               nextActivity: currentResults.recommendation.nextActivity,
+              nextActivityId:
+                m3Raw?.nextActivityId ||
+                m3Raw?.recommendedActivities?.[0]?.activityId ||
+                '',
               recommendedActivities: m3Raw?.recommendedActivities || [],
               rationale: currentResults.recommendation.rationale || [],
+              xaiFactors: m3Raw?.xaiFactors || [],
+              shapExplanation: m3Raw?.shapExplanation || null,
             }
           : null,
       },

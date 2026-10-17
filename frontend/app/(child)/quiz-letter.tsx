@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,7 +6,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import {
@@ -17,6 +17,7 @@ import {
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
 import VoiceAssessmentModal from '@/components/VoiceAssessmentModal';
+import { ACTIVITY_REGISTRY } from '@/constants/activityRegistry';
 
 const QUESTIONS = [
   {
@@ -58,14 +59,51 @@ const QUESTIONS = [
 
 export default function LetterRecognitionQuiz() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ activityId?: string; mode?: string }>();
 
-  const [currentIndex, setCurrentIndex] = useState(1); // start on question 2
-  const [selectedOption, setSelectedOption] = useState<number | null>(0); // option 'ක' selected
+  const registryEntry =
+    params.activityId && ACTIVITY_REGISTRY[params.activityId]
+      ? ACTIVITY_REGISTRY[params.activityId]
+      : undefined;
+
+  const isSingleMode =
+    params.mode === 'single' &&
+    registryEntry !== undefined &&
+    registryEntry.route === '/(child)/quiz-letter';
+
+  const [currentIndex, setCurrentIndex] = useState<number>(() => {
+    if (isSingleMode && registryEntry) {
+      const targetIdx = QUESTIONS.findIndex(
+        (q) => q.id === registryEntry.internalQuestionId
+      );
+      if (targetIdx !== -1) {
+        return targetIdx;
+      }
+    }
+    return 1; // start on question 2 (existing full-quiz default)
+  });
+
+  const [selectedOption, setSelectedOption] = useState<number | null>(() => {
+    return isSingleMode ? null : 0; // option 'ක' selected in existing full-quiz default
+  });
+
+  useEffect(() => {
+    if (isSingleMode && registryEntry) {
+      const targetIdx = QUESTIONS.findIndex(
+        (q) => q.id === registryEntry.internalQuestionId
+      );
+      if (targetIdx !== -1) {
+        setCurrentIndex(targetIdx);
+        setSelectedOption(null);
+      }
+    }
+  }, [params.activityId, params.mode]);
+
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [feedbackState, setFeedbackState] = useState<'idle' | 'correct' | 'incorrect'>('idle');
   const [showVoiceModal, setShowVoiceModal] = useState(false);
 
-  const currentQ = QUESTIONS[currentIndex];
+  const currentQ = QUESTIONS[currentIndex] ?? QUESTIONS[0];
 
   const handlePlaySound = () => {
     setIsPlayingAudio(true);
@@ -79,7 +117,9 @@ export default function LetterRecognitionQuiz() {
     setFeedbackState('correct');
     setTimeout(() => {
       setFeedbackState('idle');
-      if (currentIndex < QUESTIONS.length - 1) {
+      if (isSingleMode) {
+        router.push('/(child)/result');
+      } else if (currentIndex < QUESTIONS.length - 1) {
         setCurrentIndex(currentIndex + 1);
         setSelectedOption(null);
       } else {
@@ -95,7 +135,9 @@ export default function LetterRecognitionQuiz() {
       setFeedbackState('correct');
       setTimeout(() => {
         setFeedbackState('idle');
-        if (currentIndex < QUESTIONS.length - 1) {
+        if (isSingleMode) {
+          router.push('/(child)/result');
+        } else if (currentIndex < QUESTIONS.length - 1) {
           setCurrentIndex(currentIndex + 1);
           setSelectedOption(null);
         } else {

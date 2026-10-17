@@ -59,6 +59,13 @@ export interface ReadingAnalysisResult {
 
 export type DifficultyLevel = 'Easy' | 'Medium' | 'Hard';
 
+export interface SplitWord {
+  word: string;
+  parts: string[];
+}
+
+export type SupportLevelNumber = 1 | 2 | 3 | 4;
+
 export interface TextDifficultyResult {
   difficultyLevel: DifficultyLevel;
   splitNeeded: boolean;
@@ -66,6 +73,10 @@ export interface TextDifficultyResult {
   simplifiedText: string | null; // present only if simplificationNeeded is true
   maxSupportLevel: number; // 1-4
   maxRetriesPerLevel: number;
+  highlightUnits?: string[];
+  splitParts?: string[];
+  splitWords?: SplitWord[];
+  applicableSupportLevels?: SupportLevelNumber[];
 }
 
 // =============================================================================
@@ -137,4 +148,11 @@ export interface RecommendationResult {
   difficultyAction: DifficultyTransition;
   recommendedActivities: RecommendedActivity[]; // top-K, ranked
   rationale: string[]; // human-readable explanation lines
+  nextActivityId?: string;
+  nextActivityLabel?: string;
+  targetPhonemeSkill?: string;
+  confidence?: number;
+  xaiFactors?: any[];
+  shapExplanation?: any;
+  meta?: any;
 }

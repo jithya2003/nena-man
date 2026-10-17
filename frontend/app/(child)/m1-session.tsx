@@ -8,8 +8,17 @@ import {
   Modal,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  getTextDifficulty,
+  TextDifficultyResult,
+  splitSinhalaGraphemes,
+  SplitWord,
+  getApplicableSupportLevels,
+  getNextValidSupportLevel,
+  SupportLevelNumber,
+} from '@/services/readingTextService';
 import Svg, { Path } from 'react-native-svg';
 import {
   ThemeColors,
@@ -33,7 +42,14 @@ const PRACTICE_SENTENCES = [
     simplifiedSinhala: 'මම මගේ රටට ආදරෙයි',
     english: 'I love my country very much',
     simplifiedEnglish: 'I love my country',
-    syllables: ['ම', 'ම', 'ම', 'ගේ', 'ර', 'ට', 'ට', 'ආ', 'ද', 'රෙ', 'යි'],
+    syllables: ['ම', 'ම', 'ම', 'ගේ', 'ර', 'ට', 'ට', 'ගො', 'ඩා', 'ක්', 'ආ', 'ද', 'රෙ', 'යි'],
+    splitWords: [
+      { word: 'මම', parts: ['ම', 'ම'] },
+      { word: 'මගේ', parts: ['ම', 'ගේ'] },
+      { word: 'රටට', parts: ['ර', 'ට', 'ට'] },
+      { word: 'ගොඩාක්', parts: ['ගො', 'ඩා', 'ක්'] },
+      { word: 'ආදරෙයි', parts: ['ආ', 'ද', 'රෙ', 'යි'] },
+    ],
     // Realistic simulated error for sentence 1
     simulatedSpoken: 'මම මගේ රටට ගොඩක් ආදරෙයි',
     simulatedErrors: [
@@ -64,7 +80,15 @@ const PRACTICE_SENTENCES = [
     simplifiedSinhala: 'ලස්සන වනයේ ගස් තිබේ',
     english: 'There are trees and flowers in the beautiful forest',
     simplifiedEnglish: 'There are trees in the beautiful forest',
-    syllables: ['ල', 'ස්ස', 'න', 'ව', 'නා', 'න්', 'ත', 'ර', 'යේ'],
+    syllables: ['ල', 'ස්ස', 'න', 'ව', 'නා', 'න්', 'ත', 'ර', 'යේ', 'ග', 'ස්', 'ස', 'හ', 'ම', 'ල්', 'ති', 'බේ'],
+    splitWords: [
+      { word: 'ලස්සන', parts: ['ල', 'ස්ස', 'න'] },
+      { word: 'වනාන්තරයේ', parts: ['ව', 'නා', 'න්', 'ත', 'ර', 'යේ'] },
+      { word: 'ගස්', parts: ['ග', 'ස්'] },
+      { word: 'සහ', parts: ['ස', 'හ'] },
+      { word: 'මල්', parts: ['ම', 'ල්'] },
+      { word: 'තිබේ', parts: ['ති', 'බේ'] },
+    ],
     // Realistic simulated error for sentence 2
     simulatedSpoken: 'ලස්සන වනන්තරයේ ගස් සහ මල් තිබේ',
     simulatedErrors: [
@@ -96,6 +120,14 @@ const PRACTICE_SENTENCES = [
     english: 'The small child is drinking fresh tasty milk',
     simplifiedEnglish: 'The child drinks milk',
     syllables: ['කු', 'ඩා', 'ළ', 'ම', 'යා', 'කි', 'රි', 'බො', 'න', 'වා'],
+    splitWords: [
+      { word: 'කුඩා', parts: ['කු', 'ඩා'] },
+      { word: 'ළමයා', parts: ['ළ', 'ම', 'යා'] },
+      { word: 'රසවත්', parts: ['ර', 'ස', 'ව', 'ත්'] },
+      { word: 'නැවුම්', parts: ['නැ', 'වු', 'ම්'] },
+      { word: 'කිරි', parts: ['කි', 'රි'] },
+      { word: 'බොනවා', parts: ['බො', 'න', 'වා'] },
+    ],
     // Realistic simulated substitution error: 'කිරි' spoken as 'කිලි' (ර/ල confusion in dyslexia)
     simulatedSpoken: 'කුඩා ළමයා රසවත් නැවුම් කිලි බොනවා',
     simulatedErrors: [
@@ -130,29 +162,23 @@ const ERROR_META = {
   hesitation:   { icon: '⏸️', label: 'පැකිලීම (Hesitation)',       desc: 'වචනයක් කියවීමේදී දිගු වේලාවක් පැකිලීම', color: '#0369A1', bg: '#EFF6FF' },
 } as const;
 
-// Support options ladder
-const SUPPORT_OPTIONS = [
+// Progressive Learning Support Ladder (Component: Sinhala Text Difficulty & Progressive Support)
+// Approved progression sequence: 1. Highlight, 2. Akuru / Syllable Split, 3. Audio, 4. Text Simplification
+// Visual Picture Cue has been removed per research specifications
+interface SupportLadderConfig {
+  level: 1 | 2 | 3 | 4;
+  key: 'highlight' | 'syllable' | 'audio' | 'simplification';
+  icon: string;
+  label: string;
+  sublabel: string;
+  color: string;
+  bg: string;
+  border: string;
+}
+
+const SUPPORT_LADDER_ITEMS: SupportLadderConfig[] = [
   {
-    key: 'simplification',
-    icon: '✨',
-    label: 'AI වාක්‍ය සරල කිරීම',
-    sublabel: 'Smart Sentence Simplification',
-    color: ThemeColors.accent,
-    bg: '#FDF4E9',
-    border: '#EED9BE',
-    level: 'simplification',
-  },
-  {
-    key: 'syllable',
-    icon: '🔤',
-    label: 'අකුරු වෙන් කිරීම',
-    sublabel: 'Syllable Breakdown',
-    color: ThemeColors.m1,
-    bg: '#EAF7EE',
-    border: '#BCE6CB',
-    level: 'syllable_split',
-  },
-  {
+    level: 1,
     key: 'highlight',
     icon: '🌟',
     label: 'වචන ඉස්මතු කිරීම',
@@ -160,27 +186,36 @@ const SUPPORT_OPTIONS = [
     color: ThemeColors.accentDark,
     bg: '#FDF3E7',
     border: '#EED9BE',
-    level: 'highlight',
   },
   {
+    level: 2,
+    key: 'syllable',
+    icon: '🔤',
+    label: 'අකුරු වෙන් කිරීම',
+    sublabel: 'Akuru / Syllable Split',
+    color: ThemeColors.m1,
+    bg: '#EAF7EE',
+    border: '#BCE6CB',
+  },
+  {
+    level: 3,
     key: 'audio',
     icon: '🔊',
-    label: 'ශබ්ද ශ්‍රවණය',
-    sublabel: 'Audio Pronunciation',
+    label: 'ශ්‍රව්‍ය සහාය',
+    sublabel: 'Audio Support',
     color: ThemeColors.success,
     bg: '#EAF7EE',
     border: '#BCE6CB',
-    level: 'audio',
   },
   {
-    key: 'picture',
-    icon: '🖼️',
-    label: 'චිත්‍ර සහාය',
-    sublabel: 'Visual Picture Cue',
-    color: ThemeColors.info,
-    bg: '#EFF6FF',
-    border: '#BFDBFE',
-    level: 'picture',
+    level: 4,
+    key: 'simplification',
+    icon: '✨',
+    label: 'AI වාක්‍ය සරල කිරීම',
+    sublabel: 'Text Simplification',
+    color: ThemeColors.accent,
+    bg: '#FDF4E9',
+    border: '#EED9BE',
   },
 ];
 
@@ -188,12 +223,50 @@ export default function SpeechSessionScreen() {
   const router = useRouter();
   const { t } = useLanguage();
 
-  const [currentTextIndex, setCurrentTextIndex] = useState(2); // Default to 3rd sentence as requested by user
-  const [isSimplified, setIsSimplified] = useState(false);
-  const [simplifying, setSimplifying] = useState(false);
+  const params = useLocalSearchParams<{ selectedText?: string; textId?: string }>();
+
+  // Resolve matching practice sentence index based on incoming navigation parameters
+  const matchedSentenceIndex = useMemo(() => {
+    if (params.textId) {
+      const idx = PRACTICE_SENTENCES.findIndex(
+        (s) =>
+          s.id === params.textId ||
+          (params.textId === 'case_c' && s.id === 'text_001') ||
+          (params.textId === 'case_a' && s.id === 'text_001') ||
+          (params.textId === 'opt_forest' && s.id === 'text_002') ||
+          (params.textId === 'case_d' && s.id === 'text_003')
+      );
+      if (idx !== -1) return idx;
+    }
+    if (params.selectedText) {
+      const trimmed = params.selectedText.trim();
+      const idx = PRACTICE_SENTENCES.findIndex(
+        (s) =>
+          s.sinhala.trim() === trimmed ||
+          trimmed.includes(s.sinhala.trim()) ||
+          s.sinhala.trim().includes(trimmed)
+      );
+      if (idx !== -1) return idx;
+    }
+    return 2; // Default to 3rd sentence if opened directly without params
+  }, [params.selectedText, params.textId]);
+
+  const [currentTextIndex, setCurrentTextIndex] = useState(matchedSentenceIndex);
+
+  // Sync currentTextIndex if navigation params change
+  useEffect(() => {
+    setCurrentTextIndex(matchedSentenceIndex);
+  }, [matchedSentenceIndex]);
+
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showGamePopup, setShowGamePopup] = useState(false);
   const [showRewardsModal, setShowRewardsModal] = useState(false);
+
+  // Progressive Support Ladder state (Levels: 0 = Independent, 1 = Highlight, 2 = Syllable, 3 = Audio, 4 = Simplification)
+  const [currentSupportLevel, setCurrentSupportLevel] = useState<0 | 1 | 2 | 3 | 4>(0);
+  const [retryCount, setRetryCount] = useState(0);
+  // Tracks whether the current recording/attempt result has already triggered support ladder progression
+  const attemptHandledRef = useRef<boolean>(false);
 
   // Interaction telemetry tracker for Module 4 (Pushpakumara)
   const interactionTracker = useInteractionTracker();
@@ -204,13 +277,65 @@ export default function SpeechSessionScreen() {
   const audioTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resultAnim = useRef(new Animated.Value(0)).current;
-  const currentSentence = PRACTICE_SENTENCES[currentTextIndex];
+  const currentSentence = PRACTICE_SENTENCES[currentTextIndex] || PRACTICE_SENTENCES[0];
+
+  // If user changed sentence on-screen (e.g. Next or pill), honor currentSentence; otherwise use params.selectedText
+  const hasUserSwitched = currentTextIndex !== matchedSentenceIndex;
+  const targetSinhala = (hasUserSwitched ? currentSentence.sinhala : (params.selectedText || currentSentence.sinhala)).trim();
+  const targetTextId = hasUserSwitched ? currentSentence.id : (params.textId || currentSentence.id);
+
+  // Checks if the active target text actually corresponds to currentSentence
+  const isPracticeSentenceMatch =
+    Boolean(currentSentence) &&
+    (currentSentence.sinhala.trim() === targetSinhala ||
+      targetSinhala.includes(currentSentence.sinhala.trim()) ||
+      currentSentence.sinhala.trim().includes(targetSinhala));
+
+  // Text Difficulty analysis & progressive support configuration (M2)
+  const difficultyResult = useMemo(() => {
+    return getTextDifficulty(targetSinhala);
+  }, [targetSinhala]);
+
+  // Derive list of applicable progressive support levels for the current reading item (M2)
+  const applicableSupportLevels: SupportLevelNumber[] = useMemo(() => {
+    return (
+      difficultyResult.applicableSupportLevels ||
+      getApplicableSupportLevels({
+        maxSupportLevel: difficultyResult.maxSupportLevel,
+        splitNeeded: difficultyResult.splitNeeded,
+        simplificationNeeded: difficultyResult.simplificationNeeded,
+        simplifiedText:
+          difficultyResult.simplifiedText ||
+          (isPracticeSentenceMatch ? currentSentence?.simplifiedSinhala : undefined) ||
+          null,
+      })
+    );
+  }, [difficultyResult, isPracticeSentenceMatch, currentSentence]);
+
+  // Section 8: Linguistically safe highlight units (never naive text.split(''))
+  const highlightUnits: string[] = useMemo(() => {
+    if (difficultyResult.highlightUnits && difficultyResult.highlightUnits.length > 0) {
+      return difficultyResult.highlightUnits;
+    }
+    const words = targetSinhala.trim().split(/\s+/).filter(Boolean);
+    if (words.length > 1) {
+      return words;
+    }
+    return [targetSinhala];
+  }, [difficultyResult, targetSinhala]);
+
+  // Reset support ladder whenever the target reading text changes
+  useEffect(() => {
+    setCurrentSupportLevel(0);
+    setRetryCount(0);
+    attemptHandledRef.current = false;
+  }, [targetSinhala]);
 
   // ── Central Reading Session Hook ───────────────────────────────────────────
   const session = useReadingSession({
     text: {
-      id: currentSentence.id,
-      content: currentSentence.sinhala,
+      id: targetTextId,
+      content: targetSinhala,
       difficulty: 'medium',
     },
     interactionData: interactionTracker.getTelemetry(),
@@ -260,47 +385,106 @@ export default function SpeechSessionScreen() {
       m1Raw?.detectedErrors && m1Raw.detectedErrors.length > 0
         ? m1Raw.detectedErrors.map((e: any) => ({
             type: (e.type || 'substitution') as any,
-            word: e.word || currentSentence.targetWord,
-            detected: e.detected || currentSentence.spokenWord,
+            word: e.word || (isPracticeSentenceMatch ? currentSentence.targetWord : ''),
+            detected: e.detected || (isPracticeSentenceMatch ? currentSentence.spokenWord : ''),
             severity: e.severity || 0.4,
-            explanation: e.explanation || "'ගොඩාක්' වචනයේ 'ඩා' ස්වරය දිගු කර පැහැදිලිව ශබ්ද කළ යුතුය.",
-            tip: e.tip || "🗣️ 'ඩා' ශබ්දය දිගු කර 'ගොඩාක්' ලෙස උච්චාරණය කරන්න.",
+            explanation: e.explanation || (isPracticeSentenceMatch ? currentSentence.simulatedErrors?.[0]?.explanation : ''),
+            tip: e.tip || (isPracticeSentenceMatch ? currentSentence.simulatedErrors?.[0]?.tip : ''),
           }))
         : isAccurate
         ? []
-        : currentSentence.simulatedErrors;
+        : (isPracticeSentenceMatch ? currentSentence.simulatedErrors : []);
 
     return {
       accuracy,
-      transcription: m1Raw?.transcription || currentSentence.sinhala,
+      transcription: m1Raw?.transcription || (isPracticeSentenceMatch ? currentSentence.sinhala : targetSinhala),
       errors,
       isAccurate,
-      wpm: m1Raw?.readingSpeed ?? currentSentence.wpm,
-      fluencyScore: m1Raw?.fluencyScore ?? currentSentence.fluencyScore,
-      avgPauseDuration: m1Raw?.pauseDuration ? `${m1Raw.pauseDuration}s` : currentSentence.avgPauseDuration,
-      syllablesPerSec: currentSentence.syllablesPerSec,
-      targetWord: currentSentence.targetWord,
-      spokenWord: currentSentence.spokenWord,
-      phoneticBreakdown: currentSentence.phoneticBreakdown,
+      wpm: m1Raw?.readingSpeed ?? (isPracticeSentenceMatch ? currentSentence.wpm : 30),
+      fluencyScore: m1Raw?.fluencyScore ?? (isPracticeSentenceMatch ? currentSentence.fluencyScore : 80),
+      avgPauseDuration: m1Raw?.pauseDuration ? `${m1Raw.pauseDuration}s` : (isPracticeSentenceMatch ? currentSentence.avgPauseDuration : '1.2s'),
+      syllablesPerSec: isPracticeSentenceMatch ? currentSentence.syllablesPerSec : '2.0 syl/s',
+      targetWord: isPracticeSentenceMatch ? currentSentence.targetWord : '',
+      spokenWord: isPracticeSentenceMatch ? currentSentence.spokenWord : '',
+      phoneticBreakdown: isPracticeSentenceMatch ? currentSentence.phoneticBreakdown : '',
     };
-  }, [session.sessionStatus, session.results.errorAnalysis, currentSentence]);
+  }, [session.sessionStatus, session.results.errorAnalysis, currentSentence, isPracticeSentenceMatch, targetSinhala]);
 
-  const displaySinhala = isSimplified && currentSentence.simplifiedSinhala
-    ? currentSentence.simplifiedSinhala
-    : currentSentence.sinhala;
+  // Advance to next valid progressive support level respecting applicableSupportLevels
+  const advanceSupportLevel = useCallback(
+    (fromLevel: number) => {
+      const nextLevel = getNextValidSupportLevel(fromLevel, applicableSupportLevels);
+      if (nextLevel !== null) {
+        setCurrentSupportLevel(nextLevel);
+        setRetryCount(0);
+      }
+    },
+    [applicableSupportLevels]
+  );
 
-  // AI Simplify Handler
-  const handleSimplify = useCallback(() => {
-    if (isSimplified) {
-      setIsSimplified(false);
-      return;
+  const currentSupportLevelRef = useRef(currentSupportLevel);
+  currentSupportLevelRef.current = currentSupportLevel;
+
+  const retryCountRef = useRef(retryCount);
+  retryCountRef.current = retryCount;
+
+  // Integration interface: consumes attempt result from speech/session pipeline
+  const handleAttemptResult = useCallback(
+    (correct: boolean) => {
+      if (correct) {
+        // Section 13: Correct result immediately marks success and stops progression
+        setRetryCount(0);
+      } else {
+        // Section 1 & 13: Child gets another independent reading attempt at each level
+        const maxRetries = difficultyResult.maxRetriesPerLevel || 1;
+        const nextRetries = retryCountRef.current + 1;
+        if (nextRetries >= maxRetries) {
+          advanceSupportLevel(currentSupportLevelRef.current);
+        } else {
+          setRetryCount(nextRetries);
+        }
+      }
+    },
+    [difficultyResult, advanceSupportLevel]
+  );
+
+  // Reset attempt handled flag whenever a new recording cycle begins or session resets
+  useEffect(() => {
+    if (
+      session.sessionStatus === 'idle' ||
+      session.sessionStatus === 'recording' ||
+      session.sessionStatus === 'processing'
+    ) {
+      attemptHandledRef.current = false;
     }
-    setSimplifying(true);
-    setTimeout(() => {
-      setSimplifying(false);
-      setIsSimplified(true);
-    }, 700);
-  }, [isSimplified]);
+  }, [session.sessionStatus]);
+
+  useEffect(() => {
+    if (
+      (session.sessionStatus === 'done' || session.sessionStatus === 'partial_error') &&
+      analysisResult &&
+      !attemptHandledRef.current
+    ) {
+      attemptHandledRef.current = true;
+      handleAttemptResult(analysisResult.isAccurate);
+    }
+  }, [session.sessionStatus, analysisResult, handleAttemptResult]);
+
+  const getLadderItemStatus = (lvl: 1 | 2 | 3 | 4): 'completed' | 'current' | 'locked' | 'skipped' => {
+    if (!applicableSupportLevels.includes(lvl)) {
+      return 'skipped';
+    }
+    if (analysisResult?.isAccurate && currentSupportLevel === lvl) {
+      return 'completed';
+    }
+    if (currentSupportLevel > lvl) {
+      return 'completed';
+    }
+    if (currentSupportLevel === lvl) {
+      return 'current';
+    }
+    return 'locked';
+  };
 
   // Audio Playback simulation handler
   const handlePlayAudio = (type: 'child' | 'target') => {
@@ -319,14 +503,264 @@ export default function SpeechSessionScreen() {
 
   const handleReset = useCallback(() => {
     if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
+    attemptHandledRef.current = false;
     interactionTracker.recordRetry();
     interactionTracker.resetTracker();
     session.resetSession();
-    setIsSimplified(false);
     setShowGamePopup(false);
     setPlayingAudio(null);
     resultAnim.setValue(0);
   }, [session, resultAnim, interactionTracker]);
+
+  // Dedicated Active Support Renderer (Research Component: M2)
+  const renderActiveSupport = (showTryAgain: boolean = false) => {
+    if (currentSupportLevel === 0) {
+      if (showTryAgain && !analysisResult?.isAccurate) {
+        return (
+          <View
+            style={[
+              styles.ladderCard,
+              ThemeShadow.sm,
+              styles.ladderCardCurrent,
+              { marginBottom: ThemeSpacing.sm },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.ladderTryAgainBtn}
+              onPress={handleReset}
+              activeOpacity={0.85}
+            >
+              <AppText size="xs" weight="extrabold" color="#FFFFFF">
+                → නැවත කියවමු (Try Again) 🎙️
+              </AppText>
+            </TouchableOpacity>
+          </View>
+        );
+      }
+      return null;
+    }
+
+    if (!applicableSupportLevels.includes(currentSupportLevel as any)) {
+      return null;
+    }
+
+    if (currentSupportLevel === 1) {
+      return (
+        <View
+          style={[
+            styles.ladderCard,
+            ThemeShadow.sm,
+            styles.ladderCardCurrent,
+            { marginBottom: ThemeSpacing.sm },
+          ]}
+        >
+          <View style={styles.syllablesInsideSection}>
+            <View style={styles.highlightPill}>
+              <AppText size="xs" weight="extrabold" color="#92400E">
+                🌟 වචන ඉස්මතු කිරීම (Focus Highlight)
+              </AppText>
+            </View>
+            <View style={[styles.highlightUnitsRow, { marginTop: 6 }]}>
+              {highlightUnits.map((unit, idx) => (
+                <View key={idx} style={styles.highlightUnitChip}>
+                  <AppText
+                    size="xxl"
+                    weight="extrabold"
+                    color="#78350F"
+                    style={styles.sentenceText}
+                  >
+                    {unit}
+                  </AppText>
+                </View>
+              ))}
+            </View>
+            {showTryAgain && !analysisResult?.isAccurate && (
+              <TouchableOpacity
+                style={styles.ladderTryAgainBtn}
+                onPress={handleReset}
+                activeOpacity={0.85}
+              >
+                <AppText size="xs" weight="extrabold" color="#FFFFFF">
+                  → නැවත කියවමු (Try Again) 🎙️
+                </AppText>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      );
+    }
+
+    if (currentSupportLevel === 2) {
+      const activeSplitWords: SplitWord[] | undefined =
+        (isPracticeSentenceMatch && currentSentence?.splitWords && currentSentence.splitWords.length > 0)
+          ? currentSentence.splitWords
+          : (difficultyResult.splitWords && difficultyResult.splitWords.length > 0)
+          ? difficultyResult.splitWords
+          : undefined;
+
+      const fallbackParts: string[] =
+        (isPracticeSentenceMatch && currentSentence?.syllables && currentSentence.syllables.length > 1)
+          ? currentSentence.syllables
+          : (difficultyResult.splitParts && difficultyResult.splitParts.length > 0)
+          ? difficultyResult.splitParts
+          : splitSinhalaGraphemes(targetSinhala);
+
+      const isMultiWord = activeSplitWords ? activeSplitWords.length > 1 : false;
+
+      return (
+        <View
+          style={[
+            styles.ladderCard,
+            ThemeShadow.sm,
+            styles.ladderCardCurrent,
+            { marginBottom: ThemeSpacing.sm },
+          ]}
+        >
+          <View style={styles.syllablesInsideSection}>
+            <AppText size="xs" weight="bold" color="#047857" style={{ marginBottom: 6 }}>
+              🔤 වෙන් කළ කොටස් (Akuru / Syllable Split):
+            </AppText>
+            {activeSplitWords && activeSplitWords.length > 0 ? (
+              <View style={styles.sentenceGroups}>
+                {activeSplitWords.map((wordGroup, wIdx) => (
+                  <View key={`word-${wIdx}-${wordGroup.word}`} style={styles.wordGroup}>
+                    <View style={styles.wordPartsRow}>
+                      {wordGroup.parts.map((part, pIdx) => (
+                        <View key={`part-${wIdx}-${pIdx}`} style={styles.syllableChip}>
+                          <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
+                            {part}
+                          </AppText>
+                        </View>
+                      ))}
+                    </View>
+                    {isMultiWord && (
+                      <AppText size="xs" weight="semibold" color={ThemeColors.textMuted} style={styles.wordSubLabel}>
+                        {wordGroup.word}
+                      </AppText>
+                    )}
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.syllablesRow}>
+                {fallbackParts.map((part, i) => (
+                  <View key={i} style={styles.syllableChip}>
+                    <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
+                      {part}
+                    </AppText>
+                  </View>
+                ))}
+              </View>
+            )}
+            {showTryAgain && !analysisResult?.isAccurate && (
+              <TouchableOpacity
+                style={styles.ladderTryAgainBtn}
+                onPress={handleReset}
+                activeOpacity={0.85}
+              >
+                <AppText size="xs" weight="extrabold" color="#FFFFFF">
+                  → නැවත කියවමු (Try Again) 🎙️
+                </AppText>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      );
+    }
+
+    if (currentSupportLevel === 3) {
+      return (
+        <View
+          style={[
+            styles.ladderCard,
+            ThemeShadow.sm,
+            styles.ladderCardCurrent,
+            { marginBottom: ThemeSpacing.sm },
+          ]}
+        >
+          <View style={styles.audioSupportInsideSection}>
+            <AppText size="xs" weight="bold" color="#047857" style={{ marginBottom: 6 }}>
+              🔊 {t('support.audio.heading')}:
+            </AppText>
+            <TouchableOpacity
+              style={[
+                styles.audioSupportActionBtn,
+                playingAudio === 'target' && styles.audioSupportActionBtnActive,
+              ]}
+              onPress={() => handlePlayAudio('target')}
+              activeOpacity={0.8}
+            >
+              <AppText
+                size="xs"
+                weight="extrabold"
+                color={playingAudio === 'target' ? '#FFFFFF' : '#047857'}
+              >
+                {playingAudio === 'target'
+                  ? `🔊 ${t('support.audio.playing')}`
+                  : `▶ ${t('support.audio.play')}`}
+              </AppText>
+            </TouchableOpacity>
+            {showTryAgain && !analysisResult?.isAccurate && (
+              <TouchableOpacity
+                style={styles.ladderTryAgainBtn}
+                onPress={handleReset}
+                activeOpacity={0.85}
+              >
+                <AppText size="xs" weight="extrabold" color="#FFFFFF">
+                  → නැවත කියවමු (Try Again) 🎙️
+                </AppText>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      );
+    }
+
+    if (currentSupportLevel === 4) {
+      return (
+        <View
+          style={[
+            styles.ladderCard,
+            ThemeShadow.sm,
+            styles.ladderCardCurrent,
+            { marginBottom: ThemeSpacing.sm },
+          ]}
+        >
+          <View style={styles.simplificationInsideSection}>
+            <View style={styles.simplificationBox}>
+              <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
+                මුල් පාඨය (Original):
+              </AppText>
+              <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginTop: 2 }}>
+                {targetSinhala}
+              </AppText>
+            </View>
+            <View style={[styles.simplificationBox, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', marginTop: 6 }]}>
+              <AppText size="xs" weight="extrabold" color="#047857">
+                ✨ සරල කළ අනුවාදය (Simpler version):
+              </AppText>
+              <AppText size="md" weight="extrabold" color="#047857" style={{ marginTop: 2 }}>
+                {difficultyResult.simplifiedText || (isPracticeSentenceMatch ? currentSentence.simplifiedSinhala : undefined) || targetSinhala}
+              </AppText>
+            </View>
+            {showTryAgain && !analysisResult?.isAccurate && (
+              <TouchableOpacity
+                style={styles.ladderTryAgainBtn}
+                onPress={handleReset}
+                activeOpacity={0.85}
+              >
+                <AppText size="xs" weight="extrabold" color="#FFFFFF">
+                  → නැවත කියවමු (Try Again) 🎙️
+                </AppText>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -373,78 +807,58 @@ export default function SpeechSessionScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* ── Sentence Card with AI Simplify Toggle ──────────────────────── */}
+        {/* ── Sentence Card with Progressive Support (M2) ─────────────────── */}
         <View style={[styles.sentenceCard, ThemeShadow.sm]}>
-          {/* Sentence selector pills */}
+          {/* Target Text Header */}
           <View style={styles.textSelectorRow}>
-            {PRACTICE_SENTENCES.map((t, i) => (
-              <TouchableOpacity
-                key={t.id}
-                style={[styles.textPill, currentTextIndex === i && styles.textPillActive]}
-                onPress={() => {
-                  setCurrentTextIndex(i);
-                  handleReset();
-                }}
-                activeOpacity={0.8}
-              >
-                <AppText
-                  size="xs"
-                  weight={currentTextIndex === i ? 'extrabold' : 'semibold'}
-                  color={currentTextIndex === i ? '#FFFFFF' : ThemeColors.textSecondary}
-                >
-                  {i + 1}
+            <View style={styles.targetLabelBadge}>
+              <AppText size="xs" weight="extrabold" color={ThemeColors.primary}>
+                📖 කියවිය යුතු පාඨය:
+              </AppText>
+            </View>
+            {!params.selectedText && (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {PRACTICE_SENTENCES.map((t, i) => (
+                  <TouchableOpacity
+                    key={t.id}
+                    style={[styles.textPill, currentTextIndex === i && styles.textPillActive]}
+                    onPress={() => {
+                      setCurrentTextIndex(i);
+                      handleReset();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <AppText
+                      size="xs"
+                      weight={currentTextIndex === i ? 'extrabold' : 'semibold'}
+                      color={currentTextIndex === i ? '#FFFFFF' : ThemeColors.textSecondary}
+                    >
+                      {i + 1}
+                    </AppText>
+                  </TouchableOpacity>
+                ))}
+                <AppText size="xs" color={ThemeColors.textMuted} style={{ marginLeft: 8 }}>
+                  වාක්‍යය තෝරන්න
                 </AppText>
-              </TouchableOpacity>
-            ))}
-            <AppText size="xs" color={ThemeColors.textMuted} style={{ marginLeft: 8 }}>
-              වාක්‍යය තෝරන්න
-            </AppText>
+              </View>
+            )}
           </View>
 
           {/* Main Sentence Display Box */}
           <View style={styles.sentenceDisplay}>
-            {isSimplified && (
-              <View style={styles.simplifiedBadge}>
-                <AppText size="xs" weight="bold" color={ThemeColors.accent}>
-                  ✨ AI සරල කළ වාක්‍යය
-                </AppText>
-              </View>
-            )}
             <AppText
               size="xxl"
               weight="extrabold"
               color={ThemeColors.textPrimary}
-              style={[
-                styles.sentenceText,
-                isSimplified && { color: ThemeColors.primary },
-              ]}
+              style={styles.sentenceText}
             >
-              {displaySinhala}
-            </AppText>
-            <AppText size="sm" color={ThemeColors.textSecondary} style={{ marginTop: 6 }}>
-              {isSimplified ? currentSentence.simplifiedEnglish : currentSentence.english}
+              {targetSinhala}
             </AppText>
           </View>
-
-          {/* AI Simplification toggle button */}
-          <TouchableOpacity
-            style={[styles.simplifyToggleBtn, isSimplified && styles.simplifyToggleBtnActive]}
-            onPress={handleSimplify}
-            activeOpacity={0.8}
-          >
-            <AppText
-              size="xs"
-              weight="bold"
-              color={isSimplified ? ThemeColors.accent : ThemeColors.primary}
-            >
-              {simplifying
-                ? '⏳ AI සකසමින්...'
-                : isSimplified
-                ? '↩ මුල් වාක්‍යය පෙන්වන්න'
-                : '✨ AI මගින් වාක්‍යය සරල කරන්න'}
-            </AppText>
-          </TouchableOpacity>
         </View>
+
+        {/* Top Active Support Detail Area on Reading Screen */}
+        {session.sessionStatus !== 'done' && session.sessionStatus !== 'partial_error' && renderActiveSupport(false)}
 
         {/* ── Offline Alert Banner ─────────────────────────────────────────── */}
         {session.isOffline && (
@@ -544,6 +958,171 @@ export default function SpeechSessionScreen() {
               { opacity: resultAnim, transform: [{ scale: resultAnim }] },
             ]}
           >
+            {/* Top Dedicated Support Detail Area for Active Support */}
+            {renderActiveSupport(true)}
+
+            {/* ── Progressive Reading Support Ladder (Research Component: M2) ── */}
+            <View style={[styles.ladderContainer, ThemeShadow.sm, { marginBottom: ThemeSpacing.sm }]}>
+              <View style={styles.ladderHeader}>
+                <AppText size="xs">📊</AppText>
+                <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
+                  කියවීමේ සහාය ශ්‍රේණිය — Reading Support Ladder
+                </AppText>
+              </View>
+              <AppText size="xs" color={ThemeColors.textSecondary} style={{ paddingHorizontal: 12, paddingTop: 8 }}>
+                ඔබට අවශ්‍ය සහාය මට්ටම අනුව පියවරෙන් පියවර චතුරතාව වැඩිදියුණු කරගන්න:
+              </AppText>
+
+              <View style={styles.ladderGrid}>
+                {/* Level 0: Independent Attempt State */}
+                <TouchableOpacity
+                  onPress={() => setCurrentSupportLevel(0)}
+                  activeOpacity={0.8}
+                  style={[
+                    styles.ladderCard,
+                    currentSupportLevel === 0
+                      ? styles.ladderCardCurrent
+                      : styles.ladderCardCompleted,
+                  ]}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: ThemeSpacing.sm }}>
+                    <View
+                      style={[
+                        styles.ladderCardIcon,
+                        currentSupportLevel > 0 && { backgroundColor: '#ECFDF5' },
+                      ]}
+                    >
+                      <AppText size="md">{currentSupportLevel > 0 ? '✓' : '🎯'}</AppText>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <AppText
+                        size="xs"
+                        weight="extrabold"
+                        color={currentSupportLevel === 0 ? ThemeColors.primary : '#047857'}
+                      >
+                        ස්වාධීන උත්සාහය (Independent Attempt)
+                      </AppText>
+                      <AppText size="xs" color={ThemeColors.textMuted}>
+                        {currentSupportLevel > 0
+                          ? 'පළමු ස්වාධීන කියවීමේ උත්සාහය අවසන් විය'
+                          : 'සහායකින් තොරව කියවීමේ ආරම්භක උත්සාහය'}
+                      </AppText>
+                    </View>
+                    <View
+                      style={[
+                        styles.ladderStatusBadge,
+                        currentSupportLevel === 0
+                          ? styles.ladderStatusBadgeActive
+                          : styles.ladderStatusBadgeDone,
+                      ]}
+                    >
+                      <AppText
+                        size="xs"
+                        weight="bold"
+                        color={currentSupportLevel === 0 ? ThemeColors.primary : '#047857'}
+                      >
+                        {currentSupportLevel === 0 ? '→ ක්‍රියාකාරී' : '✓ සම්පූර්ණයි'}
+                      </AppText>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Levels 1 to 4: Progressive Support Options */}
+                {SUPPORT_LADDER_ITEMS.map((opt) => {
+                  const status = getLadderItemStatus(opt.level);
+                  if (status === 'skipped') return null;
+
+                  const isCurrent = status === 'current';
+                  const isCompleted = status === 'completed';
+                  const isLocked = status === 'locked';
+
+                  const itemLabel = opt.key === 'audio' ? t('support.ladder.audio.label') : opt.label;
+                  const itemSublabel = opt.key === 'audio' ? t('support.ladder.audio.sublabel') : opt.sublabel;
+
+                  return (
+                    <TouchableOpacity
+                      key={opt.key}
+                      onPress={() => setCurrentSupportLevel(opt.level)}
+                      activeOpacity={0.8}
+                      style={[
+                        styles.ladderCard,
+                        {
+                          backgroundColor: isLocked ? '#F8FAFC' : opt.bg,
+                          borderColor: isCurrent ? opt.color : isCompleted ? '#BCE6CB' : '#E2E8F0',
+                        },
+                        isCurrent && styles.ladderCardActiveBorder,
+                      ]}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: ThemeSpacing.sm }}>
+                        <View
+                          style={[
+                            styles.ladderCardIcon,
+                            isLocked && { opacity: 0.5, backgroundColor: '#EDF2F7' },
+                            isCompleted && { backgroundColor: '#ECFDF5' },
+                          ]}
+                        >
+                          <AppText size="md">{isCompleted ? '✓' : isLocked ? '🔒' : opt.icon}</AppText>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <AppText
+                            size="xs"
+                            weight="extrabold"
+                            color={isLocked ? ThemeColors.textMuted : opt.color}
+                          >
+                            පියවර {opt.level}: {itemLabel}
+                          </AppText>
+                          <AppText size="xs" color={ThemeColors.textMuted}>
+                            {itemSublabel}
+                          </AppText>
+                        </View>
+                        <View
+                          style={[
+                            styles.ladderStatusBadge,
+                            isCurrent && styles.ladderStatusBadgeActive,
+                            isCompleted && styles.ladderStatusBadgeDone,
+                            isLocked && styles.ladderStatusBadgeLocked,
+                          ]}
+                        >
+                          <AppText
+                            size="xs"
+                            weight="bold"
+                            color={isCurrent ? opt.color : isCompleted ? '#047857' : ThemeColors.textMuted}
+                          >
+                            {isCurrent ? '→ ක්‍රියාකාරී' : isCompleted ? '✓ සම්පූර්ණයි' : '🔒 අගුළුලා ඇත'}
+                          </AppText>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Accuracy Header */}
+            <View
+              style={[
+                styles.accuracyHeader,
+                { backgroundColor: analysisResult.isAccurate ? '#EAF7EE' : '#FEF3C7' },
+              ]}
+            >
+              <AppText
+                size="xxl"
+                weight="extrabold"
+                color={analysisResult.isAccurate ? ThemeColors.primary : '#B45309'}
+              >
+                {analysisResult.accuracy}%
+              </AppText>
+              <AppText
+                size="xs"
+                weight="bold"
+                color={analysisResult.isAccurate ? ThemeColors.primary : '#B45309'}
+              >
+                {analysisResult.isAccurate
+                  ? '✅ විශිෂ්ටයි! ඉතා පැහැදිලි නිවැරදි උච්චාරණයක්'
+                  : '⚠️ උච්චාරණ දෝෂ හඳුනාගැනීමක් සිදුකරන ලදී'}
+              </AppText>
+            </View>
+
             {/* Behavioral Intervention Banner (Displayed on results per spec) */}
             {session.hasIntervention && (
               <View style={[styles.interventionBannerCard, ThemeShadow.sm]}>
@@ -616,31 +1195,6 @@ export default function SpeechSessionScreen() {
                   : session.savedSessionId
                   ? '☁️ සැසිය Firestore හි සුරැකිණි (Session Persisted)'
                   : '☁️ සැසිය සාර්ථකව සුරැකිණි'}
-              </AppText>
-            </View>
-
-            {/* Accuracy Header */}
-            <View
-              style={[
-                styles.accuracyHeader,
-                { backgroundColor: analysisResult.isAccurate ? '#EAF7EE' : '#FEF3C7' },
-              ]}
-            >
-              <AppText
-                size="xxl"
-                weight="extrabold"
-                color={analysisResult.isAccurate ? ThemeColors.primary : '#B45309'}
-              >
-                {analysisResult.accuracy}%
-              </AppText>
-              <AppText
-                size="xs"
-                weight="bold"
-                color={analysisResult.isAccurate ? ThemeColors.primary : '#B45309'}
-              >
-                {analysisResult.isAccurate
-                  ? '✅ විශිෂ්ටයි! ඉතා පැහැදිලි නිවැරදි උච්චාරණයක්'
-                  : '⚠️ උච්චාරණ දෝෂ හඳුනාගැනීමක් සිදුකරන ලදී'}
               </AppText>
             </View>
 
@@ -789,9 +1343,9 @@ export default function SpeechSessionScreen() {
             {/* ── FEATURE 2: SLOW-MOTION AUDIO COMPARISON PLAYER ── */}
             <View style={styles.audioCompareCard}>
               <View style={styles.audioCompareTopHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.audioCompareTitleRow}>
                   <AppText size="sm">🔊</AppText>
-                  <AppText size="xs" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
+                  <AppText size="xs" weight="extrabold" color={ThemeColors.primary} style={styles.audioCompareTitleText}>
                     ශ්‍රව්‍ය සංසන්දනය & මන්දගාමී වාදනය (Audio Compare)
                   </AppText>
                 </View>
@@ -854,7 +1408,7 @@ export default function SpeechSessionScreen() {
                 {/* Audio 2: Target Correct Teacher Voice */}
                 <View style={[styles.audioTrackBox, styles.audioTrackTarget]}>
                   <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
                       <AppText size="xs" color="#047857" weight="bold">
                         🌟 නිවැරදි උච්චාරණය:
                       </AppText>
@@ -947,73 +1501,6 @@ export default function SpeechSessionScreen() {
           </Animated.View>
         )}
 
-        {/* ── Progressive Support Options Panel (Ladder) ─────── */}
-        {(session.sessionStatus === 'done' || session.sessionStatus === 'partial_error') && analysisResult && (
-          <View style={styles.ladderContainer}>
-            <View style={styles.ladderHeader}>
-              <AppText size="xs">📊</AppText>
-              <AppText size="sm" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
-                ක්‍රමවේදී සහාය ශ්‍රේණිය — Learning Support Ladder
-              </AppText>
-            </View>
-            <AppText size="xs" color={ThemeColors.textSecondary} style={{ paddingHorizontal: 12, paddingTop: 8 }}>
-              ඔබට අවශ්‍ය සහාය මට්ටම තෝරාගෙන පියවරෙන් පියවර චතුරතාව වැඩිදියුණු කරගන්න:
-            </AppText>
-
-            <View style={styles.ladderGrid}>
-              {SUPPORT_OPTIONS.map((opt) => (
-                <TouchableOpacity
-                  key={opt.key}
-                  style={[styles.ladderCard, { backgroundColor: opt.bg, borderColor: opt.border }]}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/(child)/support',
-                      params: { textId: currentSentence.id, level: opt.level },
-                    })
-                  }
-                  activeOpacity={0.82}
-                >
-                  <View style={styles.ladderCardIcon}>
-                    <AppText size="md">{opt.icon}</AppText>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <AppText size="xs" weight="extrabold" color={opt.color}>
-                      {opt.label}
-                    </AppText>
-                    <AppText size="xs" color={ThemeColors.textMuted}>
-                      {opt.sublabel}
-                    </AppText>
-                  </View>
-                  <AppText size="md" color={opt.color}>
-                    ›
-                  </AppText>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Syllable Breakdown Chip Preview */}
-            <View style={styles.syllablePreviewSection}>
-              <AppText size="xs" weight="bold" color={ThemeColors.textMuted} style={{ marginBottom: 6 }}>
-                🔤 අකුරු සහ පිල්ලම් වෙන් කිරීම (Syllable Breakdown):
-              </AppText>
-              <View style={styles.syllablesRow}>
-                {currentSentence.syllables.map((syl, i) => (
-                  <View key={i} style={styles.syllableChip}>
-                    <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
-                      {syl}
-                    </AppText>
-                    {i < currentSentence.syllables.length - 1 && (
-                      <AppText size="sm" color={ThemeColors.accent} style={{ marginLeft: 2 }}>
-                        -
-                      </AppText>
-                    )}
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-        )}
-
         <View style={{ height: ThemeSpacing.xl }} />
       </ScrollView>
 
@@ -1104,7 +1591,7 @@ export default function SpeechSessionScreen() {
       {/* Voice Assessment Modal for live mic recording */}
       <VoiceAssessmentModal
         visible={showVoiceModal}
-        targetText={displaySinhala}
+        targetText={targetSinhala}
         mode="sentence"
         onClose={() => setShowVoiceModal(false)}
         onSuccess={handleVoiceModalSuccess}
@@ -1186,6 +1673,15 @@ const styles = StyleSheet.create({
   textPillActive: {
     backgroundColor: ThemeColors.primary,
   },
+  targetLabelBadge: {
+    backgroundColor: '#EAF7EE',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: ThemeRadius.full,
+    borderWidth: 1,
+    borderColor: '#BCE6CB',
+    marginRight: 8,
+  },
   sentenceDisplay: {
     backgroundColor: ThemeColors.backgroundMuted,
     padding: ThemeSpacing.md,
@@ -1193,19 +1689,52 @@ const styles = StyleSheet.create({
     marginBottom: ThemeSpacing.sm,
     minHeight: 88,
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
-  simplifiedBadge: {
+  sentenceDisplayHighlighted: {
+    backgroundColor: '#FEF9C3',
+    borderColor: '#F59E0B',
+    borderWidth: 2,
+    ...ThemeShadow.sm,
+  },
+  sentenceDisplayHighlightedContainer: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FCD34D',
+    borderWidth: 1.5,
+    borderRadius: ThemeRadius.md,
+  },
+  highlightUnitsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  highlightUnitChip: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+    borderWidth: 1.5,
+    borderRadius: ThemeRadius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    ...ThemeShadow.sm,
+  },
+  highlightPill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#FDF4E9',
-    paddingHorizontal: ThemeSpacing.sm,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: ThemeRadius.full,
     marginBottom: 6,
     borderWidth: 1,
-    borderColor: '#EED9BE',
+    borderColor: '#FDE68A',
   },
   sentenceText: {
     lineHeight: 38,
+  },
+  sentenceTextHighlighted: {
+    color: '#78350F',
   },
   simplifyToggleBtn: {
     backgroundColor: ThemeColors.primaryLight,
@@ -1384,13 +1913,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: ThemeSpacing.sm,
+  },
+  audioCompareTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    minWidth: 200,
+    gap: 6,
+  },
+  audioCompareTitleText: {
+    flexShrink: 1,
   },
   speedToggleContainer: {
     flexDirection: 'row',
     backgroundColor: '#E2E8F0',
     borderRadius: ThemeRadius.full,
     padding: 2,
+    alignSelf: 'flex-start',
   },
   speedPill: {
     paddingHorizontal: 8,
@@ -1450,8 +1992,9 @@ const styles = StyleSheet.create({
   },
   resultActionsRow: {
     flexDirection: 'row',
-    gap: ThemeSpacing.xs + 2,
-    padding: ThemeSpacing.md,
+    gap: 6,
+    paddingHorizontal: ThemeSpacing.sm + 2,
+    paddingVertical: ThemeSpacing.md,
     backgroundColor: '#F8FAFC',
     borderTopWidth: 1,
     borderTopColor: ThemeColors.borderLight,
@@ -1461,6 +2004,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F59E0B',
     borderRadius: ThemeRadius.md,
     paddingVertical: ThemeSpacing.sm,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1469,6 +2013,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981',
     borderRadius: ThemeRadius.md,
     paddingVertical: ThemeSpacing.sm,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1487,6 +2032,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#7C3AED',
     borderRadius: ThemeRadius.md,
     paddingVertical: ThemeSpacing.sm,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1495,6 +2041,7 @@ const styles = StyleSheet.create({
     backgroundColor: ThemeColors.primary,
     borderRadius: ThemeRadius.md,
     paddingVertical: ThemeSpacing.sm,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1518,12 +2065,22 @@ const styles = StyleSheet.create({
     gap: ThemeSpacing.xs,
   },
   ladderCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: ThemeSpacing.sm,
     padding: ThemeSpacing.sm,
     borderRadius: ThemeRadius.md,
     borderWidth: 1.5,
+  },
+  ladderCardActiveBorder: {
+    borderWidth: 2,
+    ...ThemeShadow.sm,
+  },
+  ladderCardCurrent: {
+    backgroundColor: '#EAF7EE',
+    borderColor: ThemeColors.primary,
+    borderWidth: 2,
+  },
+  ladderCardCompleted: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#BCE6CB',
   },
   ladderCardIcon: {
     width: 36,
@@ -1533,11 +2090,84 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.85)',
   },
-  syllablePreviewSection: {
-    padding: ThemeSpacing.md,
+  ladderStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: ThemeRadius.full,
+    backgroundColor: '#F1F5F9',
+  },
+  ladderStatusBadgeActive: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  ladderStatusBadgeDone: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  ladderStatusBadgeLocked: {
+    backgroundColor: '#F1F5F9',
+  },
+  syllablesInsideSection: {
+    marginTop: 10,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: ThemeColors.borderLight,
-    backgroundColor: ThemeColors.backgroundMuted,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  audioSupportInsideSection: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  audioSupportActionBtn: {
+    backgroundColor: '#EAF7EE',
+    borderWidth: 1.5,
+    borderColor: '#BCE6CB',
+    borderRadius: ThemeRadius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  audioSupportActionBtnActive: {
+    backgroundColor: '#047857',
+    borderColor: '#047857',
+  },
+  simplificationInsideSection: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  simplificationBox: {
+    backgroundColor: '#FFFFFF',
+    padding: 8,
+    borderRadius: ThemeRadius.sm,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sentenceGroups: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: 16,
+    rowGap: 12,
+    alignItems: 'flex-start',
+  },
+  wordGroup: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+  },
+  wordPartsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    alignItems: 'center',
+  },
+  wordSubLabel: {
+    marginTop: 2,
+    opacity: 0.75,
   },
   syllablesRow: {
     flexDirection: 'row',
@@ -1553,6 +2183,16 @@ const styles = StyleSheet.create({
     borderRadius: ThemeRadius.md,
     borderWidth: 1,
     borderColor: ThemeColors.primaryBorder,
+  },
+  ladderTryAgainBtn: {
+    marginTop: 10,
+    backgroundColor: ThemeColors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: ThemeRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...ThemeShadow.sm,
   },
   modalBackdrop: {
     flex: 1,

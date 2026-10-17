@@ -7,6 +7,7 @@
  */
 
 import type { TextDifficultyResult } from '../types';
+import { getTextDifficulty } from '@/services/readingTextService';
 
 const MOCK_DIFFICULTY_PROFILES: TextDifficultyResult[] = [
   // Profile 1: Easy sentence for younger grades — no breakdown needed
@@ -41,18 +42,29 @@ const MOCK_DIFFICULTY_PROFILES: TextDifficultyResult[] = [
 /**
  * Mock Sinhala text difficulty endpoint.
  *
- * @param _text - Sinhala reading passage or sentence
- * @param _gradeLevel - Student grade level (e.g. 2, 3, "Grade 2")
+ * @param text - Sinhala reading passage or sentence
+ * @param gradeLevel - Student grade level (e.g. 2, 3, "Grade 2")
  * @returns Promise resolving to a realistic TextDifficultyResult after 800ms
  */
 export async function mockAnalyzeText(
-  _text: string,
-  _gradeLevel: number | string
+  text: string,
+  gradeLevel: number | string
 ): Promise<TextDifficultyResult> {
   await new Promise((resolve) => setTimeout(resolve, 800));
 
-  const randomIndex = Math.floor(Math.random() * MOCK_DIFFICULTY_PROFILES.length);
-  return JSON.parse(JSON.stringify(MOCK_DIFFICULTY_PROFILES[randomIndex]));
+  const numGrade = typeof gradeLevel === 'number' ? gradeLevel : parseInt(String(gradeLevel).replace(/\D/g, ''), 10) || 2;
+  const res = getTextDifficulty(text, numGrade);
+
+  return {
+    difficultyLevel: (res.finalDifficultyLevel.charAt(0).toUpperCase() + res.finalDifficultyLevel.slice(1)) as any,
+    splitNeeded: res.splitNeeded,
+    simplificationNeeded: res.simplificationNeeded,
+    simplifiedText: res.simplifiedText || null,
+    maxSupportLevel: res.maxSupportLevel,
+    maxRetriesPerLevel: res.maxRetriesPerLevel,
+    highlightUnits: res.highlightUnits,
+    splitParts: res.splitParts,
+  };
 }
 
 export default mockAnalyzeText;

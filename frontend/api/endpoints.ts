@@ -10,6 +10,7 @@
  */
 
 import { apiClient } from './client';
+import { ENV } from '@/config/env';
 import {
   USE_MOCK_READING_ANALYSIS,
   USE_MOCK_TEXT_DIFFICULTY,
@@ -109,10 +110,43 @@ export async function getBehaviorState(
 export async function getRecommendation(
   input: RecommendationInput
 ): Promise<RecommendationResult> {
-  if (USE_MOCK_RECOMMENDATION) {
+  const isMock = USE_MOCK_RECOMMENDATION;
+  const endpointUrl = `${ENV.API_BASE_URL}/recommend`;
+
+  if (__DEV__) {
+    console.log(
+      `[M3 Recommendation] Mode: ${isMock ? 'MOCK' : 'LIVE'} | Target: ${isMock ? 'local mock generator' : endpointUrl}`
+    );
+  }
+
+  if (isMock) {
     return mockGetRecommendation(input);
   }
 
-  // Real backend endpoint placeholder
-  return apiClient.post('/recommend', input);
+  if (__DEV__) {
+    console.log(`[M3 Recommendation] Live request started -> POST ${endpointUrl}`);
+  }
+
+  try {
+    const response: any = await apiClient.post('/recommend', input);
+    if (__DEV__) {
+      const recId =
+        response?.nextActivityId ||
+        response?.recommendedActivities?.[0]?.activityId ||
+        'unknown';
+      console.log(
+        `[M3 Recommendation] Live request succeeded (HTTP 200) -> Next Activity: ${recId} (${response?.difficultyAction || 'Action'})`
+      );
+    }
+    return response as RecommendationResult;
+  } catch (error: any) {
+    if (__DEV__) {
+      const errMsg = error?.message || String(error);
+      const status = error?.status || error?.response?.status || 'Network / CORS Error';
+      console.warn(
+        `[M3 Recommendation] Live request failed (status: ${status}) -> ${errMsg}`
+      );
+    }
+    throw error;
+  }
 }

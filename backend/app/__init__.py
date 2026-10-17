@@ -51,10 +51,15 @@ def create_app(config_name: str = None) -> Flask:
         r"/api/*": {
             "origins": [
                 "http://localhost:8081",
+                "http://localhost:8082",
+                "http://localhost:8083",
                 "http://localhost:19006",
                 "http://localhost:3000",
                 "http://10.0.2.2:8081",
+                "http://10.0.2.2:8082",
                 "http://10.0.2.2:19006",
+                r"^http://localhost:\d+$",
+                r"^http://127\.0\.0\.1:\d+$",
                 r"http://192\.168\.\d+\.\d+:*",
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],

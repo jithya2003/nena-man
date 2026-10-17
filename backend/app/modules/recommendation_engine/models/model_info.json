@@ -1,0 +1,23 @@
+{
+  "random_forest_features": [
+    "reading_accuracy",
+    "error_count",
+    "error_rate",
+    "response_time_avg",
+    "text_difficulty",
+    "previous_accuracy",
+    "accuracy_trend",
+    "attempt_count",
+    "current_difficulty",
+    "skill_id",
+    "behaviour_state"
+  ],
+  "activity_features": [
+    "difficulty_level",
+    "skill_id"
+  ],
+  "activity_id_column": "activity_id",
+  "activity_name_column": "activity_name",
+  "skill_column": "skill_id",
+  "difficulty_column": "difficulty_level"
+}
