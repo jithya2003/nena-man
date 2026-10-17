@@ -29,11 +29,13 @@ import { LinkedPerson, ReadingSessionRecord } from '@/types';
 import { useChildStoreBase } from '@/store/childStore';
 import { MOCK_SESSIONS } from '@/mock/data';
 import EmailReportModal from '@/components/EmailReportModal';
+import { useEntitlement } from '@/hooks/useEntitlement';
 
 export default function ParentDashboardScreen() {
   const router = useRouter();
   const { t, language } = useLanguage();
   const { user, logout } = useAuth();
+  const { canUse, canAddChild, childLimit } = useEntitlement();
   const currentGuardian = useChildStoreBase((s) => s.currentGuardian);
   const currentChild = useChildStoreBase((s) => s.currentChild);
   const isChildViewingParent = user?.role === 'child';
@@ -377,7 +379,10 @@ export default function ParentDashboardScreen() {
 
           <TouchableOpacity
             style={[styles.tabPill, activeTab === 'students' && styles.tabPillActive]}
-            onPress={() => setActiveTab('students')}
+            onPress={() => {
+              setActiveTab('students');
+              setShowChildSelectModal(true);
+            }}
             activeOpacity={0.8}
           >
             <AppText size="xs">👥</AppText>
@@ -387,7 +392,7 @@ export default function ParentDashboardScreen() {
               color={activeTab === 'students' ? '#FFFFFF' : ThemeColors.textSecondary}
               style={{ marginLeft: 6 }}
             >
-              {t('dashboard.tabs.students')} ({linkedStudents.length || 1})
+              {t('dashboard.tabs.students')} ({linkedStudents.length}/{childLimit === Infinity ? '∞' : childLimit})
             </AppText>
           </TouchableOpacity>
 
@@ -442,7 +447,27 @@ export default function ParentDashboardScreen() {
 
             <TouchableOpacity
               style={styles.connectOtherBtn}
-              onPress={() => router.push('/(parent)/connect-student')}
+              onPress={() => {
+                if (!canAddChild(linkedStudents.length)) {
+                  const limitMsg = t('gate.childLimitReached.desc', { limit: String(childLimit) });
+                  if (Platform.OS === 'web') {
+                    if (window.confirm(`${t('gate.childLimitReached.title')}\n\n${limitMsg}`)) {
+                      router.push('/(settings)/subscription');
+                    }
+                  } else {
+                    Alert.alert(
+                      t('gate.childLimitReached.title'),
+                      limitMsg,
+                      [
+                        { text: t('common.close'), style: 'cancel' },
+                        { text: t('gate.upgradeBtn'), onPress: () => router.push('/(settings)/subscription') },
+                      ]
+                    );
+                  }
+                } else {
+                  router.push('/(parent)/connect-student');
+                }
+              }}
               activeOpacity={0.8}
             >
               <AppText size="xs" weight="bold" color={ThemeColors.primary}>
@@ -452,11 +477,18 @@ export default function ParentDashboardScreen() {
 
             <TouchableOpacity
               style={styles.emailReportQuickBtn}
-              onPress={() => setShowEmailReportModal(true)}
+              onPress={() => {
+                if (!canUse('pdf_report_export')) {
+                  router.push('/(settings)/subscription');
+                } else {
+                  setShowEmailReportModal(true);
+                }
+              }}
               activeOpacity={0.8}
             >
               <AppText size="xs" weight="bold" color="#0369A1">
-                📧 {language === 'si' ? 'PDF වාර්තාව' : 'PDF Report'}
+                {canUse('pdf_report_export') ? '📧 ' : '🔒 '}
+                {language === 'si' ? 'PDF වාර්තාව' : 'PDF Report'}
               </AppText>
             </TouchableOpacity>
           </View>

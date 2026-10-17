@@ -23,10 +23,14 @@ import { useAuth } from '@/context/AuthContext';
 import { connectionService } from '@/services/connectionService';
 import { ConnectionRequest } from '@/types';
 import { LoadingView, EmptyView } from '@/components/shared-states';
+import { useLanguage } from '@/context/LanguageContext';
+import { useEntitlement } from '@/hooks/useEntitlement';
 
 export default function ConnectStudentScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t, language } = useLanguage();
+  const { canAddChild, childLimit } = useEntitlement();
 
   const [inputMode, setInputMode] = useState<'email' | 'code'>('email');
   const [identifier, setIdentifier] = useState('');
@@ -38,6 +42,7 @@ export default function ConnectStudentScreen() {
   const [successMessage, setSuccessMessage] = useState('');
   const [sentRequests, setSentRequests] = useState<ConnectionRequest[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+  const [linkedCount, setLinkedCount] = useState(0);
 
   const relationshipOptions =
     user?.role === 'teacher'
@@ -50,6 +55,8 @@ export default function ConnectStudentScreen() {
       setIsLoadingRequests(true);
       const list = await connectionService.getSentRequestsForParent(user.uid);
       setSentRequests(list);
+      const linked = await connectionService.getLinkedChildren(user.uid, user.email);
+      setLinkedCount(linked?.length || 0);
     } catch (err) {
       console.warn('[ConnectStudent] loadSentRequests error:', err);
     } finally {
@@ -102,6 +109,25 @@ export default function ConnectStudentScreen() {
 
     if (!user) {
       setErrorMessage('පරිශීලක තොරතුරු හමු නොවීය. කරුණාකර නැවත ලොග් වන්න.');
+      return;
+    }
+
+    if (!canAddChild(linkedCount)) {
+      const limitMsg = t('gate.childLimitReached.desc', { limit: String(childLimit) });
+      if (Platform.OS === 'web') {
+        if (window.confirm(`${t('gate.childLimitReached.title')}\n\n${limitMsg}`)) {
+          router.push('/(settings)/subscription');
+        }
+      } else {
+        Alert.alert(
+          t('gate.childLimitReached.title'),
+          limitMsg,
+          [
+            { text: t('common.close'), style: 'cancel' },
+            { text: t('gate.upgradeBtn'), onPress: () => router.push('/(settings)/subscription') },
+          ]
+        );
+      }
       return;
     }
 
@@ -177,6 +203,16 @@ export default function ConnectStudentScreen() {
               ශිෂ්‍යයාගේ විද්‍යුත් තැපෑල හෝ ශිෂ්‍ය කේතය ලබාදී ඉල්ලීමක් යවන්න. ශිෂ්‍යයා තහවුරු කළ පසු ප්‍රගතිය නිරීක්ෂණය කළ හැක.
             </AppText>
           </View>
+        </View>
+
+        {/* Child Accounts Quota Banner */}
+        <View style={styles.quotaBanner}>
+          <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
+            👥 {t('subscription.childAccounts')}:
+          </AppText>
+          <AppText size="xs" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
+            {linkedCount} / {childLimit === Infinity ? (language === 'si' ? 'අසීමිතයි (Unlimited)' : 'Unlimited') : childLimit}
+          </AppText>
         </View>
 
         {/* Input Card Form */}
@@ -451,6 +487,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  quotaBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2ECE6',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   formCard: {
     backgroundColor: '#FFFFFF',

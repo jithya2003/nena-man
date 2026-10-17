@@ -30,6 +30,9 @@ import { sessionService } from '@/services/sessionService';
 import { recommendationService } from '@/services/recommendationService';
 import { useCurrentChild, useAuthStore } from '@/store/hooks';
 import { useLanguage } from '@/context/LanguageContext';
+import PremiumGate from '@/components/PremiumGate';
+import { useEntitlement } from '@/hooks/useEntitlement';
+import { FREE_SESSION_HISTORY_LIMIT } from '@/constants/subscriptionPlans';
 import type { SessionData, M3Response, ReadingSessionRecord } from '@/types';
 
 export default function ReportsScreen() {
@@ -42,6 +45,11 @@ export default function ReportsScreen() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const { currentChild } = useCurrentChild();
   const { user } = useAuthStore();
+  const { canUse } = useEntitlement();
+
+  const visibleSessions = canUse('full_session_history')
+    ? sessions
+    : sessions.slice(0, FREE_SESSION_HISTORY_LIMIT);
 
   const activeChildName = currentChild?.name || user?.name || (language === 'si' ? 'සෙනුලි පෙරේරා' : 'Senuli Perera');
   const activeChildGrade = currentChild?.grade || 2;
@@ -187,11 +195,18 @@ export default function ReportsScreen() {
 
             <TouchableOpacity
               style={styles.openPdfModalBtn}
-              onPress={() => setShowEmailModal(true)}
+              onPress={() => {
+                if (!canUse('pdf_report_export')) {
+                  router.push('/(settings)/subscription');
+                } else {
+                  setShowEmailModal(true);
+                }
+              }}
               activeOpacity={0.8}
             >
               <AppText size="xs" weight="extrabold" color="#FFFFFF">
-                📧 {language === 'si' ? 'වාර්තාව ලබාගන්න' : 'Get PDF Report'}
+                {canUse('pdf_report_export') ? '📧 ' : '🔒 '}
+                {language === 'si' ? 'වාර්තාව ලබාගන්න' : 'Get PDF Report'}
               </AppText>
             </TouchableOpacity>
           </View>
@@ -207,59 +222,61 @@ export default function ReportsScreen() {
         <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
           📊 {language === 'si' ? 'දෝෂ වර්ගීකරණය සහ ගෙදරදී කළ හැකි අභ්‍යාස' : 'Error Classification & Home Intervention Tips'}
         </AppText>
-        {(
-          Object.entries(ERROR_DETAIL) as [
-            keyof typeof ERROR_DETAIL,
-            (typeof ERROR_DETAIL)[keyof typeof ERROR_DETAIL],
-          ][]
-        ).map(([key, meta]) => {
-          const count = MOCK_ERROR_BREAKDOWN[key as keyof typeof MOCK_ERROR_BREAKDOWN] ?? 0;
-          return (
-            <Card
-              key={key}
-              style={[
-                styles.errorDetailCard,
-                { borderLeftWidth: 4, borderLeftColor: meta.color },
-              ]}
-            >
-              <View style={styles.errorDetailHeader}>
-                <View
-                  style={[
-                    styles.errorDetailBadge,
-                    { backgroundColor: meta.bg, borderColor: meta.border },
-                  ]}
-                >
-                  <AppText size="sm">{meta.icon}</AppText>
-                  <AppText size="xs" weight="bold" color={meta.color}>
-                    {meta.label}
+        <PremiumGate feature="error_deep_dive">
+          {(
+            Object.entries(ERROR_DETAIL) as [
+              keyof typeof ERROR_DETAIL,
+              (typeof ERROR_DETAIL)[keyof typeof ERROR_DETAIL],
+            ][]
+          ).map(([key, meta]) => {
+            const count = MOCK_ERROR_BREAKDOWN[key as keyof typeof MOCK_ERROR_BREAKDOWN] ?? 0;
+            return (
+              <Card
+                key={key}
+                style={[
+                  styles.errorDetailCard,
+                  { borderLeftWidth: 4, borderLeftColor: meta.color },
+                ]}
+              >
+                <View style={styles.errorDetailHeader}>
+                  <View
+                    style={[
+                      styles.errorDetailBadge,
+                      { backgroundColor: meta.bg, borderColor: meta.border },
+                    ]}
+                  >
+                    <AppText size="sm">{meta.icon}</AppText>
+                    <AppText size="xs" weight="bold" color={meta.color}>
+                      {meta.label}
+                    </AppText>
+                  </View>
+                  <AppText size="xl" weight="extrabold" color={meta.color}>
+                    {count}
                   </AppText>
                 </View>
-                <AppText size="xl" weight="extrabold" color={meta.color}>
-                  {count}
+                <ProgressBar
+                  value={(count / totalErrors) * 100}
+                  color={meta.color}
+                  height={6}
+                />
+                <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: ThemeSpacing.sm, lineHeight: 18 }}>
+                  {meta.description}
                 </AppText>
-              </View>
-              <ProgressBar
-                value={(count / totalErrors) * 100}
-                color={meta.color}
-                height={6}
-              />
-              <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: ThemeSpacing.sm, lineHeight: 18 }}>
-                {meta.description}
-              </AppText>
-              <View style={styles.tipBox}>
-                <AppText size="xs" color="#9A3412" style={{ flex: 1, lineHeight: 18, fontWeight: '600' }}>
-                  {meta.tip}
-                </AppText>
-              </View>
-            </Card>
-          );
-        })}
+                <View style={styles.tipBox}>
+                  <AppText size="xs" color="#9A3412" style={{ flex: 1, lineHeight: 18, fontWeight: '600' }}>
+                    {meta.tip}
+                  </AppText>
+                </View>
+              </Card>
+            );
+          })}
+        </PremiumGate>
 
         {/* Session-by-Session Breakdown */}
         <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
           📜 {language === 'si' ? 'සැසි අනුව විස්තරාත්මක ඉතිහාසය' : 'Session History'} {isRealData && (language === 'si' ? '☁️ (සජීවී වාර්තා)' : '☁️ (Live Synced)')}
         </AppText>
-        {sessions.map((s) => (
+        {visibleSessions.map((s) => (
           <Card key={s.id} style={styles.sessionCard}>
             <View style={styles.sessionHeader}>
               <AppText size="sm" weight="bold" color={ThemeColors.textPrimary}>
@@ -301,6 +318,20 @@ export default function ReportsScreen() {
             </View>
           </Card>
         ))}
+
+        {!canUse('full_session_history') && sessions.length > FREE_SESSION_HISTORY_LIMIT && (
+          <PremiumGate
+            feature="full_session_history"
+            compact={true}
+            fallbackDescription={
+              language === 'si'
+                ? `සම්පූර්ණ සැසි ${sessions.length}ම සහ ප්‍රවණතා බැලීමට ප්‍රිමියම් වෙත මාරු වන්න.`
+                : `Upgrade to view all ${sessions.length} sessions and progress trends.`
+            }
+          >
+            <View />
+          </PremiumGate>
+        )}
 
         <View style={{ height: ThemeSpacing.xl }} />
       </ScrollView>
