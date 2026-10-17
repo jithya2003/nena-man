@@ -183,12 +183,25 @@ export default function SettingsScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.menuRowItem, { marginBottom: 0 }]}
+            style={styles.menuRowItem}
             onPress={() => router.push('/(auth)/forgot-password')}
             activeOpacity={0.8}
           >
             <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.menuRowText}>
               {t('settings.changePassword')}
+            </AppText>
+            <AppText size="xs" color={ThemeColors.textMuted}>
+              ›
+            </AppText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuRowItem, { marginBottom: 0 }]}
+            onPress={() => router.push('/(settings)/subscription')}
+            activeOpacity={0.8}
+          >
+            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.menuRowText}>
+              💎 {t('settings.subscription')}
             </AppText>
             <AppText size="xs" color={ThemeColors.textMuted}>
               ›
