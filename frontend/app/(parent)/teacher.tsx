@@ -17,6 +17,7 @@ import {
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
 import NenaManLogo from '@/components/NenaManLogo';
+import PremiumGate from '@/components/PremiumGate';
 
 export default function TeacherDashboardScreen() {
   const router = useRouter();
@@ -183,7 +184,8 @@ export default function TeacherDashboardScreen() {
           </View>
 
           {/* 4 Summary Metric Cards */}
-          <View style={styles.metricsGrid}>
+          <PremiumGate feature="teacher_analytics">
+            <View style={styles.metricsGrid}>
             {/* Metric 1: සිසුන් */}
             <View style={[styles.metricCard, ThemeShadow.sm]}>
               <View style={[styles.metricIconWrap, { backgroundColor: '#E0F2FE' }]}>
@@ -422,8 +424,9 @@ export default function TeacherDashboardScreen() {
               </View>
             </View>
           </View>
+        </PremiumGate>
 
-          <View style={{ height: ThemeSpacing.xl }} />
+        <View style={{ height: ThemeSpacing.xl }} />
         </ScrollView>
       </View>
     </SafeAreaView>
