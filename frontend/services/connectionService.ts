@@ -564,6 +564,59 @@ export const connectionService = {
       }
     } catch {}
 
+    // 5. Check @nena_man_auth_user if current logged in user is this child
+    try {
+      const authUserStr = await AppStorage.getItem('@nena_man_auth_user');
+      if (authUserStr) {
+        const authUser = JSON.parse(authUserStr);
+        if (authUser && (authUser.uid === childUid || (childEmail && authUser.email === childEmail))) {
+          if (Array.isArray(authUser.linkedGuardians)) {
+            authUser.linkedGuardians.forEach((g: LinkedPerson) => {
+              if (g?.uid && !map.has(g.uid)) map.set(g.uid, g);
+            });
+          }
+        }
+      }
+    } catch {}
+
+    // 6. Check @nena_man_child_store for currentGuardian
+    try {
+      const childStoreStr = await AppStorage.getItem('@nena_man_child_store');
+      if (childStoreStr) {
+        const parsed = JSON.parse(childStoreStr);
+        const g = parsed?.state?.currentGuardian;
+        if (g?.uid && !map.has(g.uid)) {
+          map.set(g.uid, g);
+        }
+      }
+    } catch {}
+
+    // 7. Scan local @nena_man_linked_children_* to find any parent linking this child
+    try {
+      const allKeys = await AppStorage.getAllKeys();
+      const parentKeys = allKeys.filter((k) => k.startsWith('@nena_man_linked_children_'));
+      for (const pKey of parentKeys) {
+        const parentUid = pKey.replace('@nena_man_linked_children_', '');
+        if (!parentUid || map.has(parentUid)) continue;
+        const val = await AppStorage.getItem(pKey);
+        if (!val) continue;
+        const children: LinkedPerson[] = JSON.parse(val);
+        const matches = children.some(
+          (c) =>
+            (childUid && (c.uid === childUid || c.id === childUid)) ||
+            (childEmail && c.email?.toLowerCase() === childEmail.toLowerCase())
+        );
+        if (matches) {
+          map.set(parentUid, {
+            uid: parentUid,
+            name: 'Parent / Teacher',
+            role: 'parent',
+            linkedAt: new Date().toISOString(),
+          });
+        }
+      }
+    } catch {}
+
     return Array.from(map.values());
   },
 

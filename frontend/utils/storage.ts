@@ -61,4 +61,20 @@ export const AppStorage = {
       memoryStore.delete(key);
     }
   },
+
+  async getAllKeys(): Promise<string[]> {
+    try {
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+        return Object.keys(window.localStorage);
+      }
+      const storage = getAsyncStorage();
+      if (storage && typeof storage.getAllKeys === 'function') {
+        const keys = await storage.getAllKeys();
+        return Array.isArray(keys) ? keys : [];
+      }
+      return Array.from(memoryStore.keys());
+    } catch {
+      return Array.from(memoryStore.keys());
+    }
+  },
 };
