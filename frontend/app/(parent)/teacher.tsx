@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -17,38 +18,174 @@ import {
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
 import NenaManLogo from '@/components/NenaManLogo';
+import { useAuth } from '@/context/AuthContext';
+import { useChildStoreBase } from '@/store/childStore';
+import { connectionService } from '@/services/connectionService';
+import { sessionService } from '@/services/sessionService';
+import { LinkedPerson, ReadingSessionRecord, Child } from '@/types';
+import { EmptyView, ErrorView } from '@/components/shared-states';
+
+interface StudentMetricSummary {
+  totalSessions: number;
+  avgAccuracy: number | null;
+  hasEnoughData: boolean;
+  statusText: string;
+  statusType: 'good' | 'attention' | 'help' | 'no_data';
+}
 
 export default function TeacherDashboardScreen() {
   const router = useRouter();
+  const { user, logout } = useAuth();
 
   const [activeMenu, setActiveMenu] = useState('dashboard');
+  const [linkedStudents, setLinkedStudents] = useState<LinkedPerson[]>([]);
+  const [studentStatsMap, setStudentStatsMap] = useState<Record<string, StudentMetricSummary>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const students = [
-    {
-      id: 1,
-      name: 'සෙනුලි',
-      grade: 5,
-      progress: 78,
-      status: 'හොඳයි',
-      statusType: 'good',
-    },
-    {
-      id: 2,
-      name: 'කවිඳු',
-      grade: 5,
-      progress: 62,
-      status: 'අවධානය',
-      statusType: 'attention',
-    },
-    {
-      id: 3,
-      name: 'සහන්',
-      grade: 4,
-      progress: 44,
-      status: 'සහාය අවශ්‍යයි',
-      statusType: 'help',
-    },
-  ];
+  const loadTeacherDashboard = useCallback(async () => {
+    if (!user?.uid) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setFetchError(null);
+
+      // 1. Fetch real linked children for this teacher
+      const students = await connectionService.getLinkedChildren(user.uid, user.email);
+      setLinkedStudents(students || []);
+
+      // 2. Fetch session history for each student in parallel
+      const statsMap: Record<string, StudentMetricSummary> = {};
+
+      await Promise.all(
+        (students || []).map(async (st) => {
+          try {
+            const sessions: ReadingSessionRecord[] = await sessionService.getChildSessions(st.uid, 20);
+            const validSessions = sessions.filter(
+              (s): s is ReadingSessionRecord & { overallAccuracy: number } =>
+                typeof s.overallAccuracy === 'number' && s.overallAccuracy >= 0
+            );
+
+            const hasEnoughData = validSessions.length > 0;
+            const avgAccuracy = hasEnoughData
+              ? Math.round(
+                  validSessions.reduce((sum, s) => sum + s.overallAccuracy, 0) / validSessions.length
+                )
+              : null;
+
+            let statusText = 'දත්ත ප්‍රමාණවත් නැත';
+            let statusType: 'good' | 'attention' | 'help' | 'no_data' = 'no_data';
+
+            if (hasEnoughData && avgAccuracy !== null) {
+              if (avgAccuracy >= 75) {
+                statusText = 'හොඳයි';
+                statusType = 'good';
+              } else if (avgAccuracy >= 60) {
+                statusText = 'අවධානය';
+                statusType = 'attention';
+              } else {
+                statusText = 'සහාය අවශ්‍යයි';
+                statusType = 'help';
+              }
+            }
+
+            statsMap[st.uid] = {
+              totalSessions: sessions.length,
+              avgAccuracy,
+              hasEnoughData,
+              statusText,
+              statusType,
+            };
+          } catch (stErr) {
+            console.warn(`[TeacherDashboard] Error fetching sessions for student ${st.uid}:`, stErr);
+            statsMap[st.uid] = {
+              totalSessions: 0,
+              avgAccuracy: null,
+              hasEnoughData: false,
+              statusText: 'දත්ත ප්‍රමාණවත් නැත',
+              statusType: 'no_data',
+            };
+          }
+        })
+      );
+
+      setStudentStatsMap(statsMap);
+    } catch (err) {
+      console.warn('[TeacherDashboard] loadTeacherDashboard failed:', err);
+      setFetchError('ශිෂ්‍ය දත්ත ලබාගැනීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.uid, user?.email]);
+
+  useEffect(() => {
+    loadTeacherDashboard();
+  }, [loadTeacherDashboard]);
+
+  // ── Calculate Classroom Summary Metrics ──────────────────────────────────────
+  const totalStudents = linkedStudents.length;
+
+  const totalCompletedSessions = Object.values(studentStatsMap).reduce(
+    (sum, st) => sum + st.totalSessions,
+    0
+  );
+
+  const studentsWithData = Object.values(studentStatsMap).filter(
+    (st) => st.hasEnoughData && st.avgAccuracy !== null
+  );
+
+  const averageClassAccuracy =
+    studentsWithData.length > 0
+      ? Math.round(
+          studentsWithData.reduce((sum, st) => sum + (st.avgAccuracy || 0), 0) /
+            studentsWithData.length
+        )
+      : null;
+
+  // Needs Attention: Only students with sufficient valid data and avgAccuracy < 60%
+  const needsAttentionCount = studentsWithData.filter(
+    (st) => (st.avgAccuracy || 0) < 60
+  ).length;
+
+  // ── Handle Student Row Selection ───────────────────────────────────────────
+  const handleSelectStudent = (st: LinkedPerson) => {
+    const stats = studentStatsMap[st.uid];
+    const readingLvl: 'easy' | 'medium' | 'hard' =
+      stats?.hasEnoughData && stats.avgAccuracy !== null
+        ? stats.avgAccuracy >= 75
+          ? 'hard'
+          : stats.avgAccuracy >= 60
+          ? 'medium'
+          : 'easy'
+        : 'easy';
+
+    const childData: Child = {
+      id: st.uid,
+      name: st.name || 'ශිෂ්‍යයා',
+      age: 7,
+      grade: st.grade || 2,
+      readingLevel: readingLvl,
+      streak: 0,
+      stars: 0,
+      totalSessions: stats?.totalSessions || 0,
+      avatarColor: '#4F46E5',
+    };
+
+    useChildStoreBase.getState().setCurrentChild(childData);
+    router.push('/(parent)/student-details');
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (e) {
+      console.warn('[TeacherDashboard] Logout error:', e);
+    }
+    router.replace('/(auth)/role-select');
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -133,7 +270,7 @@ export default function TeacherDashboardScreen() {
             <View>
               <View style={styles.greetingTitleRow}>
                 <AppText size="lg" weight="extrabold" color={ThemeColors.textPrimary}>
-                  සුභ උදෑසනක්, ගුරුතුමියනි
+                  සුභ උදෑසනක්, {user?.displayName || 'ගුරුතුමියනි'}
                 </AppText>
                 <AppText size="lg" style={{ marginLeft: 6 }}>
                   👏
@@ -155,19 +292,25 @@ export default function TeacherDashboardScreen() {
                 </AppText>
               </TouchableOpacity>
 
-              <View style={styles.bellBtn}>
+              <TouchableOpacity
+                style={styles.bellBtn}
+                onPress={() => router.push('/(child)/notifications')}
+                activeOpacity={0.7}
+              >
                 <AppText size="sm">🔔</AppText>
                 <View style={styles.redDot} />
-              </View>
+              </TouchableOpacity>
+
               <View style={styles.teacherAvatarWrap}>
                 <AppText size="sm">👩‍🏫</AppText>
               </View>
 
-              {/* Logout Button (Exit Icon Only) */}
+              {/* Logout Button */}
               <TouchableOpacity
                 style={styles.logoutBtn}
-                onPress={() => router.replace('/(auth)/role-select')}
+                onPress={handleLogout}
                 activeOpacity={0.75}
+                accessibilityLabel="Log Out"
               >
                 <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                   <Path
@@ -184,7 +327,7 @@ export default function TeacherDashboardScreen() {
 
           {/* 4 Summary Metric Cards */}
           <View style={styles.metricsGrid}>
-            {/* Metric 1: සිසුන් */}
+            {/* Metric 1: සිසුන් (Total Students) */}
             <View style={[styles.metricCard, ThemeShadow.sm]}>
               <View style={[styles.metricIconWrap, { backgroundColor: '#E0F2FE' }]}>
                 <AppText size="md">👥</AppText>
@@ -194,12 +337,12 @@ export default function TeacherDashboardScreen() {
                   සිසුන්
                 </AppText>
                 <AppText size="xl" weight="extrabold" color={ThemeColors.textPrimary}>
-                  24
+                  {totalStudents}
                 </AppText>
               </View>
             </View>
 
-            {/* Metric 2: සම්පූර්ණ කළ ක්‍රියාකාරකම් */}
+            {/* Metric 2: සම්පූර්ණ කළ ක්‍රියාකාරකම් (Completed Sessions) */}
             <View style={[styles.metricCard, ThemeShadow.sm]}>
               <View style={[styles.metricIconWrap, { backgroundColor: '#DCFCE7' }]}>
                 <AppText size="md" color="#10B981">
@@ -208,15 +351,15 @@ export default function TeacherDashboardScreen() {
               </View>
               <View style={{ marginLeft: 8 }}>
                 <AppText size="xs" color={ThemeColors.textSecondary}>
-                  සම්පූර්ණ කළ
+                  මෑත සැසි (උපරිම 20)
                 </AppText>
                 <AppText size="xl" weight="extrabold" color={ThemeColors.textPrimary}>
-                  156
+                  {totalCompletedSessions}
                 </AppText>
               </View>
             </View>
 
-            {/* Metric 3: සාමාන්‍ය ප්‍රගතිය */}
+            {/* Metric 3: සාමාන්‍ය ප්‍රගතිය (Average Accuracy) */}
             <View style={[styles.metricCard, ThemeShadow.sm]}>
               <View style={[styles.metricIconWrap, { backgroundColor: '#FFEDD5' }]}>
                 <AppText size="md">📈</AppText>
@@ -226,12 +369,12 @@ export default function TeacherDashboardScreen() {
                   සාමාන්‍ය ප්‍රගතිය
                 </AppText>
                 <AppText size="xl" weight="extrabold" color={ThemeColors.textPrimary}>
-                  72%
+                  {averageClassAccuracy !== null ? `${averageClassAccuracy}%` : '—'}
                 </AppText>
               </View>
             </View>
 
-            {/* Metric 4: අවධානය අවශ්‍ය සිසුන් */}
+            {/* Metric 4: අවධානය අවශ්‍ය සිසුන් (Needs Attention) */}
             <View style={[styles.metricCard, ThemeShadow.sm]}>
               <View style={[styles.metricIconWrap, { backgroundColor: '#FEE2E2' }]}>
                 <AppText size="md">⚠️</AppText>
@@ -241,13 +384,13 @@ export default function TeacherDashboardScreen() {
                   අවධානය අවශ්‍ය
                 </AppText>
                 <AppText size="xl" weight="extrabold" color="#DC2626">
-                  5
+                  {needsAttentionCount}
                 </AppText>
               </View>
             </View>
           </View>
 
-          {/* Main Dashboard Columns (Students Progress Table + Right Adaptive Panel) */}
+          {/* Main Dashboard Columns */}
           <View style={styles.dashboardSplitWrap}>
             {/* Left Column: සිසුන්ගේ ප්‍රගතිය Table */}
             <View style={[styles.tableCard, ThemeShadow.sm]}>
@@ -255,118 +398,172 @@ export default function TeacherDashboardScreen() {
                 <View style={styles.tableTitleWrap}>
                   <AppText size="sm">📊</AppText>
                   <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginLeft: 6 }}>
-                    සිසුන්ගේ ප්‍රගතිය
+                    සිසුන්ගේ ප්‍රගතිය ({linkedStudents.length})
                   </AppText>
                 </View>
-                <TouchableOpacity activeOpacity={0.7}>
+                <TouchableOpacity
+                  onPress={() => router.push('/(parent)/connect-student')}
+                  activeOpacity={0.7}
+                >
                   <AppText size="xs" weight="bold" color={ThemeColors.primary}>
-                    සියල්ල බලන්න
+                    + අලුතින් එක්කරන්න
                   </AppText>
                 </TouchableOpacity>
               </View>
 
-              {/* Table Column Titles */}
-              <View style={styles.columnHeaderRow}>
-                <AppText size="xs" color={ThemeColors.textMuted} style={{ flex: 2 }}>
-                  නම
-                </AppText>
-                <AppText size="xs" color={ThemeColors.textMuted} style={{ flex: 1 }}>
-                  ශ්‍රේණිය
-                </AppText>
-                <AppText size="xs" color={ThemeColors.textMuted} style={{ flex: 3 }}>
-                  ප්‍රගතිය
-                </AppText>
-                <AppText size="xs" color={ThemeColors.textMuted} style={{ flex: 2, textAlign: 'center' }}>
-                  තත්වය
-                </AppText>
-                <AppText size="xs" color={ThemeColors.textMuted} style={{ flex: 1.5, textAlign: 'right' }}>
-                  ක්‍රියාව
-                </AppText>
-              </View>
-
-              {/* Student Rows */}
-              {students.map((st) => (
-                <View key={st.id} style={styles.studentTableRow}>
-                  <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={{ flex: 2 }}>
-                    {st.name}
+              {/* State handling: Loading, Error, Empty, or Table */}
+              {isLoading ? (
+                <View style={styles.stateCenterWrap}>
+                  <ActivityIndicator size="large" color={ThemeColors.primary} />
+                  <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 8 }}>
+                    ශිෂ්‍ය දත්ත සහ සැසි වාර්තා පූරණය වෙමින් පවතී...
                   </AppText>
-
-                  <AppText size="xs" color={ThemeColors.textSecondary} style={{ flex: 1 }}>
-                    {st.grade}
-                  </AppText>
-
-                  {/* Progress Bar & percentage */}
-                  <View style={{ flex: 3, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <View style={styles.studentTrack}>
-                      <View
-                        style={[
-                          styles.studentFill,
-                          {
-                            width: `${st.progress}%`,
-                            backgroundColor:
-                              st.statusType === 'good'
-                                ? ThemeColors.primary
-                                : st.statusType === 'attention'
-                                ? ThemeColors.accent
-                                : '#EF4444',
-                          },
-                        ]}
-                      />
-                    </View>
-                    <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-                      {st.progress}%
+                </View>
+              ) : fetchError ? (
+                <ErrorView
+                  title="දත්ත ලබාගැනීම අසාර්ථකයි"
+                  message={fetchError}
+                  onRetry={loadTeacherDashboard}
+                  retryLabel="නැවත උත්සාහ කරන්න"
+                  compact={true}
+                />
+              ) : linkedStudents.length === 0 ? (
+                <EmptyView
+                  title="තවමත් කිසිදු ශිෂ්‍යයෙකු සම්බන්ධ කර නැත"
+                  message="ඔබගේ පන්තියේ සිසුන් සම්බන්ධ කර ගැනීම සඳහා ශිෂ්‍ය කේතය (Student Code) හෝ විද්‍යුත් තැපෑල භාවිතයෙන් සම්බන්ධතා ඉල්ලීමක් යොමු කරන්න."
+                  actionLabel="+ ශිෂ්‍යයෙකු සම්බන්ධ කරන්න"
+                  onAction={() => router.push('/(parent)/connect-student')}
+                  compact={true}
+                />
+              ) : (
+                <>
+                  {/* Table Column Titles */}
+                  <View style={styles.columnHeaderRow}>
+                    <AppText size="xs" color={ThemeColors.textMuted} style={{ flex: 2 }}>
+                      නම
+                    </AppText>
+                    <AppText size="xs" color={ThemeColors.textMuted} style={{ flex: 1 }}>
+                      ශ්‍රේණිය
+                    </AppText>
+                    <AppText size="xs" color={ThemeColors.textMuted} style={{ flex: 3 }}>
+                      ප්‍රගතිය
+                    </AppText>
+                    <AppText size="xs" color={ThemeColors.textMuted} style={{ flex: 2, textAlign: 'center' }}>
+                      තත්වය
+                    </AppText>
+                    <AppText size="xs" color={ThemeColors.textMuted} style={{ flex: 1.5, textAlign: 'right' }}>
+                      ක්‍රියාව
                     </AppText>
                   </View>
 
-                  {/* Status Badge */}
-                  <View style={{ flex: 2, alignItems: 'center' }}>
-                    <View
-                      style={[
-                        styles.statusBadgePill,
-                        st.statusType === 'good' && { backgroundColor: '#DCFCE7' },
-                        st.statusType === 'attention' && { backgroundColor: '#FEF3C7' },
-                        st.statusType === 'help' && { backgroundColor: '#FEE2E2' },
-                      ]}
-                    >
-                      <AppText
-                        size="xs"
-                        weight="bold"
-                        color={
-                          st.statusType === 'good'
-                            ? '#16A34A'
-                            : st.statusType === 'attention'
-                            ? '#D97706'
-                            : '#DC2626'
-                        }
-                      >
-                        • {st.status}
-                      </AppText>
-                    </View>
-                  </View>
+                  {/* Real Student Rows */}
+                  {linkedStudents.map((st) => {
+                    const stats = studentStatsMap[st.uid] || {
+                      totalSessions: 0,
+                      avgAccuracy: null,
+                      hasEnoughData: false,
+                      statusText: 'දත්ත ප්‍රමාණවත් නැත',
+                      statusType: 'no_data',
+                    };
 
-                  {/* Action Button */}
-                  <View style={{ flex: 1.5, alignItems: 'flex-end' }}>
-                    <TouchableOpacity
-                      style={[
-                        styles.viewBtn,
-                        st.statusType === 'good' && { backgroundColor: ThemeColors.primary },
-                        st.statusType === 'attention' && { backgroundColor: '#E0F2FE' },
-                        st.statusType === 'help' && { backgroundColor: '#FFEDD5' },
-                      ]}
-                      onPress={() => router.push('/(parent)/student-details')}
-                      activeOpacity={0.8}
-                    >
-                      <AppText
-                        size="xs"
-                        weight="bold"
-                        color={st.statusType === 'good' ? '#FFFFFF' : ThemeColors.textPrimary}
-                      >
-                        බලන්න
-                      </AppText>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
+                    const isGood = stats.statusType === 'good';
+                    const isAttention = stats.statusType === 'attention';
+                    const isHelp = stats.statusType === 'help';
+                    const isNoData = stats.statusType === 'no_data';
+
+                    return (
+                      <View key={st.uid || st.email} style={styles.studentTableRow}>
+                        <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={{ flex: 2 }} numberOfLines={1}>
+                          {st.name || 'ශිෂ්‍යයා'}
+                        </AppText>
+
+                        <AppText size="xs" color={ThemeColors.textSecondary} style={{ flex: 1 }}>
+                          {st.grade || 2}
+                        </AppText>
+
+                        {/* Progress Bar & percentage */}
+                        <View style={{ flex: 3, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={styles.studentTrack}>
+                            <View
+                              style={[
+                                styles.studentFill,
+                                {
+                                  width: stats.hasEnoughData && stats.avgAccuracy !== null ? `${stats.avgAccuracy}%` : '0%',
+                                  backgroundColor: isGood
+                                    ? ThemeColors.primary
+                                    : isAttention
+                                    ? ThemeColors.accent
+                                    : isHelp
+                                    ? '#EF4444'
+                                    : '#CBD5E1',
+                                },
+                              ]}
+                            />
+                          </View>
+                          <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
+                            {stats.hasEnoughData ? `${stats.avgAccuracy}%` : '—'}
+                          </AppText>
+                        </View>
+
+                        {/* Status Badge */}
+                        <View style={{ flex: 2, alignItems: 'center' }}>
+                          <View
+                            style={[
+                              styles.statusBadgePill,
+                              isGood && { backgroundColor: '#DCFCE7' },
+                              isAttention && { backgroundColor: '#FEF3C7' },
+                              isHelp && { backgroundColor: '#FEE2E2' },
+                              isNoData && { backgroundColor: '#F1F5F9' },
+                            ]}
+                          >
+                            <AppText
+                              size="xs"
+                              weight="bold"
+                              color={
+                                isGood
+                                  ? '#16A34A'
+                                  : isAttention
+                                  ? '#D97706'
+                                  : isHelp
+                                  ? '#DC2626'
+                                  : '#64748B'
+                              }
+                            >
+                              • {stats.statusText}
+                            </AppText>
+                          </View>
+                        </View>
+
+                        {/* Action Button */}
+                        <View style={{ flex: 1.5, alignItems: 'flex-end' }}>
+                          <TouchableOpacity
+                            style={[
+                              styles.viewBtn,
+                              isGood
+                                ? { backgroundColor: ThemeColors.primary }
+                                : isAttention
+                                ? { backgroundColor: '#E0F2FE' }
+                                : isHelp
+                                ? { backgroundColor: '#FFEDD5' }
+                                : { backgroundColor: '#F1F5F9' },
+                            ]}
+                            onPress={() => handleSelectStudent(st)}
+                            activeOpacity={0.8}
+                          >
+                            <AppText
+                              size="xs"
+                              weight="bold"
+                              color={isGood ? '#FFFFFF' : ThemeColors.textPrimary}
+                            >
+                              බලන්න
+                            </AppText>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </>
+              )}
             </View>
 
             {/* Right Column: Adaptive Insights & New Activity Card */}
@@ -382,7 +579,11 @@ export default function TeacherDashboardScreen() {
 
                 <View style={styles.insightInnerBox}>
                   <AppText size="xs" color={ThemeColors.textPrimary} style={{ lineHeight: 18 }}>
-                    සිසුන් 8 දෙනෙකු සඳහා නව ක්‍රියාකාරකම් නිර්දේශ කර ඇත.
+                    {needsAttentionCount > 0
+                      ? `සිසුන් ${needsAttentionCount} දෙනෙකු සඳහා විශේෂ කියවීමේ සහාය සහ සරල අභ්‍යාස නිර්දේශ කර ඇත.`
+                      : totalStudents > 0
+                      ? `පන්තියේ සියලුම සිසුන් සතුටුදායක ප්‍රගතියක් පෙන්වයි.`
+                      : `සිසුන් සම්බන්ධ කර ගැනීමෙන් පසු AI නිර්දේශ මෙහි දිස්වේ.`}
                   </AppText>
                 </View>
 
@@ -670,5 +871,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 8,
     alignItems: 'center',
+  },
+  stateCenterWrap: {
+    paddingVertical: ThemeSpacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
