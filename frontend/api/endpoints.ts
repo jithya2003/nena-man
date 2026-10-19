@@ -55,6 +55,8 @@ export async function analyzeReading(audioData: any): Promise<ReadingAnalysisRes
 // Module 2: Sinhala Text Difficulty (Edirisooriya · IT23179844)
 // =============================================================================
 
+export { analyzeTextDifficulty } from './textDifficultyApi';
+
 /**
  * Evaluates text complexity against grade standards and computes simplification if needed.
  *

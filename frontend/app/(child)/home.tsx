@@ -7,6 +7,8 @@ import {
   Alert,
   Platform,
   Image,
+  ActivityIndicator,
+  Modal,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { connectionService } from "@/services/connectionService";
@@ -33,6 +35,8 @@ import DevicePermissionModal from "@/components/DevicePermissionModal";
 import { useConsentPrivacy } from "@/hooks/useConsentPrivacy";
 
 import ReadingTextSelectModal from "@/components/ReadingTextSelectModal";
+import { analyzeTextDifficulty } from "@/api/textDifficultyApi";
+import type { TextType } from "@/api/types";
 
 // ── M2 AI Simplification Card ─────────────────────────────────────────────────
 function M2SimplificationCard() {
@@ -40,18 +44,80 @@ function M2SimplificationCard() {
   const [showTextModal, setShowTextModal] = useState(false);
   const [selectedReadingText, setSelectedReadingText] = useState("මම මගේ රටට ගොඩාක් ආදරෙයි");
   const [selectedOptionId, setSelectedOptionId] = useState("case_c");
+  const [selectedGradeLevel, setSelectedGradeLevel] = useState<1 | 2 | 3>(2);
+  const [selectedTextType, setSelectedTextType] = useState<TextType>("short sentence");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [oovModalVisible, setOovModalVisible] = useState(false);
+  const [oovTokens, setOovTokens] = useState<string[]>([]);
+  const [oovMessage, setOovMessage] = useState("");
   const { hasActiveConsent } = useConsentPrivacy();
   const router = useRouterM2();
   const { t } = useLanguage();
 
-  const navigateToSession = () => {
-    router.push({
-      pathname: "/(child)/m1-session",
-      params: {
-        selectedText: selectedReadingText,
-        textId: selectedOptionId,
-      },
-    });
+  const handleStartReading = async () => {
+    if (isAnalyzing) return;
+
+    const trimmed = (selectedReadingText || "").trim();
+    if (!trimmed) {
+      Alert.alert("දැනුම්දීම", "කරුණාකර කියවීම සඳහා සිංහල පාඨයක් තෝරන්න.");
+      return;
+    }
+
+    const isCustomText = selectedOptionId.startsWith('custom_');
+    if (isCustomText && (!selectedGradeLevel || (selectedGradeLevel !== 1 && selectedGradeLevel !== 2 && selectedGradeLevel !== 3))) {
+      Alert.alert(
+        "ශ්‍රේණිය අවශ්‍යයි (Grade Required)",
+        "අභිරුචි පාඨ විශ්ලේෂණය කිරීමට පෙර කරුණාකර ඔබගේ පැතිකඩෙහි (Profile) ශ්‍රේණිය (Grade 1-3) සකසන්න."
+      );
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const result = await analyzeTextDifficulty({
+        text: trimmed,
+        grade_level: selectedGradeLevel,
+        text_type: selectedTextType,
+      });
+
+      if (result.analysis_status === "needs_word_confirmation") {
+        setIsAnalyzing(false);
+        setOovTokens(result.unknown_tokens || []);
+        setOovMessage(
+          result.message || "එක් හෝ කිහිපයක් වචන ශබ්දකෝෂයේ හඳුනාගත නොහැකි විය."
+        );
+        setOovModalVisible(true);
+        return;
+      }
+
+      if (result.analysis_status === "success") {
+        setIsAnalyzing(false);
+        router.push({
+          pathname: "/(child)/m1-session",
+          params: {
+            selectedText: trimmed,
+            textId: selectedOptionId,
+            m2Data: JSON.stringify(result),
+          },
+        });
+        return;
+      }
+
+      setIsAnalyzing(false);
+      Alert.alert(
+        "දෝෂයක්",
+        "පාඨය විශ්ලේෂණය කිරීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න."
+      );
+    } catch (err: any) {
+      setIsAnalyzing(false);
+      const isNetwork = err?.isNetworkError || !err?.status;
+      const friendlyMsg = isNetwork
+        ? "ජාල සම්බන්ධතාවය පරීක්ෂා කරන්න. AI සේවාදායකය හා සම්බන්ධ වීමට නොහැක."
+        : err?.status === 503
+        ? "AI ආකෘතිය මේ මොහොතේ සූදානම් නැත. කරුණාකර මොහොතකින් නැවත උත්සාහ කරන්න."
+        : "විශ්ලේෂණය අතරතුර දෝෂයක් සිදුවිය. කරුණාකර පාඨය පරීක්ෂා කර නැවත උත්සාහ කරන්න.";
+      Alert.alert("සම්බන්ධතා ගැටලුවක්", friendlyMsg);
+    }
   };
 
   return (
@@ -86,7 +152,7 @@ function M2SimplificationCard() {
       <View style={m2Styles.sentenceBlock}>
         <View style={m2Styles.labelRow}>
           <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
-            📖 අද කියවිය යුතු වාක්‍යය:
+            📖 අද කියවිය යුතු පාඨය:
           </AppText>
           <TouchableOpacity
             onPress={() => setShowTextModal(true)}
@@ -111,25 +177,41 @@ function M2SimplificationCard() {
       {/* Action Buttons Row */}
       <View style={m2Styles.actionRow}>
         <TouchableOpacity
-          style={m2Styles.practiceBtn}
+          style={[m2Styles.practiceBtn, isAnalyzing && { opacity: 0.75 }]}
+          disabled={isAnalyzing}
           onPress={() => {
             if (!hasActiveConsent) {
               setShowPermissionModal(true);
             } else {
-              navigateToSession();
+              handleStartReading();
             }
           }}
           activeOpacity={0.8}
         >
-          <AppText
-            size="sm"
-            weight="extrabold"
-            color="#FFFFFF"
-            align="center"
-            style={m2Styles.btnText}
-          >
-            {t("child.home.readOutLoudBtn")}
-          </AppText>
+          {isAnalyzing ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <ActivityIndicator color="#FFFFFF" size="small" />
+              <AppText
+                size="sm"
+                weight="extrabold"
+                color="#FFFFFF"
+                align="center"
+                style={m2Styles.btnText}
+              >
+                විශ්ලේෂණය කරමින්...
+              </AppText>
+            </View>
+          ) : (
+            <AppText
+              size="sm"
+              weight="extrabold"
+              color="#FFFFFF"
+              align="center"
+              style={m2Styles.btnText}
+            >
+              {t("child.home.readOutLoudBtn")}
+            </AppText>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -137,14 +219,14 @@ function M2SimplificationCard() {
       <DevicePermissionModal
         visible={showPermissionModal}
         onClose={() => setShowPermissionModal(false)}
-        onGranted={navigateToSession}
+        onGranted={handleStartReading}
         onDenied={() => {
           Alert.alert(
             "දැනුම්දීම",
             "කැමරා සහ මයික්‍රෆෝන අවසර නොමැතිව මූලික කියවීමේ සැසිය ආරම්භ වේ.",
             [
               { text: "අවලංගු කරන්න", style: "cancel" },
-              { text: "ඉදිරියට යන්න", onPress: navigateToSession },
+              { text: "ඉදිරියට යන්න", onPress: handleStartReading },
             ]
           );
         }}
@@ -155,11 +237,82 @@ function M2SimplificationCard() {
         visible={showTextModal}
         onClose={() => setShowTextModal(false)}
         selectedText={selectedReadingText}
-        onSelectText={(text, optionId) => {
+        onSelectText={(text, optionId, gradeLevel, textType) => {
           setSelectedReadingText(text);
           if (optionId) setSelectedOptionId(optionId);
+          if (gradeLevel) setSelectedGradeLevel(gradeLevel);
+          if (textType) setSelectedTextType(textType);
         }}
       />
+
+      {/* OOV / needs_word_confirmation Dialog */}
+      <Modal
+        visible={oovModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOovModalVisible(false)}
+      >
+        <View style={m2Styles.modalBackdrop}>
+          <View style={[m2Styles.oovModalCard, ThemeShadow.lg]}>
+            <View style={m2Styles.oovIconBadge}>
+              <AppText size="display">⚠️</AppText>
+            </View>
+            <AppText
+              size="lg"
+              weight="extrabold"
+              color="#DC2626"
+              align="center"
+              style={{ marginTop: 10 }}
+            >
+              හඳුනා නොගත් වචන හමුවිය
+            </AppText>
+            <AppText
+              size="xs"
+              color={ThemeColors.textSecondary}
+              align="center"
+              style={{ marginTop: 6, lineHeight: 18, paddingHorizontal: 4 }}
+            >
+              පහත දැක්වෙන වචන ශබ්දකෝෂයේ හඳුනාගත නොහැකි විය. කරුණාකර අක්ෂර වින්‍යාසය පරීක්ෂා කර පාඨය සංස්කරණය කරන්න:
+            </AppText>
+
+            {/* Unknown Tokens Chips */}
+            <View style={m2Styles.oovTokensRow}>
+              {oovTokens.map((token, idx) => (
+                <View key={`oov-${idx}`} style={m2Styles.oovTokenChip}>
+                  <AppText size="sm" weight="extrabold" color="#991B1B">
+                    {token}
+                  </AppText>
+                </View>
+              ))}
+            </View>
+
+            {/* Actions: Edit Text and Close */}
+            <View style={m2Styles.oovActionCol}>
+              <TouchableOpacity
+                style={m2Styles.oovEditBtn}
+                onPress={() => {
+                  setOovModalVisible(false);
+                  setShowTextModal(true);
+                }}
+                activeOpacity={0.85}
+              >
+                <AppText size="xs" weight="extrabold" color="#FFFFFF">
+                  ✏️ පාඨය සංස්කරණය කරන්න (Edit Text)
+                </AppText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={m2Styles.oovCloseBtn}
+                onPress={() => setOovModalVisible(false)}
+                activeOpacity={0.8}
+              >
+                <AppText size="xs" weight="bold" color={ThemeColors.textMuted}>
+                  වසන්න (Close)
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -317,6 +470,62 @@ const m2Styles = StyleSheet.create({
   },
   btnText: {
     textAlign: "center",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: ThemeSpacing.md,
+  },
+  oovModalCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: ThemeSpacing.lg,
+    width: "100%",
+    maxWidth: 420,
+    alignItems: "center",
+  },
+  oovIconBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#FEF2F2",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#FECACA",
+  },
+  oovTokensRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 8,
+    marginVertical: ThemeSpacing.md,
+  },
+  oovTokenChip: {
+    backgroundColor: "#FEE2E2",
+    borderRadius: ThemeRadius.full,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1.5,
+    borderColor: "#FCA5A5",
+  },
+  oovActionCol: {
+    width: "100%",
+    gap: 8,
+    marginTop: 4,
+  },
+  oovEditBtn: {
+    backgroundColor: ThemeColors.primary,
+    borderRadius: ThemeRadius.full,
+    paddingVertical: 12,
+    alignItems: "center",
+    ...ThemeShadow.sm,
+  },
+  oovCloseBtn: {
+    paddingVertical: 10,
+    alignItems: "center",
   },
 });
 // ─────────────────────────────────────────────────────────────────────────────

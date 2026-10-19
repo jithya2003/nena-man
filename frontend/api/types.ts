@@ -59,6 +59,68 @@ export interface ReadingAnalysisResult {
 
 export type DifficultyLevel = 'Easy' | 'Medium' | 'Hard';
 
+export type TextType = 'word' | 'short sentence';
+
+export interface TextDifficultyFeatures {
+  akuru_count: number;
+  pillam_count: number;
+  word_frequency_level: number;
+}
+
+export interface TextDifficultyPrediction {
+  predicted: DifficultyLevel;
+  probabilities: Record<string, number>;
+}
+
+export interface TextDifficultySupportPolicy {
+  split_needed: boolean;
+  simplification_needed: boolean;
+  max_support_level: 3 | 4;
+  support_path: number[];
+}
+
+export interface TextDifficultySimplification {
+  needed: boolean;
+  available: boolean;
+  simplified_text: string | null;
+}
+
+export interface TextDifficultySuccessResponse {
+  analysis_status: 'success';
+  text: string;
+  grade_level: 1 | 2 | 3;
+  text_type: TextType;
+  features: TextDifficultyFeatures;
+  difficulty: TextDifficultyPrediction;
+  support: TextDifficultySupportPolicy;
+  simplification: TextDifficultySimplification;
+  model_status: string;
+  _inference_latency_ms?: number;
+  success?: boolean;
+  message?: string;
+  timestamp?: string;
+}
+
+export interface TextDifficultyOOVResponse {
+  analysis_status: 'needs_word_confirmation';
+  text: string;
+  unknown_tokens: string[];
+  message: string;
+  model_status?: string;
+  success?: boolean;
+  timestamp?: string;
+}
+
+export type TextDifficultyResponse =
+  | TextDifficultySuccessResponse
+  | TextDifficultyOOVResponse;
+
+export interface TextDifficultyRequest {
+  text: string;
+  grade_level: 1 | 2 | 3;
+  text_type: TextType;
+}
+
 export interface SplitWord {
   word: string;
   parts: string[];
@@ -72,7 +134,7 @@ export interface TextDifficultyResult {
   simplificationNeeded: boolean;
   simplifiedText: string | null; // present only if simplificationNeeded is true
   maxSupportLevel: number; // 1-4
-  maxRetriesPerLevel: number;
+  maxRetriesPerLevel?: number;
   highlightUnits?: string[];
   splitParts?: string[];
   splitWords?: SplitWord[];

@@ -26,12 +26,19 @@ import {
   getReadingTextOptions,
   ReadingTextOption,
 } from '@/services/readingTextService';
+import { useAuth } from '@/context/AuthContext';
+import { useChildStoreBase } from '@/store/childStore';
 
 interface ReadingTextSelectModalProps {
   visible: boolean;
   onClose: () => void;
   selectedText: string;
-  onSelectText: (text: string, optionId?: string) => void;
+  onSelectText: (
+    text: string,
+    optionId?: string,
+    gradeLevel?: 1 | 2 | 3,
+    textType?: 'word' | 'short sentence'
+  ) => void;
 }
 
 export default function ReadingTextSelectModal({
@@ -40,9 +47,22 @@ export default function ReadingTextSelectModal({
   selectedText,
   onSelectText,
 }: ReadingTextSelectModalProps) {
+  const { user } = useAuth();
+  const currentChild = useChildStoreBase((s) => s.currentChild);
+
+  // Real existing profile field representing the logged-in child's grade
+  // Checked in priority: user.grade -> currentChild.grade
+  const rawProfileGrade = user?.grade ?? currentChild?.grade;
+  const profileGrade: 1 | 2 | 3 | null =
+    rawProfileGrade === 1 || rawProfileGrade === 2 || rawProfileGrade === 3
+      ? (rawProfileGrade as 1 | 2 | 3)
+      : null;
+
   const [activeTab, setActiveTab] = useState<'list' | 'custom'>('list');
   const [filterType, setFilterType] = useState<'all' | 'word' | 'short_sentence'>('all');
   const [customInput, setCustomInput] = useState('');
+  const [customTextType, setCustomTextType] = useState<'word' | 'short sentence'>('word');
+  const [hasManuallySelectedType, setHasManuallySelectedType] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const readingOptions = getReadingTextOptions();
@@ -53,8 +73,25 @@ export default function ReadingTextSelectModal({
   });
 
   const handleSelectOption = (opt: ReadingTextOption) => {
-    onSelectText(opt.text, opt.id);
+    const mappedType: 'word' | 'short sentence' =
+      opt.textType === 'word' ? 'word' : 'short sentence';
+    onSelectText(opt.text, opt.id, opt.gradeLevel as 1 | 2 | 3, mappedType);
     onClose();
+  };
+
+  const handleCustomInputChange = (val: string) => {
+    setCustomInput(val);
+    if (validationError) setValidationError(null);
+
+    // Auto-infer text type if child hasn't explicitly changed it
+    if (!hasManuallySelectedType) {
+      const words = val.trim().split(/\s+/).filter(Boolean);
+      if (words.length > 1) {
+        setCustomTextType('short sentence');
+      } else {
+        setCustomTextType('word');
+      }
+    }
   };
 
   const handleConfirmCustom = () => {
@@ -71,9 +108,21 @@ export default function ReadingTextSelectModal({
       return;
     }
 
+    if (!profileGrade) {
+      setValidationError('කරුණාකර පළමුව ඔබගේ පැතිකඩෙහි (Profile) ශ්‍රේණිය (Grade 1-3) සකසන්න.');
+      return;
+    }
+
     setValidationError(null);
-    onSelectText(trimmed, `custom_${Date.now()}`);
+    /**
+     * PROTOTYPE ASSUMPTION:
+     * Custom text lacks educational-source grade metadata. For prototype inference,
+     * the logged-in child's profile grade is used as the intended reading-grade proxy.
+     * (Not an expert-inferred text grade).
+     */
+    onSelectText(trimmed, `custom_${Date.now()}`, profileGrade, customTextType);
     setCustomInput('');
+    setHasManuallySelectedType(false);
     onClose();
   };
 
@@ -254,7 +303,7 @@ export default function ReadingTextSelectModal({
               </ScrollView>
             </View>
           ) : (
-            <View style={styles.customContainer}>
+            <ScrollView style={styles.customContainer} showsVerticalScrollIndicator={false}>
               <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
                 සිංහල වචනයක් හෝ කෙටි වාක්‍යයක් ඇතුළත් කරන්න:
               </AppText>
@@ -262,16 +311,77 @@ export default function ReadingTextSelectModal({
               <TextInput
                 style={styles.textInput}
                 value={customInput}
-                onChangeText={(val) => {
-                  setCustomInput(val);
-                  if (validationError) setValidationError(null);
-                }}
+                onChangeText={handleCustomInputChange}
                 placeholder="උදා: කුරුල්ලා හෝ මම පාසල් යමි"
                 placeholderTextColor={ThemeColors.textMuted}
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
               />
+
+              {/* Informational Non-editable Child Profile Grade Label */}
+              <View style={styles.gradeInfoCard}>
+                <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
+                  🎓 ශ්‍රේණිය (Grade):
+                </AppText>
+                {profileGrade ? (
+                  <View style={styles.gradeInfoBadge}>
+                    <AppText size="xs" weight="extrabold" color={ThemeColors.primary}>
+                      ශ්‍රේණිය {profileGrade} (Child Profile)
+                    </AppText>
+                  </View>
+                ) : (
+                  <View style={styles.missingGradeBadge}>
+                    <AppText size="xs" weight="bold" color="#DC2626">
+                      ⚠️ පැතිකඩෙහි ශ්‍රේණියක් සකසා නැත
+                    </AppText>
+                  </View>
+                )}
+              </View>
+              {!profileGrade && (
+                <AppText size="xs" color="#DC2626" style={{ marginTop: 4 }}>
+                  කරුණාකර පළමුව ඔබගේ පැතිකඩ වෙත ගොස් ශ්‍රේණිය (Grade 1-3) තෝරන්න.
+                </AppText>
+              )}
+
+              {/* Text Type Selector */}
+              <View style={styles.selectorSection}>
+                <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
+                  📝 පාඨ වර්ගය (Text Type):
+                </AppText>
+                <View style={styles.selectorPillRow}>
+                  {(
+                    [
+                      { key: 'word', label: '🔤 වචනය (Word)' },
+                      { key: 'short sentence', label: '📄 කෙටි වාක්‍යය (Short Sentence)' },
+                    ] as const
+                  ).map((t) => {
+                    const isSelected = customTextType === t.key;
+                    return (
+                      <TouchableOpacity
+                        key={`type-${t.key}`}
+                        style={[
+                          styles.selectorPill,
+                          isSelected && styles.selectorPillActive,
+                        ]}
+                        onPress={() => {
+                          setCustomTextType(t.key);
+                          setHasManuallySelectedType(true);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <AppText
+                          size="xs"
+                          weight={isSelected ? 'extrabold' : 'semibold'}
+                          color={isSelected ? '#FFFFFF' : ThemeColors.textSecondary}
+                        >
+                          {t.label}
+                        </AppText>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
 
               {validationError ? (
                 <View style={styles.errorBanner}>
@@ -290,7 +400,7 @@ export default function ReadingTextSelectModal({
                   ✓ මෙම පාඨය තෝරාගන්න
                 </AppText>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           )}
         </View>
       </View>
@@ -444,5 +554,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: ThemeSpacing.md,
     ...ThemeShadow.sm,
+  },
+  selectorSection: {
+    marginTop: ThemeSpacing.sm,
+  },
+  selectorPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+  },
+  selectorPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: ThemeRadius.full,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  selectorPillActive: {
+    backgroundColor: ThemeColors.primary,
+    borderColor: ThemeColors.primary,
+  },
+  gradeInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: ThemeRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: ThemeSpacing.sm,
+  },
+  gradeInfoBadge: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: ThemeRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  missingGradeBadge: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: ThemeRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
 });

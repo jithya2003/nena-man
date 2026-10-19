@@ -205,8 +205,8 @@ export const translations: Record<Language, Record<string, string>> = {
     // Progressive Reading Support (M2)
     'support.ladder.audio.label': 'ශ්‍රව්‍ය සහාය',
     'support.ladder.audio.sublabel': 'Audio Support',
-    'support.audio.heading': 'නිවැරදි කියවීම අසන්න',
-    'support.audio.play': 'පෙළ අසන්න',
+    'support.audio.heading': 'ශ්‍රව්‍ය සහාය',
+    'support.audio.play': 'හඬ අසමු',
     'support.audio.playing': 'වාදනය වේ...',
 
     // Child Profile & Edit Profile Modal
