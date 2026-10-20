@@ -1,0 +1,55 @@
+{
+  "model_name": "Sinhala Text Difficulty Random Forest Classifier",
+  "model_type": "RandomForestClassifier",
+  "prototype_status": "PROTOTYPE",
+  "target": "initial_difficulty_label",
+  "class_labels": [
+    "Easy",
+    "Medium",
+    "Hard"
+  ],
+  "feature_columns": [
+    "text_type",
+    "grade_level",
+    "akuru_count",
+    "pillam_count",
+    "word_frequency_level"
+  ],
+  "numeric_features": [
+    "grade_level",
+    "akuru_count",
+    "pillam_count",
+    "word_frequency_level"
+  ],
+  "categorical_features": [
+    "text_type"
+  ],
+  "training_rows": 691,
+  "test_rows": 130,
+  "excluded_row_ids": [
+    804
+  ],
+  "train_source_count": 31,
+  "test_source_count": 8,
+  "source_overlap": 0,
+  "split_method": "GroupShuffleSplit (groups=source)",
+  "split_random_state": 351,
+  "rf_random_state": 42,
+  "n_estimators": 300,
+  "class_weight": "balanced",
+  "training_timestamp": "2026-10-19T05:49:48.541025+00:00",
+  "fit_duration_seconds": 0.2659,
+  "train_accuracy": 1.0,
+  "train_macro_f1": 1.0,
+  "accuracy": 0.9692,
+  "macro_precision": 0.9618,
+  "macro_recall": 0.9732,
+  "macro_f1": 0.9671,
+  "weighted_f1": 0.9693,
+  "balanced_accuracy": 0.9732,
+  "majority_class": "Medium",
+  "majority_baseline_accuracy": 0.5692,
+  "absolute_improvement_over_baseline": 0.4,
+  "label_status": "researcher-defined provisional labels; not expert validated",
+  "grade1_evaluation_limitation": "All Grade 1 rows originate from one source document that is retained in training; the held-out source-level test set contains no Grade 1 rows."
+}

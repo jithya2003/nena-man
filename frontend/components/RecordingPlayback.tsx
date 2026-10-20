@@ -75,7 +75,7 @@ export default function RecordingPlayback({ audioUri }: RecordingPlaybackProps) 
         setIsPlaying(false);
         setDidFinish(true);
         setPositionMs(0);
-        soundRef.current?.setPositionAsync(0).catch(() => {});
+        soundRef.current?.setPositionAsync(0).catch(() => { });
       }
     };
 
@@ -87,7 +87,7 @@ export default function RecordingPlayback({ audioUri }: RecordingPlaybackProps) 
           onStatus
         );
         if (cancelled) {
-          await sound.unloadAsync().catch(() => {});
+          await sound.unloadAsync().catch(() => { });
           return;
         }
         createdSound = sound;
@@ -115,9 +115,9 @@ export default function RecordingPlayback({ audioUri }: RecordingPlaybackProps) 
         sound.setOnPlaybackStatusUpdate(null);
         sound
           .stopAsync()
-          .catch(() => {})
+          .catch(() => { })
           .finally(() => {
-            sound.unloadAsync().catch(() => {});
+            sound.unloadAsync().catch(() => { });
           });
       }
     };
@@ -143,7 +143,7 @@ export default function RecordingPlayback({ audioUri }: RecordingPlaybackProps) 
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
-      }).catch(() => {});
+      }).catch(() => { });
 
       const atEnd =
         status.durationMillis != null && status.positionMillis >= status.durationMillis;
@@ -165,10 +165,10 @@ export default function RecordingPlayback({ audioUri }: RecordingPlaybackProps) 
   const buttonLabel = isPlaying
     ? '⏸ විරාමය (Pause)'
     : didFinish
-    ? '🔁 නැවත (Replay)'
-    : positionMs > 0
-    ? '▶ ඉදිරියට (Resume)'
-    : '▶ වාදනය (Play)';
+      ? '🔁 නැවත (Replay)'
+      : positionMs > 0
+        ? '▶ ඉදිරියට (Resume)'
+        : '▶ වාදනය (Play)';
 
   const isDisabled = Boolean(error) || !isLoaded;
 

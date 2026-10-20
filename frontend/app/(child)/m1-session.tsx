@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Speech from 'expo-speech';
 import {
   getTextDifficulty,
   TextDifficultyResult,
@@ -19,6 +20,7 @@ import {
   getNextValidSupportLevel,
   SupportLevelNumber,
 } from '@/services/readingTextService';
+import type { TextDifficultySuccessResponse, DifficultyLevel } from '@/api/types';
 import Svg, { Path } from 'react-native-svg';
 import {
   ThemeColors,
@@ -159,9 +161,9 @@ const PRACTICE_SENTENCES = [
 // Error type metadata with colorblind-safe shape icons
 const ERROR_META = {
   substitution: { icon: '🔷', label: 'අකුරු මාරුව (Substitution)', desc: 'වැරදි ශබ්දයක් හෝ අකුරක් ආදේශ වීම', color: '#7C3AED', bg: '#F5F3FF' },
-  omission:     { icon: '⬜', label: 'පිල්ලම් මඟහැරීම (Omission)',  desc: 'අකුරක් හෝ පිල්ලමක් කියවීමේදී මඟහැරීම', color: '#B45309', bg: '#FEF3C7' },
-  reversal:     { icon: '🔄', label: 'අකුරු පෙරළිය (Reversal)',    desc: 'අකුරු පිහිටීමේ අනුපිළිවෙල මාරුවීම', color: '#DC2626', bg: '#FEF2F2' },
-  hesitation:   { icon: '⏸️', label: 'පැකිලීම (Hesitation)',       desc: 'වචනයක් කියවීමේදී දිගු වේලාවක් පැකිලීම', color: '#0369A1', bg: '#EFF6FF' },
+  omission: { icon: '⬜', label: 'පිල්ලම් මඟහැරීම (Omission)', desc: 'අකුරක් හෝ පිල්ලමක් කියවීමේදී මඟහැරීම', color: '#B45309', bg: '#FEF3C7' },
+  reversal: { icon: '🔄', label: 'අකුරු පෙරළිය (Reversal)', desc: 'අකුරු පිහිටීමේ අනුපිළිවෙල මාරුවීම', color: '#DC2626', bg: '#FEF2F2' },
+  hesitation: { icon: '⏸️', label: 'පැකිලීම (Hesitation)', desc: 'වචනයක් කියවීමේදී දිගු වේලාවක් පැකිලීම', color: '#0369A1', bg: '#EFF6FF' },
 } as const;
 
 // Progressive Learning Support Ladder (Component: Sinhala Text Difficulty & Progressive Support)
@@ -221,11 +223,83 @@ const SUPPORT_LADDER_ITEMS: SupportLadderConfig[] = [
   },
 ];
 
+/**
+ * Safely resolves an available Sinhala Web SpeechSynthesisVoice in the browser.
+ * Handles asynchronous voice population via `onvoiceschanged` if voices are not populated yet.
+ * Returns { voice, availableLangs }.
+ */
+const getSinhalaWebVoice = async (): Promise<{
+  voice: SpeechSynthesisVoice | null;
+  availableLangs: string[];
+}> => {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    return { voice: null, availableLangs: [] };
+  }
+
+  const findVoice = (voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null => {
+    if (!voices || voices.length === 0) return null;
+    // Prefer exact 'si-LK'
+    const exact = voices.find(
+      (v) => v.lang.toLowerCase() === 'si-lk' || v.lang.toLowerCase() === 'si_lk'
+    );
+    if (exact) return exact;
+    // Prefer any starting with 'si'
+    return voices.find((v) => v.lang.toLowerCase().startsWith('si')) || null;
+  };
+
+  let voices = window.speechSynthesis.getVoices();
+  if (voices && voices.length > 0) {
+    const langs = Array.from(new Set(voices.map((v) => v.lang)));
+    return { voice: findVoice(voices), availableLangs: langs };
+  }
+
+  // Handle asynchronous voice population
+  return new Promise((resolve) => {
+    let resolved = false;
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        const currentVoices = window.speechSynthesis.getVoices() || [];
+        const langs = Array.from(new Set(currentVoices.map((v) => v.lang)));
+        resolve({ voice: findVoice(currentVoices), availableLangs: langs });
+      }
+    }, 600);
+
+    const onVoicesChanged = () => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+        window.speechSynthesis.onvoiceschanged = null;
+        const currentVoices = window.speechSynthesis.getVoices() || [];
+        const langs = Array.from(new Set(currentVoices.map((v) => v.lang)));
+        resolve({ voice: findVoice(currentVoices), availableLangs: langs });
+      }
+    };
+
+    window.speechSynthesis.onvoiceschanged = onVoicesChanged;
+  });
+};
+
 export default function SpeechSessionScreen() {
   const router = useRouter();
   const { t } = useLanguage();
 
-  const params = useLocalSearchParams<{ selectedText?: string; textId?: string }>();
+  const params = useLocalSearchParams<{ selectedText?: string; textId?: string; m2Data?: string }>();
+
+  // Parse incoming M2 backend analysis data (Source of Truth for difficulty & progressive support)
+  const m2Analysis: TextDifficultySuccessResponse | null = useMemo(() => {
+    if (!params.m2Data) return null;
+    try {
+      const parsed = JSON.parse(params.m2Data);
+      if (parsed && (parsed.analysis_status === 'success' || parsed.difficulty)) {
+        return parsed as TextDifficultySuccessResponse;
+      }
+      return null;
+    } catch (e) {
+      console.warn('[M1Session] Error parsing m2Data param:', e);
+      return null;
+    }
+  }, [params.m2Data]);
 
   // Resolve matching practice sentence index based on incoming navigation parameters
   const matchedSentenceIndex = useMemo(() => {
@@ -266,17 +340,60 @@ export default function SpeechSessionScreen() {
 
   // Progressive Support Ladder state (Levels: 0 = Independent, 1 = Highlight, 2 = Syllable, 3 = Audio, 4 = Simplification)
   const [currentSupportLevel, setCurrentSupportLevel] = useState<0 | 1 | 2 | 3 | 4>(0);
+  const [unlockedLevels, setUnlockedLevels] = useState<number[]>([0]);
   const [retryCount, setRetryCount] = useState(0);
   // Tracks whether the current recording/attempt result has already triggered support ladder progression
   const attemptHandledRef = useRef<boolean>(false);
 
+  // Keep track of all levels that have been unlocked so previous supports remain usable
+  useEffect(() => {
+    setUnlockedLevels((prev) => {
+      if (!prev.includes(currentSupportLevel)) {
+        return [...prev, currentSupportLevel];
+      }
+      return prev;
+    });
+  }, [currentSupportLevel]);
+
   // Interaction telemetry tracker for Module 4 (Pushpakumara)
   const interactionTracker = useInteractionTracker();
 
-  // Audio Comparison Player State
+  // Audio Comparison Player & TTS State
   const [playingAudio, setPlayingAudio] = useState<'child' | 'target' | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState<'1.0x' | '0.75x'>('1.0x');
+  const [ttsError, setTtsError] = useState<string | null>(null);
   const audioTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Safely stop and cancel any active speech utterance or fallback timer
+  const stopActiveSpeech = useCallback(() => {
+    if (audioTimerRef.current) {
+      clearTimeout(audioTimerRef.current);
+      audioTimerRef.current = null;
+    }
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+        } catch (err) {
+          // Safe fallback
+        }
+      }
+    } else {
+      try {
+        Speech.stop();
+      } catch (err) {
+        // Safe fallback
+      }
+    }
+    setPlayingAudio(null);
+  }, []);
+
+  // Cleanup active speech and fallback timers on screen unmount
+  useEffect(() => {
+    return () => {
+      stopActiveSpeech();
+    };
+  }, [stopActiveSpeech]);
 
   const resultAnim = useRef(new Animated.Value(0)).current;
   const currentSentence = PRACTICE_SENTENCES[currentTextIndex] || PRACTICE_SENTENCES[0];
@@ -293,13 +410,16 @@ export default function SpeechSessionScreen() {
       targetSinhala.includes(currentSentence.sinhala.trim()) ||
       currentSentence.sinhala.trim().includes(targetSinhala));
 
-  // Text Difficulty analysis & progressive support configuration (M2)
+  // Text Difficulty analysis fallback if opened directly without M2 params
   const difficultyResult = useMemo(() => {
     return getTextDifficulty(targetSinhala);
   }, [targetSinhala]);
 
-  // Derive list of applicable progressive support levels for the current reading item (M2)
+  // SOURCE OF TRUTH: Backend support.support_path if m2Analysis is available!
   const applicableSupportLevels: SupportLevelNumber[] = useMemo(() => {
+    if (m2Analysis && m2Analysis.support && Array.isArray(m2Analysis.support.support_path)) {
+      return m2Analysis.support.support_path as SupportLevelNumber[];
+    }
     return (
       difficultyResult.applicableSupportLevels ||
       getApplicableSupportLevels({
@@ -312,7 +432,15 @@ export default function SpeechSessionScreen() {
           null,
       })
     );
-  }, [difficultyResult, isPracticeSentenceMatch, currentSentence]);
+  }, [m2Analysis, difficultyResult, isPracticeSentenceMatch, currentSentence]);
+
+  // SOURCE OF TRUTH: Backend predicted difficulty level
+  const predictedDifficulty: DifficultyLevel = useMemo(() => {
+    if (m2Analysis?.difficulty?.predicted) {
+      return m2Analysis.difficulty.predicted;
+    }
+    return (difficultyResult.difficultyLevel as DifficultyLevel) || 'Medium';
+  }, [m2Analysis, difficultyResult]);
 
   // Section 8: Linguistically safe highlight units (never naive text.split(''))
   const highlightUnits: string[] = useMemo(() => {
@@ -328,14 +456,43 @@ export default function SpeechSessionScreen() {
 
   // State-based lock to freeze expected reading text for each recording attempt
   const [lockedExpectedText, setLockedExpectedText] = useState<string | null>(null);
+  // Level 1 Focus Highlight progression index
+  const [activeHighlightIndex, setActiveHighlightIndex] = useState<number>(0);
+
+  // Automatically cycle active highlighted unit (akuru or word) when Level 1 is active
+  useEffect(() => {
+    if (currentSupportLevel !== 1) {
+      setActiveHighlightIndex(0);
+      return;
+    }
+
+    const words = targetSinhala.trim().split(/\s+/).filter(Boolean);
+    const isWord = (m2Analysis?.text_type === 'word') || words.length <= 1;
+    const units = isWord ? splitSinhalaGraphemes(targetSinhala.trim()) : highlightUnits;
+
+    if (units.length <= 1) {
+      setActiveHighlightIndex(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setActiveHighlightIndex((prev) => (prev + 1) % units.length);
+    }, 1200);
+
+    return () => clearInterval(interval);
+  }, [currentSupportLevel, targetSinhala, m2Analysis?.text_type, highlightUnits]);
 
   // Reset support ladder whenever the target reading text changes
   useEffect(() => {
     setCurrentSupportLevel(0);
+    setUnlockedLevels([0]);
     setRetryCount(0);
+    setActiveHighlightIndex(0);
     attemptHandledRef.current = false;
     setLockedExpectedText(null);
-  }, [targetSinhala]);
+    stopActiveSpeech();
+    setTtsError(null);
+  }, [targetSinhala, stopActiveSpeech]);
 
   // Derived expected reading text for live reading-error classification (M1):
   // - Support Levels 0–3: targetSinhala
@@ -429,8 +586,8 @@ export default function SpeechSessionScreen() {
     const rawWords: any[] = Array.isArray(m1Raw?.words)
       ? m1Raw.words
       : Array.isArray(m1?.words)
-      ? m1.words
-      : [];
+        ? m1.words
+        : [];
 
     let errors: any[] = [];
     let transcription = '';
@@ -465,8 +622,8 @@ export default function SpeechSessionScreen() {
             w.severity !== undefined
               ? w.severity
               : w.confidence !== undefined
-              ? Math.max(0, Math.min(1, Math.round((1 - w.confidence) * 100) / 100))
-              : m1Raw?.severity ?? 0.4;
+                ? Math.max(0, Math.min(1, Math.round((1 - w.confidence) * 100) / 100))
+                : m1Raw?.severity ?? 0.4;
 
           let explanation = w.explanation;
           if (!explanation) {
@@ -534,20 +691,20 @@ export default function SpeechSessionScreen() {
       errors =
         m1Raw?.detectedErrors && m1Raw.detectedErrors.length > 0
           ? m1Raw.detectedErrors.map((e: any) => ({
-              type: (e.type || 'substitution') as any,
-              word: e.word || (isPracticeSentenceMatch ? currentSentence.targetWord : ''),
-              detected: e.detected || (isPracticeSentenceMatch ? currentSentence.spokenWord : ''),
-              severity: e.severity || 0.4,
-              explanation:
-                e.explanation ||
-                (isPracticeSentenceMatch ? currentSentence.simulatedErrors?.[0]?.explanation : ''),
-              tip:
-                e.tip ||
-                (isPracticeSentenceMatch ? currentSentence.simulatedErrors?.[0]?.tip : ''),
-            }))
+            type: (e.type || 'substitution') as any,
+            word: e.word || (isPracticeSentenceMatch ? currentSentence.targetWord : ''),
+            detected: e.detected || (isPracticeSentenceMatch ? currentSentence.spokenWord : ''),
+            severity: e.severity || 0.4,
+            explanation:
+              e.explanation ||
+              (isPracticeSentenceMatch ? currentSentence.simulatedErrors?.[0]?.explanation : ''),
+            tip:
+              e.tip ||
+              (isPracticeSentenceMatch ? currentSentence.simulatedErrors?.[0]?.tip : ''),
+          }))
           : mockIsAccurate
-          ? []
-          : (isPracticeSentenceMatch ? currentSentence.simulatedErrors : []);
+            ? []
+            : (isPracticeSentenceMatch ? currentSentence.simulatedErrors : []);
 
       transcription =
         m1Raw?.transcription || (isPracticeSentenceMatch ? currentSentence.sinhala : targetSinhala);
@@ -624,20 +781,15 @@ export default function SpeechSessionScreen() {
   const handleAttemptResult = useCallback(
     (correct: boolean) => {
       if (correct) {
-        // Section 13: Correct result immediately marks success and stops progression
+        // Correct reading result marks success
         setRetryCount(0);
       } else {
-        // Section 1 & 13: Child gets another independent reading attempt at each level
-        const maxRetries = difficultyResult.maxRetriesPerLevel || 1;
-        const nextRetries = retryCountRef.current + 1;
-        if (nextRetries >= maxRetries) {
-          advanceSupportLevel(currentSupportLevelRef.current);
-        } else {
-          setRetryCount(nextRetries);
-        }
+        // Child struggles: smoothly advance to next support level along support_path
+        advanceSupportLevel(currentSupportLevelRef.current);
+        setRetryCount((prev) => prev + 1);
       }
     },
-    [difficultyResult, advanceSupportLevel]
+    [advanceSupportLevel]
   );
 
   // Reset attempt handled flag whenever a new recording cycle begins or session resets
@@ -669,23 +821,136 @@ export default function SpeechSessionScreen() {
     if (analysisResult?.isAccurate && currentSupportLevel === lvl) {
       return 'completed';
     }
-    if (currentSupportLevel > lvl) {
-      return 'completed';
-    }
     if (currentSupportLevel === lvl) {
       return 'current';
+    }
+    if (unlockedLevels.includes(lvl)) {
+      return 'completed';
     }
     return 'locked';
   };
 
-  // Audio Playback simulation handler
-  const handlePlayAudio = (type: 'child' | 'target') => {
-    if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
-    setPlayingAudio(type);
-    const duration = playbackSpeed === '0.75x' ? 2200 : 1500;
-    audioTimerRef.current = setTimeout(() => {
-      setPlayingAudio(null);
-    }, duration);
+  // Audio Playback handler: Web SpeechSynthesis + Native Expo Speech for Sinhala
+  const handlePlayAudio = async (type: 'child' | 'target') => {
+    // Interruption handling: stop/cancel any active utterance safely before starting anew
+    stopActiveSpeech();
+    setTtsError(null);
+
+    if (type === 'child') {
+      setPlayingAudio('child');
+      const duration = playbackSpeed === '0.75x' ? 2200 : 1500;
+      audioTimerRef.current = setTimeout(() => {
+        setPlayingAudio(null);
+      }, duration);
+      return;
+    }
+
+    if (type === 'target') {
+      const textToSpeak = targetSinhala;
+      if (!textToSpeak || !textToSpeak.trim()) {
+        return;
+      }
+
+      if (Platform.OS === 'web') {
+        try {
+          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            // 1. Cancel any active speech
+            window.speechSynthesis.cancel();
+
+            // 2. Load available speechSynthesis voices (handling async voiceschanged)
+            const { voice: sinhalaVoice, availableLangs } = await getSinhalaWebVoice();
+
+            // 3. If no Sinhala voice is available, do NOT silently fake or fall back to English
+            if (!sinhalaVoice) {
+              console.warn(
+                '[SpeechSynthesis Web] Sinhala Web TTS voice unavailable. Available voice languages:',
+                availableLangs
+              );
+              setPlayingAudio(null);
+              setTtsError('මෙම උපාංගයේ සිංහල හඬ ලබාගත නොහැක.');
+              return;
+            }
+
+            // 4. Assign that voice explicitly to SpeechSynthesisUtterance
+            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+            utterance.voice = sinhalaVoice;
+
+            // 5. Set utterance.lang = "si-LK"
+            utterance.lang = 'si-LK';
+            utterance.rate = playbackSpeed === '0.75x' ? 0.75 : 1.0;
+
+            // 7. Use actual onstart / onend / onerror callbacks
+            utterance.onstart = () => {
+              setPlayingAudio('target');
+            };
+            utterance.onend = () => {
+              if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
+              setPlayingAudio(null);
+            };
+            utterance.onerror = (e) => {
+              console.warn('[SpeechSynthesis Web] TTS Error:', e);
+              if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
+              setPlayingAudio(null);
+              setTtsError('ශ්‍රව්‍ය ධාවනය දෝෂයක් (Speech synthesis error)');
+            };
+
+            window.speechSynthesis.speak(utterance);
+
+            // Safety timeout in case browser drops onend event
+            const duration = playbackSpeed === '0.75x' ? 4500 : 3000;
+            audioTimerRef.current = setTimeout(() => {
+              setPlayingAudio((prev) => (prev === 'target' ? null : prev));
+            }, duration);
+          } else {
+            setPlayingAudio(null);
+            setTtsError('මෙම උපාංගයේ සිංහල හඬ ලබාගත නොහැක.');
+          }
+        } catch (err) {
+          console.warn('[SpeechSynthesis Web] TTS Exception:', err);
+          if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
+          setPlayingAudio(null);
+          setTtsError('ශ්‍රව්‍ය දෝෂයක් (Audio error)');
+        }
+      } else {
+        // Native / Mobile: iOS and Android using expo-speech
+        try {
+          await Speech.stop();
+          const rate = playbackSpeed === '0.75x' ? 0.75 : 1.0;
+          Speech.speak(textToSpeak, {
+            language: 'si-LK',
+            rate,
+            onStart: () => {
+              setPlayingAudio('target');
+            },
+            onDone: () => {
+              if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
+              setPlayingAudio(null);
+            },
+            onStopped: () => {
+              if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
+              setPlayingAudio(null);
+            },
+            onError: (err) => {
+              console.warn('[Expo Speech Native] Sinhala TTS Error:', err);
+              if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
+              setPlayingAudio(null);
+              setTtsError('ශ්‍රව්‍ය ධාවනය කළ නොහැකි විය (Audio unavailable on device)');
+            },
+          });
+
+          // Safety timeout in case native TTS driver drops completion callback
+          const duration = playbackSpeed === '0.75x' ? 5000 : 3500;
+          audioTimerRef.current = setTimeout(() => {
+            setPlayingAudio((prev) => (prev === 'target' ? null : prev));
+          }, duration);
+        } catch (err) {
+          console.warn('[Expo Speech Native] Failed to initialize TTS:', err);
+          if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
+          setPlayingAudio(null);
+          setTtsError('ශ්‍රව්‍ය ධාවනය කළ නොහැකි විය (Audio unavailable on device)');
+        }
+      }
+    }
   };
 
   const handleVoiceModalSuccess = () => {
@@ -694,16 +959,15 @@ export default function SpeechSessionScreen() {
   };
 
   const handleReset = useCallback(() => {
-    if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
+    stopActiveSpeech();
     attemptHandledRef.current = false;
     setLockedExpectedText(null);
     interactionTracker.recordRetry();
     interactionTracker.resetTracker();
     session.resetSession();
     setShowGamePopup(false);
-    setPlayingAudio(null);
     resultAnim.setValue(0);
-  }, [session, resultAnim, interactionTracker]);
+  }, [session, resultAnim, interactionTracker, stopActiveSpeech]);
 
   // Dedicated Active Support Renderer (Research Component: M2)
   const renderActiveSupport = (showTryAgain: boolean = false) => {
@@ -738,6 +1002,9 @@ export default function SpeechSessionScreen() {
     }
 
     if (currentSupportLevel === 1) {
+      const words = targetSinhala.trim().split(/\s+/).filter(Boolean);
+      const isWord = (m2Analysis?.text_type === 'word') || words.length <= 1;
+
       return (
         <View
           style={[
@@ -753,20 +1020,63 @@ export default function SpeechSessionScreen() {
                 🌟 වචන ඉස්මතු කිරීම (Focus Highlight)
               </AppText>
             </View>
-            <View style={[styles.highlightUnitsRow, { marginTop: 6 }]}>
-              {highlightUnits.map((unit, idx) => (
-                <View key={idx} style={styles.highlightUnitChip}>
-                  <AppText
-                    size="xxl"
-                    weight="extrabold"
-                    color="#78350F"
-                    style={styles.sentenceText}
-                  >
-                    {unit}
-                  </AppText>
-                </View>
-              ))}
-            </View>
+
+            {isWord ? (
+              // Level 1 Focus Highlight for Word: akuru-by-akuru focus while keeping word visually together
+              <View style={[styles.inlineWordFocusRow, { marginTop: 8 }]}>
+                {splitSinhalaGraphemes(targetSinhala.trim()).map((akuru, idx) => {
+                  const isFocused = idx === activeHighlightIndex;
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      activeOpacity={0.8}
+                      onPress={() => setActiveHighlightIndex(idx)}
+                      style={[
+                        styles.inlineAkuruFocusBox,
+                        isFocused && styles.inlineAkuruFocusBoxActive,
+                      ]}
+                    >
+                      <AppText
+                        size="xxl"
+                        weight="extrabold"
+                        color={isFocused ? '#B45309' : '#1F2937'}
+                        style={styles.sentenceText}
+                      >
+                        {akuru}
+                      </AppText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              // Level 1 Focus Highlight for Short Sentence: word-level progression
+              <View style={[styles.highlightUnitsRow, { marginTop: 6 }]}>
+                {highlightUnits.map((unit, idx) => {
+                  const isFocused = idx === activeHighlightIndex;
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      activeOpacity={0.8}
+                      onPress={() => setActiveHighlightIndex(idx)}
+                      style={[
+                        styles.highlightUnitChip,
+                        isFocused && styles.highlightUnitChipActive,
+                      ]}
+                    >
+                      <AppText
+                        size="xxl"
+                        weight="extrabold"
+                        color={isFocused ? '#92400E' : '#78350F'}
+                        style={styles.sentenceText}
+                      >
+                        {unit}
+                      </AppText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
             {showTryAgain && !analysisResult?.isAccurate && (
               <TouchableOpacity
                 style={styles.ladderTryAgainBtn}
@@ -784,21 +1094,23 @@ export default function SpeechSessionScreen() {
     }
 
     if (currentSupportLevel === 2) {
-      const activeSplitWords: SplitWord[] | undefined =
+      const words = targetSinhala.trim().split(/\s+/).filter(Boolean);
+      const isMultiWord = words.length > 1;
+
+      const segmentedWords: SplitWord[] =
         (isPracticeSentenceMatch && currentSentence?.splitWords && currentSentence.splitWords.length > 0)
           ? currentSentence.splitWords
-          : (difficultyResult.splitWords && difficultyResult.splitWords.length > 0)
-          ? difficultyResult.splitWords
-          : undefined;
+          : words.map((w) => ({
+            word: w,
+            parts: splitSinhalaGraphemes(w),
+          }));
 
       const fallbackParts: string[] =
         (isPracticeSentenceMatch && currentSentence?.syllables && currentSentence.syllables.length > 1)
           ? currentSentence.syllables
           : (difficultyResult.splitParts && difficultyResult.splitParts.length > 0)
-          ? difficultyResult.splitParts
-          : splitSinhalaGraphemes(targetSinhala);
-
-      const isMultiWord = activeSplitWords ? activeSplitWords.length > 1 : false;
+            ? difficultyResult.splitParts
+            : splitSinhalaGraphemes(targetSinhala);
 
       return (
         <View
@@ -811,11 +1123,11 @@ export default function SpeechSessionScreen() {
         >
           <View style={styles.syllablesInsideSection}>
             <AppText size="xs" weight="bold" color="#047857" style={{ marginBottom: 6 }}>
-              🔤 වෙන් කළ කොටස් (Akuru / Syllable Split):
+              🔤 වෙන් කළ කොටස් (Akuru / Orthographic Units):
             </AppText>
-            {activeSplitWords && activeSplitWords.length > 0 ? (
+            {isMultiWord ? (
               <View style={styles.sentenceGroups}>
-                {activeSplitWords.map((wordGroup, wIdx) => (
+                {segmentedWords.map((wordGroup, wIdx) => (
                   <View key={`word-${wIdx}-${wordGroup.word}`} style={styles.wordGroup}>
                     <View style={styles.wordPartsRow}>
                       {wordGroup.parts.map((part, pIdx) => (
@@ -826,11 +1138,9 @@ export default function SpeechSessionScreen() {
                         </View>
                       ))}
                     </View>
-                    {isMultiWord && (
-                      <AppText size="xs" weight="semibold" color={ThemeColors.textMuted} style={styles.wordSubLabel}>
-                        {wordGroup.word}
-                      </AppText>
-                    )}
+                    <AppText size="xs" weight="semibold" color={ThemeColors.textMuted} style={styles.wordSubLabel}>
+                      {wordGroup.word}
+                    </AppText>
                   </View>
                 ))}
               </View>
@@ -873,7 +1183,7 @@ export default function SpeechSessionScreen() {
         >
           <View style={styles.audioSupportInsideSection}>
             <AppText size="xs" weight="bold" color="#047857" style={{ marginBottom: 6 }}>
-              🔊 {t('support.audio.heading')}:
+              🔊 ශ්‍රව්‍ය සහාය (Audio Support):
             </AppText>
             <TouchableOpacity
               style={[
@@ -890,9 +1200,17 @@ export default function SpeechSessionScreen() {
               >
                 {playingAudio === 'target'
                   ? `🔊 ${t('support.audio.playing')}`
-                  : `▶ ${t('support.audio.play')}`}
+                  : '🔊 හඬ අසමු'}
               </AppText>
             </TouchableOpacity>
+            {ttsError && (
+              <AppText size="xs" color="#DC2626" weight="bold" style={{ marginTop: 6 }}>
+                ⚠️ {ttsError}
+              </AppText>
+            )}
+            <AppText size="xs" color={ThemeColors.textMuted} style={{ marginTop: 6 }}>
+              ඔබට අවශ්‍ය වාර ගණනක් ශ්‍රවණය කළ හැක (Replay as many times as you like).
+            </AppText>
             {showTryAgain && !analysisResult?.isAccurate && (
               <TouchableOpacity
                 style={styles.ladderTryAgainBtn}
@@ -910,6 +1228,23 @@ export default function SpeechSessionScreen() {
     }
 
     if (currentSupportLevel === 4) {
+      const simplificationNeeded = Boolean(
+        m2Analysis?.simplification?.needed ??
+        m2Analysis?.support?.simplification_needed ??
+        difficultyResult?.simplificationNeeded
+      );
+      const isSimpAvailable = Boolean(
+        m2Analysis?.simplification?.available && m2Analysis?.simplification?.simplified_text
+      ) || Boolean(
+        !m2Analysis && (difficultyResult?.simplifiedText || (isPracticeSentenceMatch && currentSentence?.simplifiedSinhala))
+      );
+      const simplifiedText =
+        m2Analysis?.simplification?.simplified_text ||
+        (m2Analysis
+          ? null
+          : difficultyResult.simplifiedText ||
+          (isPracticeSentenceMatch ? currentSentence?.simplifiedSinhala : undefined));
+
       return (
         <View
           style={[
@@ -922,33 +1257,53 @@ export default function SpeechSessionScreen() {
           <View style={styles.simplificationInsideSection}>
             <View style={styles.simplificationBox}>
               <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
-                මුල් පාඨය (Original):
+                Original:
               </AppText>
               <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginTop: 2 }}>
                 {targetSinhala}
               </AppText>
             </View>
-            <View style={[styles.simplificationBox, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', marginTop: 6 }]}>
-              <AppText size="xs" weight="extrabold" color="#047857">
-                ✨ සරල කළ අනුවාදය (Simpler version):
-              </AppText>
-              <AppText size="md" weight="extrabold" color="#047857" style={{ marginTop: 2 }}>
-                {expectedReadingText}
-              </AppText>
-            </View>
-            {showTryAgain && !analysisResult?.isAccurate && (
-              <TouchableOpacity
-                style={styles.ladderTryAgainBtn}
-                onPress={handleReset}
-                activeOpacity={0.85}
-              >
-                <AppText size="xs" weight="extrabold" color="#FFFFFF">
-                  → නැවත කියවමු (Try Again) 🎙️
+
+            {isSimpAvailable && simplifiedText ? (
+              <View style={[styles.simplificationBox, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', marginTop: 6 }]}>
+                <AppText size="xs" weight="extrabold" color="#047857">
+                  සරල කළ වාක්‍යය:
                 </AppText>
-              </TouchableOpacity>
+                <AppText size="md" weight="extrabold" color="#047857" style={{ marginTop: 2 }}>
+                  {simplifiedText}
+                </AppText>
+              </View>
+            ) : (
+              <View style={[styles.simplificationBox, { backgroundColor: '#F8FAFC', borderColor: '#CBD5E1', marginTop: 6 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <AppText size="sm">ℹ️</AppText>
+                  <AppText size="xs" weight="extrabold" color="#334155">
+                    AI වාක්‍ය සරල කිරීම
+                  </AppText>
+                </View>
+                <AppText size="xs" color="#475569" style={{ marginTop: 4, lineHeight: 18 }}>
+                  {simplificationNeeded
+                    ? 'මෙම වාක්‍යය සඳහා විශ්වාසදායක සරල කිරීමක් ලබා දිය නොහැක. වෙනත් වාක්‍යයක් උත්සාහ කරන්න.'
+                    : 'මෙම වාක්‍යයට සරල කිරීම අවශ්‍ය නොවේ. සංකීර්ණ හෝ දිගු වාක්‍ය සඳහා AI සරල කිරීමේ සහාය ලබා දේ.'}
+                </AppText>
+              </View>
             )}
-          </View>
-        </View>
+
+            {
+              showTryAgain && !analysisResult?.isAccurate && (
+                <TouchableOpacity
+                  style={styles.ladderTryAgainBtn}
+                  onPress={handleReset}
+                  activeOpacity={0.85}
+                >
+                  <AppText size="xs" weight="extrabold" color="#FFFFFF">
+                    → නැවත කියවමු (Try Again) 🎙️
+                  </AppText>
+                </TouchableOpacity>
+              )
+            }
+          </View >
+        </View >
       );
     }
 
@@ -960,7 +1315,10 @@ export default function SpeechSessionScreen() {
       {/* ── Top App Bar ────────────────────────────────────────────────────── */}
       <View style={styles.topBar}>
         <TouchableOpacity
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(child)/home'))}
+          onPress={() => {
+            stopActiveSpeech();
+            router.canGoBack() ? router.back() : router.replace('/(child)/home');
+          }}
           style={styles.navIconBtn}
           activeOpacity={0.7}
         >
@@ -1004,12 +1362,56 @@ export default function SpeechSessionScreen() {
         <View style={[styles.sentenceCard, ThemeShadow.sm]}>
           {/* Target Text Header */}
           <View style={styles.textSelectorRow}>
-            <View style={styles.targetLabelBadge}>
-              <AppText size="xs" weight="extrabold" color={ThemeColors.primary}>
-                📖 කියවිය යුතු පාඨය:
-              </AppText>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+              <View style={styles.targetLabelBadge}>
+                <AppText size="xs" weight="extrabold" color={ThemeColors.primary}>
+                  📖 කියවිය යුතු පාඨය:
+                </AppText>
+              </View>
+
+              {/* Child-Friendly Difficulty Badge (M2 Backend Source of Truth) */}
+              <View
+                style={[
+                  styles.difficultyBadge,
+                  predictedDifficulty === 'Easy' && styles.difficultyBadgeEasy,
+                  predictedDifficulty === 'Medium' && styles.difficultyBadgeMedium,
+                  predictedDifficulty === 'Hard' && styles.difficultyBadgeHard,
+                ]}
+              >
+                <AppText
+                  size="xs"
+                  weight="extrabold"
+                  color={
+                    predictedDifficulty === 'Easy'
+                      ? '#047857'
+                      : predictedDifficulty === 'Medium'
+                        ? '#B45309'
+                        : '#DC2626'
+                  }
+                >
+                  {predictedDifficulty === 'Easy'
+                    ? '🟢 පහසු (Easy)'
+                    : predictedDifficulty === 'Medium'
+                      ? '🟡 මධ්‍යම (Medium)'
+                      : '🔴 අභියෝගාත්මක (Hard)'}
+                </AppText>
+              </View>
             </View>
-            {!params.selectedText && (
+
+            {/* Need Help Button if further supports are available along support_path */}
+            {getNextValidSupportLevel(currentSupportLevel, applicableSupportLevels) !== null && (
+              <TouchableOpacity
+                style={styles.needHelpBtn}
+                onPress={() => advanceSupportLevel(currentSupportLevel)}
+                activeOpacity={0.8}
+              >
+                <AppText size="xs" weight="extrabold" color={ThemeColors.primary}>
+                  💡 උදව් අවශ්‍යයි (Need Help)
+                </AppText>
+              </TouchableOpacity>
+            )}
+
+            {!params.selectedText && !m2Analysis && (
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 {PRACTICE_SENTENCES.map((t, i) => (
                   <TouchableOpacity
@@ -1095,6 +1497,7 @@ export default function SpeechSessionScreen() {
                   if (session.isRecording) {
                     session.stopRecording();
                   } else {
+                    stopActiveSpeech();
                     setLockedExpectedText(candidateExpectedText);
                     try {
                       const started = await session.startRecording();
@@ -1249,8 +1652,13 @@ export default function SpeechSessionScreen() {
                   return (
                     <TouchableOpacity
                       key={opt.key}
-                      onPress={() => setCurrentSupportLevel(opt.level)}
-                      activeOpacity={0.8}
+                      disabled={isLocked}
+                      onPress={() => {
+                        if (!isLocked) {
+                          setCurrentSupportLevel(opt.level);
+                        }
+                      }}
+                      activeOpacity={isLocked ? 1 : 0.8}
                       style={[
                         styles.ladderCard,
                         {
@@ -1400,8 +1808,8 @@ export default function SpeechSessionScreen() {
                 {session.isPersisting
                   ? '⏳ සැසිය Firestore වෙත සුරකිමින්...'
                   : session.savedSessionId
-                  ? '☁️ සැසිය Firestore හි සුරැකිණි (Session Persisted)'
-                  : '☁️ සැසිය සාර්ථකව සුරැකිණි'}
+                    ? '☁️ සැසිය Firestore හි සුරැකිණි (Session Persisted)'
+                    : '☁️ සැසිය සාර්ථකව සුරැකිණි'}
               </AppText>
             </View>
 
@@ -1615,7 +2023,7 @@ export default function SpeechSessionScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Audio 2: Target Correct Teacher Voice */}
+                {/* Audio 2: Target Correct Audio (Audio Support) */}
                 <View style={[styles.audioTrackBox, styles.audioTrackTarget]}>
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
@@ -1648,7 +2056,7 @@ export default function SpeechSessionScreen() {
                       weight="bold"
                       color={playingAudio === 'target' ? '#FFFFFF' : '#047857'}
                     >
-                      {playingAudio === 'target' ? '🔊 වාදනය වේ...' : '▶ ගුරු හඬ'}
+                      {playingAudio === 'target' ? '🔊 වාදනය වේ...' : '🔊 හඬ අසමු'}
                     </AppText>
                   </TouchableOpacity>
                 </View>
@@ -1892,6 +2300,33 @@ const styles = StyleSheet.create({
     borderColor: '#BCE6CB',
     marginRight: 8,
   },
+  difficultyBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: ThemeRadius.full,
+    borderWidth: 1,
+  },
+  difficultyBadgeEasy: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  difficultyBadgeMedium: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+  },
+  difficultyBadgeHard: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FECACA',
+  },
+  needHelpBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#EFF6FF',
+    borderRadius: ThemeRadius.full,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    marginLeft: 'auto',
+  },
   sentenceDisplay: {
     backgroundColor: ThemeColors.backgroundMuted,
     padding: ThemeSpacing.md,
@@ -1929,6 +2364,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     ...ThemeShadow.sm,
+  },
+  highlightUnitChipActive: {
+    backgroundColor: '#FDE68A',
+    borderColor: '#D97706',
+    borderWidth: 2,
+  },
+  inlineWordFocusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    borderWidth: 1.5,
+    borderRadius: ThemeRadius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    alignSelf: 'flex-start',
+  },
+  inlineAkuruFocusBox: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: ThemeRadius.sm,
+  },
+  inlineAkuruFocusBoxActive: {
+    backgroundColor: '#FDE68A',
+    borderBottomWidth: 3,
+    borderBottomColor: '#D97706',
   },
   highlightPill: {
     alignSelf: 'flex-start',
@@ -2360,24 +2822,25 @@ const styles = StyleSheet.create({
   sentenceGroups: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    columnGap: 16,
-    rowGap: 12,
+    columnGap: 28,
+    rowGap: 16,
     alignItems: 'flex-start',
   },
   wordGroup: {
     flexDirection: 'column',
     alignItems: 'center',
     gap: 4,
+    flexShrink: 0,
   },
   wordPartsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     gap: 5,
     alignItems: 'center',
   },
   wordSubLabel: {
-    marginTop: 2,
-    opacity: 0.75,
+    marginTop: 3,
+    opacity: 0.8,
   },
   syllablesRow: {
     flexDirection: 'row',
