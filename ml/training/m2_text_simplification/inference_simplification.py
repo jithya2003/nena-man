@@ -117,6 +117,163 @@ def has_unexplained_latin(cand_text: str, source_text: str) -> bool:
     return cand_has_latin and not source_has_latin
 
 
+def has_malformed_chars(text: str, source_text: str) -> bool:
+    """Check for foreign script characters (e.g. CJK, unexpected accents) not in source."""
+    allowed_punct = set(" .,!?:;-\"'`()[]{}«»“”‘’/\n\t0123456789")
+    for c in text:
+        code = ord(c)
+        if 0x0D80 <= code <= 0x0DFF:
+            continue
+        if c in allowed_punct or c in source_text:
+            continue
+        return True
+    return False
+
+
+def has_word_repetition(text: str) -> bool:
+    """Check for immediate adjacent duplicate words (e.g. යුතු යුතුය or පාසල පාසල)."""
+    words = [re.sub(r"[^\w\u0D80-\u0DFF]", "", w) for w in text.split()]
+    for i in range(len(words) - 1):
+        if words[i] and words[i] == words[i+1]:
+            return True
+    return False
+
+
+def check_numeric_facts_preserved(source_text: str, cand_text: str) -> bool:
+    """Ensure all numbers and number-words in source are retained in candidate."""
+    src_digits = set(re.findall(r"\d+", source_text))
+    cand_digits = set(re.findall(r"\d+", cand_text))
+    if not src_digits.issubset(cand_digits):
+        return False
+
+    number_words = ["එක", "දෙක", "තුන", "හතර", "පහ", "හය", "හත", "අට", "නවය", "දහය"]
+    for nw in number_words:
+        if nw in source_text and nw not in cand_text:
+            return False
+    return True
+
+
+def count_sentences(text: str) -> int:
+    """Count non-empty sentences based on standard punctuation."""
+    parts = [s.strip() for s in re.split(r"[\.!\?।॥\n]+", text) if s.strip()]
+    return len(parts)
+
+
+def checks_subject_preserved(source_text: str, cand_text: str) -> bool:
+    """Check that short sentences do not drop their primary subject noun."""
+    src_words = source_text.strip().split()
+    if len(src_words) <= 6:
+        first_word = re.sub(r"[^\w\u0D80-\u0DFF]", "", src_words[0])
+        known_subjects = {"අම්මා", "ළමයි", "කුරුල්ලා", "නංගී", "බල්ලා", "ගුරුවරයා", "දරුවා", "ගොවියා"}
+        if first_word in known_subjects and first_word not in cand_text:
+            return False
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Removable function words (connectors / discourse markers) for short sentences
+# Kept SMALL and DOCUMENTED as requested:
+# ---------------------------------------------------------------------------
+REMOVABLE_FUNCTION_WORDS = {
+    "සඳහා",     # for / in order to (connector)
+    "හේතුවෙන්", # due to / because of (causal connector)
+    "බැවින්",    # since / because (connector)
+    "විසින්",    # by (agentive postposition)
+    "නිසා",      # because (causal connector)
+    "පිණිස",     # for the purpose of (connector)
+}
+
+
+def normalize_sinhala_token(token: str) -> str:
+    """Normalize a Sinhala token by stripping punctuation, whitespace, and zero-width characters."""
+    t = re.sub(r'[\.,!?:\'"\-\(\)\[\]\{\};~`@#\$%\^&\*_\+=/<>\ufeff]+', '', token)
+    t = re.sub(r'[\s\u200c\u200d\u00a0]+', '', t)
+    return t.strip()
+
+
+def check_truncated_tokens(src_tokens: List[str], cand_tokens: List[str]) -> Tuple[bool, Optional[str]]:
+    """
+    Detect if any generated token is a truncated fragment of a source token.
+    e.g. source token 'යාම' -> generated token 'යා'.
+    """
+    src_set = set(src_tokens)
+    for c in cand_tokens:
+        if c in src_set:
+            continue
+        # Check against every source token
+        for s in src_tokens:
+            if len(s) > len(c) and len(c) >= 2 and s.startswith(c):
+                return True, f"Malformed partial word: '{c}' is a truncated fragment of source token '{s}'"
+    return False, None
+
+
+def check_short_sentence_preservation(
+    source_text: str,
+    cand_text: str
+) -> Tuple[bool, Optional[str]]:
+    """
+    Conservative meaning and content-word preservation check for short sentences (<= 10 words).
+    - Checks predicate / action components are not deleted (e.g. 'යට' in 'යට විය')
+    - Checks content tokens are not dropped
+    - Checks truncated partial word fragments
+    - Checks excessive novel token changes
+    """
+    src_raw_tokens = source_text.strip().split()
+    if len(src_raw_tokens) > 10:
+        return True, None  # Rule strictly applies to short inputs <= 10 words
+
+    src_tokens = [normalize_sinhala_token(t) for t in src_raw_tokens if normalize_sinhala_token(t)]
+    cand_tokens = [normalize_sinhala_token(t) for t in cand_text.strip().split() if normalize_sinhala_token(t)]
+
+    if not src_tokens or not cand_tokens:
+        return True, None
+
+    src_set = set(src_tokens)
+    cand_set = set(cand_tokens)
+
+    # 1. Truncated fragment check (e.g. 'යාම' -> 'යා')
+    is_trunc, trunc_msg = check_truncated_tokens(src_tokens, cand_tokens)
+    if is_trunc:
+        return False, trunc_msg
+
+    # 2. Predicate / action components check
+    # In Sinhala SOV sentences, the predicate/action verb is typically the final 1 or 2 tokens
+    predicate_tokens = [t for t in src_tokens[-2:] if t not in REMOVABLE_FUNCTION_WORDS]
+    for pt in predicate_tokens:
+        if pt not in cand_set:
+            return False, f"Predicate component '{pt}' deleted from short sentence"
+
+    # 3. Content tokens coverage check
+    # Treat all tokens not in REMOVABLE_FUNCTION_WORDS as content tokens
+    src_content_tokens = [t for t in src_tokens if t not in REMOVABLE_FUNCTION_WORDS]
+    missing_content = [t for t in src_content_tokens if t not in cand_set]
+
+    if src_content_tokens:
+        # In short sentences (<= 10 words), reject if any content token is deleted unexpectedly
+        if len(src_raw_tokens) <= 7 and len(missing_content) > 0:
+            return False, f"Meaning-damaging content token loss: '{missing_content[0]}' deleted from short sentence"
+        elif len(missing_content) / len(src_content_tokens) > 0.15:
+            return False, f"Excessive content token loss in short sentence (missing: {', '.join(missing_content)})"
+
+    # 4. Novel tokens check in short sentences
+    novel_tokens = [t for t in cand_tokens if t not in src_set]
+    if len(novel_tokens) > 1:
+        return False, f"Excessive novel tokens in short sentence ({len(novel_tokens)} novel tokens: {', '.join(novel_tokens)})"
+    elif len(novel_tokens) == 1 and len(src_raw_tokens) <= 8:
+        return False, f"Unverified novel token '{novel_tokens[0]}' in short sentence"
+
+    return True, None
+
+
+def is_effectively_identical(text1: str, text2: str) -> bool:
+    """Check if candidate is effectively identical to source (ignoring punctuation, whitespace, ZWJ/ZWNJ)."""
+    def normalize_chars(s: str) -> str:
+        s = re.sub(r'[\.,!?:\'"\-\(\)\[\]\{\};~`@#\$%\^&\*_\+=/<>]', '', s)
+        s = re.sub(r'[\s\u200c\u200d\u00a0\ufeff]+', '', s)
+        return s.strip()
+    return normalize_chars(text1) == normalize_chars(text2)
+
+
 def evaluate_candidate(
     candidate: str,
     source_text: str,
@@ -128,34 +285,96 @@ def evaluate_candidate(
     is_empty = len(cleaned) == 0
     sinhala_ok = contains_sinhala(cleaned)
     valid_start = is_valid_sinhala_start(cleaned)
-    has_sentinel = "<extra_id_" in candidate
-    repeated_loop = has_repeated_3gram(cleaned)
+    has_sentinel = "<extra_id_" in candidate or "<extra_id_" in cleaned
+    repeated_loop = has_repeated_3gram(cleaned) or has_word_repetition(cleaned)
     unexplained_latin = has_unexplained_latin(cleaned, source_text)
+    has_foreign = has_malformed_chars(cleaned, source_text)
     
     src_words = source_text.strip().split()
     cand_words = cleaned.split()
     word_ratio = len(cand_words) / max(1, len(src_words))
     
-    is_exact_copy = (cleaned.strip() == source_text.strip())
-    
-    # Rejection criteria:
-    # - Empty
-    # - No Sinhala
-    # - Invalid Sinhala start (e.g. virama / dependent vowel)
-    # - Sentinel tokens present
-    # - Repetition loop
-    # - Unexplained Latin garbage
-    # - Expansion ratio > 1.50
-    valid = (
-        not is_empty
-        and sinhala_ok
-        and valid_start
-        and not has_sentinel
-        and not repeated_loop
-        and not unexplained_latin
-        and word_ratio <= 1.50
+    is_exact_copy = (
+        cleaned.strip() == source_text.strip() or
+        is_effectively_identical(cleaned, source_text)
     )
-    
+    sentence_count = count_sentences(cleaned)
+    source_sentence_count = count_sentences(source_text)
+
+    rejection_reasons = []
+
+    # 1. Reject empty output
+    if is_empty:
+        rejection_reasons.append("Empty output")
+
+    # 2. Reject no Sinhala characters
+    if not sinhala_ok:
+        rejection_reasons.append("No Sinhala characters")
+
+    # 3. Reject invalid initial Sinhala character (e.g. virama / dependent vowel)
+    if not valid_start:
+        rejection_reasons.append("Invalid initial character (virama/combining mark)")
+
+    # 4. Reject sentinel tokens
+    if has_sentinel:
+        rejection_reasons.append("Contains sentinel token")
+
+    # 5. Reject prompt / Latin artifacts
+    if unexplained_latin:
+        rejection_reasons.append("Contains unexplained Latin letters")
+
+    # 6. Reject foreign / malformed characters (e.g. CJK)
+    if has_foreign:
+        rejection_reasons.append("Contains foreign/malformed characters")
+
+    # 7. Reject repetition loops
+    if repeated_loop:
+        rejection_reasons.append("Repetition loop detected")
+
+    # 8. Reject output > 1.35x source word count for short inputs (or any word increase for <= 7 words)
+    if len(src_words) <= 7 and len(cand_words) > len(src_words):
+        rejection_reasons.append(f"Expansion for short input ({len(cand_words)} words > {len(src_words)} words)")
+    elif len(src_words) <= 12 and word_ratio > 1.35:
+        rejection_reasons.append(f"Expansion > 1.35x for short input (ratio: {word_ratio:.2f})")
+    elif word_ratio > 1.50:
+        rejection_reasons.append(f"Expansion > 1.50x (ratio: {word_ratio:.2f})")
+
+    # 9. Reject output < 0.70x source word count for short inputs (severe over-compression)
+    if len(src_words) <= 10 and word_ratio < 0.70:
+        rejection_reasons.append(f"Over-compression < 0.70x for short input (ratio: {word_ratio:.2f})")
+
+    # 10. Reject suspiciously tiny outputs such as a single predicate word
+    if len(cand_words) < 3 and len(src_words) >= 4:
+        rejection_reasons.append(f"Suspiciously tiny output ({len(cand_words)} words)")
+    elif len(cand_words) < 2:
+        rejection_reasons.append("Output less than 2 words")
+
+    # 11. Reject predictions with more than 2 sentences
+    if sentence_count > 2:
+        rejection_reasons.append(f"Too many sentences ({sentence_count} > 2)")
+    elif source_sentence_count <= 1 and sentence_count > 1 and word_ratio >= 1.0:
+        rejection_reasons.append("Unnecessary second sentence generated")
+
+    # 12. Reject if numeric / alphanumeric facts are lost
+    if not check_numeric_facts_preserved(source_text, cleaned):
+        rejection_reasons.append("Numeric or quantitative facts lost")
+
+    # 13. Reject dropping primary subject noun in short sentences
+    if not checks_subject_preserved(source_text, cleaned):
+        rejection_reasons.append("Primary subject/agent dropped")
+
+    # 14. Exact copy policy: do not mark exact copies as simplifications
+    if is_exact_copy:
+        rejection_reasons.append("Exact copy of source (no actual simplification)")
+
+    # 15. Conservative short-sentence meaning and token preservation check (for source <= 10 words)
+    if len(src_words) <= 10:
+        short_ok, short_reason = check_short_sentence_preservation(source_text, cleaned)
+        if not short_ok:
+            rejection_reasons.append(short_reason)
+
+    valid = len(rejection_reasons) == 0
+
     return {
         "raw": candidate,
         "cleaned": cleaned,
@@ -169,6 +388,8 @@ def evaluate_candidate(
         "is_exact_copy": is_exact_copy,
         "char_len": len(cleaned),
         "word_len": len(cand_words),
+        "sentence_count": sentence_count,
+        "rejection_reasons": rejection_reasons,
         "valid": valid
     }
 
@@ -232,6 +453,7 @@ class SinhalaSimplifier:
             - "source_text": str
             - "all_candidates": List[Dict[str, Any]] (all 4 analyzed candidates)
             - "selected_candidate": Optional[Dict[str, Any]]
+            - "rejection_reason": Optional[str] (primary reason if available=False)
         """
         source_clean = source_text.strip()
         if not source_clean:
@@ -240,7 +462,8 @@ class SinhalaSimplifier:
                 "simplified_text": None,
                 "source_text": source_text,
                 "all_candidates": [],
-                "selected_candidate": None
+                "selected_candidate": None,
+                "rejection_reason": "Empty source text"
             }
 
         prompt = f"{prefix}{source_clean}"
@@ -275,47 +498,33 @@ class SinhalaSimplifier:
             for idx, raw_text in enumerate(decoded_raw)
         ]
 
+        # Filter strictly valid non-copy candidates
         valid_candidates = [c for c in analyzed_candidates if c["valid"]]
 
         if not valid_candidates:
+            top_reasons = analyzed_candidates[0]["rejection_reasons"] if analyzed_candidates else ["No candidates generated"]
             return {
                 "available": False,
                 "simplified_text": None,
                 "source_text": source_clean,
                 "all_candidates": analyzed_candidates,
-                "selected_candidate": None
+                "selected_candidate": None,
+                "rejection_reason": "; ".join(top_reasons)
             }
 
-        # Candidate selection priority:
-        # 1. Prefer non-exact copy (is_exact_copy == False)
-        # 2. Prefer shorter length (word_len, char_len)
-        # 3. Beam rank tie-breaker
+        # Rank valid candidates:
+        # 1. Shorter word count
+        # 2. Shorter character length
+        # 3. Earlier beam rank
         valid_candidates.sort(
             key=lambda c: (
-                1 if c["is_exact_copy"] else 0,  # non-copy first
-                c["word_len"],                    # shorter word count
-                c["char_len"],                    # shorter char length
-                c["beam_rank"]                    # earlier beam order
+                c["word_len"],
+                c["char_len"],
+                c["beam_rank"]
             )
         )
 
         best_cand = valid_candidates[0]
-
-        # Determine whether output requires human validation (per safety requirement 6)
-        needs_human_inspection = False
-        inspection_reasons = []
-        if best_cand["is_exact_copy"]:
-            needs_human_inspection = True
-            inspection_reasons.append("Exact copy of source")
-        if best_cand["word_ratio"] < 0.50:
-            needs_human_inspection = True
-            inspection_reasons.append(f"High compression (word ratio: {best_cand['word_ratio']:.2f})")
-        if best_cand["word_ratio"] > 1.20:
-            needs_human_inspection = True
-            inspection_reasons.append(f"Expansion (word ratio: {best_cand['word_ratio']:.2f})")
-        if "." in best_cand["cleaned"][:-1]:
-            needs_human_inspection = True
-            inspection_reasons.append("Multi-sentence split detected")
 
         return {
             "available": True,
@@ -323,8 +532,7 @@ class SinhalaSimplifier:
             "source_text": source_clean,
             "all_candidates": analyzed_candidates,
             "selected_candidate": best_cand,
-            "needs_human_inspection": needs_human_inspection,
-            "inspection_reasons": inspection_reasons
+            "rejection_reason": None
         }
 
 

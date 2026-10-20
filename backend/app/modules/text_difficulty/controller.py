@@ -40,7 +40,17 @@ def _handle_analyze_request():
     try:
         validated_data = request_schema.load(raw_payload)
     except MarshmallowValidationError as exc:
-        raise ValidationError(f"Invalid input data: {exc.messages}")
+        first_err = None
+        if isinstance(exc.messages, dict):
+            for v in exc.messages.values():
+                if isinstance(v, list) and v:
+                    first_err = v[0]
+                    break
+                elif isinstance(v, str):
+                    first_err = v
+                    break
+        err_msg = first_err if first_err else f"Invalid input data: {exc.messages}"
+        raise ValidationError(err_msg)
 
     result = text_difficulty_service.analyze(
         text=validated_data["text"],

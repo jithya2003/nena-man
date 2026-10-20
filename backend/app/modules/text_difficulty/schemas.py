@@ -5,7 +5,23 @@ Module 2: Sinhala Text Difficulty Analysis & Progressive Reading Support
 Marshmallow Request and Response Schemas.
 """
 
-from marshmallow import Schema, fields, validate, ValidationError
+import re
+from marshmallow import Schema, fields, validate, ValidationError, validates_schema
+
+MAX_SHORT_SENTENCE_WORDS = 18
+SHORT_SENTENCE_WORD_LIMIT_MSG = "කෙටි වාක්‍යයක් සඳහා උපරිම වචන 18ක් පමණක් ඇතුළත් කළ හැක."
+PUNCT_PATTERN = re.compile(r"^[\.,!?:;\'\"“”‘’`\(\)\[\]\{\}\-—_/\~@#\$%\^&\*\+=<>|\\।॥]+$")
+
+
+def count_words(text: str) -> int:
+    """
+    Counts words by normalizing whitespace and ignoring punctuation-only tokens.
+    """
+    if not text:
+        return 0
+    cleaned = re.sub(r"\s+", " ", text.strip())
+    tokens = [t for t in cleaned.split(" ") if t]
+    return sum(1 for t in tokens if not PUNCT_PATTERN.match(t))
 
 
 def _validate_non_empty_text(value: str) -> None:
@@ -41,3 +57,12 @@ class TextDifficultyRequestSchema(Schema):
         ),
         error_messages={"required": "The 'text_type' field is mandatory."},
     )
+
+    @validates_schema
+    def validate_word_limit(self, data, **kwargs):
+        text_type = data.get("text_type")
+        text = data.get("text", "")
+        if text_type == "short sentence":
+            words = count_words(text)
+            if words > MAX_SHORT_SENTENCE_WORDS:
+                raise ValidationError(SHORT_SENTENCE_WORD_LIMIT_MSG, field_name="text")

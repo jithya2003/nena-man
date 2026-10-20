@@ -193,6 +193,12 @@ class TextDifficultyService:
         if clean_text_type not in ("word", "short sentence"):
             raise ValidationError("text_type must be either 'word' or 'short sentence'.")
 
+        if clean_text_type == "short sentence":
+            from .schemas import count_words, MAX_SHORT_SENTENCE_WORDS, SHORT_SENTENCE_WORD_LIMIT_MSG
+            if count_words(clean_text) > MAX_SHORT_SENTENCE_WORDS:
+                raise ValidationError(SHORT_SENTENCE_WORD_LIMIT_MSG)
+
+
         # 2. Lazy Model & Corpus Loading
         self._ensure_loaded()
         assert self._pipeline is not None
@@ -275,7 +281,31 @@ class TextDifficultyService:
         max_support = calculate_max_support_level(simplification_needed=simp_needed_str)
         support_path = get_support_path(split_needed_str, simp_needed_str, max_support)
 
-        # 7. Construct Final Response Payload
+        # 7. Level 4 Sinhala Sentence Simplification (Model 2)
+        if simp_needed_bool:
+            try:
+                from .simplifier_service import text_simplifier_service
+                simp_res = text_simplifier_service.simplify_sentence(clean_text)
+                simplification_payload = {
+                    "needed": True,
+                    "available": bool(simp_res.get("available", False)),
+                    "simplified_text": simp_res.get("simplified_text") if simp_res.get("available") else None,
+                }
+            except Exception as exc:
+                logger.error("Level 4 simplification call failed: %s", exc, exc_info=True)
+                simplification_payload = {
+                    "needed": True,
+                    "available": False,
+                    "simplified_text": None,
+                }
+        else:
+            simplification_payload = {
+                "needed": False,
+                "available": False,
+                "simplified_text": None,
+            }
+
+        # 8. Construct Final Response Payload
         return {
             "analysis_status": "success",
             "text": clean_text,
@@ -296,11 +326,7 @@ class TextDifficultyService:
                 "max_support_level": max_support,
                 "support_path": support_path,
             },
-            "simplification": {
-                "needed": simp_needed_bool,
-                "available": False,
-                "simplified_text": None,
-            },
+            "simplification": simplification_payload,
             "model_status": "prototype_provisional",
             "_inference_latency_ms": infer_latency_ms,
         }

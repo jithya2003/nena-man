@@ -34,7 +34,7 @@ import { CHARACTER_AVATAR_SOURCES } from "@/assets/avatars";
 import DevicePermissionModal from "@/components/DevicePermissionModal";
 import { useConsentPrivacy } from "@/hooks/useConsentPrivacy";
 
-import ReadingTextSelectModal from "@/components/ReadingTextSelectModal";
+import ReadingTextSelectModal, { countSinhalaWords } from "@/components/ReadingTextSelectModal";
 import { analyzeTextDifficulty } from "@/api/textDifficultyApi";
 import type { TextType } from "@/api/types";
 
@@ -70,6 +70,14 @@ function M2SimplificationCard() {
         "අභිරුචි පාඨ විශ්ලේෂණය කිරීමට පෙර කරුණාකර ඔබගේ පැතිකඩෙහි (Profile) ශ්‍රේණිය (Grade 1-3) සකසන්න."
       );
       return;
+    }
+
+    if (selectedTextType === 'short sentence') {
+      const wordCount = countSinhalaWords(trimmed);
+      if (wordCount > 18) {
+        Alert.alert("දැනුම්දීම", "කෙටි වාක්‍යයක් සඳහා උපරිම වචන 18ක් පමණක් ඇතුළත් කළ හැක.");
+        return;
+      }
     }
 
     setIsAnalyzing(true);

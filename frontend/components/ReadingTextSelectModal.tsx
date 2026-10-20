@@ -41,6 +41,15 @@ interface ReadingTextSelectModalProps {
   ) => void;
 }
 
+export const countSinhalaWords = (text: string): number => {
+  if (!text) return 0;
+  const cleaned = text.replace(/\s+/g, ' ').trim();
+  if (!cleaned) return 0;
+  const tokens = cleaned.split(' ').filter(Boolean);
+  const punctRegex = /^[\.,!?:;'"“”‘’`\(\)\[\]\{\}\-—_/\~@#\$%\^&\*\+=<>|\\।॥]+$/;
+  return tokens.filter((t) => !punctRegex.test(t)).length;
+};
+
 export default function ReadingTextSelectModal({
   visible,
   onClose,
@@ -106,6 +115,14 @@ export default function ReadingTextSelectModal({
     if (!hasSinhalaChar) {
       setValidationError('කරුණාකර සිංහල අකුරු පමණක් භාවිතා කර ලියන්න.');
       return;
+    }
+
+    if (customTextType === 'short sentence') {
+      const wordCount = countSinhalaWords(trimmed);
+      if (wordCount > 18) {
+        setValidationError('කෙටි වාක්‍යයක් සඳහා උපරිම වචන 18ක් පමණක් ඇතුළත් කළ හැක.');
+        return;
+      }
     }
 
     if (!profileGrade) {

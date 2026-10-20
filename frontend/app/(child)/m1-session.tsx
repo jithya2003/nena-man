@@ -1036,15 +1036,22 @@ export default function SpeechSessionScreen() {
     }
 
     if (currentSupportLevel === 4) {
+      const simplificationNeeded = Boolean(
+        m2Analysis?.simplification?.needed ??
+        m2Analysis?.support?.simplification_needed ??
+        difficultyResult?.simplificationNeeded
+      );
       const isSimpAvailable = Boolean(
         m2Analysis?.simplification?.available && m2Analysis?.simplification?.simplified_text
+      ) || Boolean(
+        !m2Analysis && (difficultyResult?.simplifiedText || (isPracticeSentenceMatch && currentSentence?.simplifiedSinhala))
       );
       const simplifiedText =
         m2Analysis?.simplification?.simplified_text ||
         (m2Analysis
           ? null
           : difficultyResult.simplifiedText ||
-            (isPracticeSentenceMatch ? currentSentence.simplifiedSinhala : undefined));
+            (isPracticeSentenceMatch ? currentSentence?.simplifiedSinhala : undefined));
 
       return (
         <View
@@ -1058,7 +1065,7 @@ export default function SpeechSessionScreen() {
           <View style={styles.simplificationInsideSection}>
             <View style={styles.simplificationBox}>
               <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
-                මුල් පාඨය (Original):
+                Original:
               </AppText>
               <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginTop: 2 }}>
                 {targetSinhala}
@@ -1068,7 +1075,7 @@ export default function SpeechSessionScreen() {
             {isSimpAvailable && simplifiedText ? (
               <View style={[styles.simplificationBox, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', marginTop: 6 }]}>
                 <AppText size="xs" weight="extrabold" color="#047857">
-                  ✨ සරල කළ අනුවාදය (Simpler version):
+                  සරල කළ වාක්‍යය:
                 </AppText>
                 <AppText size="md" weight="extrabold" color="#047857" style={{ marginTop: 2 }}>
                   {simplifiedText}
@@ -1078,12 +1085,14 @@ export default function SpeechSessionScreen() {
               <View style={[styles.simplificationBox, { backgroundColor: '#F8FAFC', borderColor: '#CBD5E1', marginTop: 6 }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <AppText size="sm">ℹ️</AppText>
-                  <AppText size="xs" weight="extrabold" color="#475569">
-                    සරල කළ අනුවාදය (Simplification Placeholder):
+                  <AppText size="xs" weight="extrabold" color="#334155">
+                    AI වාක්‍ය සරල කිරීම
                   </AppText>
                 </View>
-                <AppText size="xs" color="#64748B" style={{ marginTop: 4, lineHeight: 18 }}>
-                  වාක්‍ය සරල කිරීමේ ආකෘතිය මීළඟ අදියරේදී ලබාගත හැක. (Text simplification support will be available in the next model integration.)
+                <AppText size="xs" color="#475569" style={{ marginTop: 4, lineHeight: 18 }}>
+                  {simplificationNeeded
+                    ? 'මෙම වාක්‍යය සඳහා විශ්වාසදායක සරල කිරීමක් ලබා දිය නොහැක. වෙනත් වාක්‍යයක් උත්සාහ කරන්න.'
+                    : 'මෙම වාක්‍යයට සරල කිරීම අවශ්‍ය නොවේ. සංකීර්ණ හෝ දිගු වාක්‍ය සඳහා AI සරල කිරීමේ සහාය ලබා දේ.'}
                 </AppText>
               </View>
             )}
@@ -2602,24 +2611,25 @@ const styles = StyleSheet.create({
   sentenceGroups: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    columnGap: 16,
-    rowGap: 12,
+    columnGap: 28,
+    rowGap: 16,
     alignItems: 'flex-start',
   },
   wordGroup: {
     flexDirection: 'column',
     alignItems: 'center',
     gap: 4,
+    flexShrink: 0,
   },
   wordPartsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     gap: 5,
     alignItems: 'center',
   },
   wordSubLabel: {
-    marginTop: 2,
-    opacity: 0.75,
+    marginTop: 3,
+    opacity: 0.8,
   },
   syllablesRow: {
     flexDirection: 'row',
