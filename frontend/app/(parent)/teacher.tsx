@@ -43,8 +43,19 @@ export default function TeacherDashboardScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  // Enforce teacher role at route boundary
+  useEffect(() => {
+    if (user && user.role !== 'teacher') {
+      if (user.role === 'parent') {
+        router.replace('/(parent)/dashboard');
+      } else {
+        router.replace('/(child)/home');
+      }
+    }
+  }, [user]);
+
   const loadTeacherDashboard = useCallback(async () => {
-    if (!user?.uid) {
+    if (!user?.uid || user.role !== 'teacher') {
       setIsLoading(false);
       return;
     }
@@ -162,16 +173,21 @@ export default function TeacherDashboardScreen() {
           : 'easy'
         : 'easy';
 
+    const childStoreState = useChildStoreBase.getState();
+    const existingChild = childStoreState.children.find((c) => c.id === st.uid);
+    const currentMatching = childStoreState.currentChild?.id === st.uid ? childStoreState.currentChild : null;
+
     const childData: Child = {
       id: st.uid,
       name: st.name || 'ශිෂ්‍යයා',
-      age: 7,
-      grade: st.grade || 2,
+      age: existingChild?.age || currentMatching?.age || 0,
+      grade: st.grade || existingChild?.grade || currentMatching?.grade || 2,
       readingLevel: readingLvl,
       streak: 0,
       stars: 0,
       totalSessions: stats?.totalSessions || 0,
-      avatarColor: '#4F46E5',
+      avatarColor: existingChild?.avatarColor || currentMatching?.avatarColor || '#4F46E5',
+      avatar: existingChild?.avatar || currentMatching?.avatar,
     };
 
     useChildStoreBase.getState().setCurrentChild(childData);
@@ -186,6 +202,10 @@ export default function TeacherDashboardScreen() {
     }
     router.replace('/(auth)/role-select');
   };
+
+  if (!user || user.role !== 'teacher') {
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
