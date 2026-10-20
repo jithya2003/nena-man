@@ -31,6 +31,7 @@ import { mockAnalyzeReading } from './mocks/readingAnalysisMock';
 import { mockAnalyzeText } from './mocks/textDifficultyMock';
 import { mockGetBehaviorState } from './mocks/behaviorStateMock';
 import { mockGetRecommendation } from './mocks/recommendationMock';
+import { analyzeReadingWithAI } from './readingAIClient';
 
 // =============================================================================
 // Module 1: Reading Error Analysis (Kulathilaka · IT23175198)
@@ -42,13 +43,23 @@ import { mockGetRecommendation } from './mocks/recommendationMock';
  * @param audioData - Audio payload (base64, URI, FormData, or Blob)
  * @returns Promise<ReadingAnalysisResult>
  */
-export async function analyzeReading(audioData: any): Promise<ReadingAnalysisResult> {
+export async function analyzeReading(
+  audioData: any,
+  expectedText?: string
+): Promise<ReadingAnalysisResult> {
   if (USE_MOCK_READING_ANALYSIS) {
     return mockAnalyzeReading(audioData);
   }
 
-  // Real backend endpoint placeholder
-  return apiClient.post('/analyze-reading', { audio: audioData });
+  if (typeof audioData !== 'string') {
+    throw new Error('Reading AI requires an audio recording URI.');
+  }
+
+  if (!expectedText?.trim()) {
+    throw new Error('Expected Sinhala reading text is required.');
+  }
+
+  return analyzeReadingWithAI(audioData, expectedText);
 }
 
 // =============================================================================
