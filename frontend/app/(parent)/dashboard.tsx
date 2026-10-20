@@ -28,8 +28,8 @@ import { recommendationService, ParentRecommendationInsight } from '@/services/r
 import { doc, getDoc } from 'firebase/firestore';
 import { LinkedPerson, ReadingSessionRecord, Child } from '@/types';
 import { useChildStoreBase } from '@/store/childStore';
-import { MOCK_SESSIONS } from '@/mock/data';
 import EmailReportModal from '@/components/EmailReportModal';
+import BottomNav from '@/components/BottomNav';
 import { EmptyView, ErrorView, LoadingView } from '@/components/shared-states';
 import { auth, db } from '@/services/firebase';
 
@@ -361,64 +361,66 @@ export default function ParentDashboardScreen() {
     <SafeAreaView style={styles.container}>
       {/* ── TOP HEADER ── */}
       <View style={styles.topHeader}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => router.push('/(auth)/role-select')} activeOpacity={0.7}>
-            <NenaManLogo size="sm" showText={false} />
-          </TouchableOpacity>
+        <View style={styles.topHeaderInner}>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={() => router.push('/(auth)/role-select')} activeOpacity={0.7}>
+              <NenaManLogo size="sm" showText={false} />
+            </TouchableOpacity>
 
-          <View style={{ marginLeft: 10, flexShrink: 1 }}>
-            <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
-              {isTeacher ? (language === 'si' ? 'ගුරු පුවරුව' : 'Teacher Portal') : t('dashboard.parentTitle')}
-            </AppText>
-            <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
-              {effectiveParentName} 👏
-            </AppText>
+            <View style={{ marginLeft: 10, flexShrink: 1 }}>
+              <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
+                {isTeacher ? (language === 'si' ? 'ගුරු පුවරුව' : 'Teacher Portal') : t('dashboard.parentTitle')}
+              </AppText>
+              <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
+                {effectiveParentName} 👏
+              </AppText>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.headerRight}>
-          {/* 1-Click Switch to Child Account Mode */}
-          <TouchableOpacity
-            style={[
-              styles.childSwitchBtn,
-              linkedStudents.length > 1 && { width: 'auto', paddingHorizontal: 10, borderRadius: 16 },
-            ]}
-            onPress={() => handleSwitchToChild()}
-            activeOpacity={0.75}
-            accessibilityLabel="Switch to Student Account"
-          >
-            <AppText size="sm">🌟</AppText>
-            <AppText size="xs" weight="extrabold" color="#047857" style={{ marginLeft: 4 }}>
-              {language === 'si' ? 'ශිෂ්‍ය මාදිලිය' : 'Student'}
-            </AppText>
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            {/* 1-Click Switch to Child Account Mode */}
+            <TouchableOpacity
+              style={[
+                styles.childSwitchBtn,
+                linkedStudents.length > 1 && { width: 'auto', paddingHorizontal: 12, borderRadius: 16 },
+              ]}
+              onPress={() => handleSwitchToChild()}
+              activeOpacity={0.75}
+              accessibilityLabel="Switch to Student Account"
+            >
+              <AppText size="sm">🌟</AppText>
+              <AppText size="xs" weight="extrabold" color="#047857" style={{ marginLeft: 4 }}>
+                {language === 'si' ? 'ශිෂ්‍ය මාදිලිය' : 'Student'}
+              </AppText>
+            </TouchableOpacity>
 
-          {/* Notification Bell */}
-          <TouchableOpacity
-            style={styles.bellBtn}
-            onPress={() => router.push('/(parent)/reports')}
-            activeOpacity={0.7}
-          >
-            <AppText size="sm">🔔</AppText>
-            <View style={styles.redDot} />
-          </TouchableOpacity>
+            {/* Notification Bell */}
+            <TouchableOpacity
+              style={styles.bellBtn}
+              onPress={() => router.push('/(parent)/reports')}
+              activeOpacity={0.7}
+            >
+              <AppText size="sm">🔔</AppText>
+              <View style={styles.redDot} />
+            </TouchableOpacity>
 
-          {/* Log Out Button */}
-          <TouchableOpacity
-            style={styles.logoutBtn}
-            onPress={handleLogout}
-            activeOpacity={0.75}
-          >
-            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M 9 21 H 5 C 3.89543 21 3 20.1046 3 19 V 5 C 3 3.89543 3.89543 3 5 3 H 9 M 16 17 L 21 12 M 21 12 L 16 7 M 21 12 H 9"
-                stroke="#DC2626"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </TouchableOpacity>
+            {/* Log Out Button */}
+            <TouchableOpacity
+              style={styles.logoutBtn}
+              onPress={handleLogout}
+              activeOpacity={0.75}
+            >
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M 9 21 H 5 C 3.89543 21 3 20.1046 3 19 V 5 C 3 3.89543 3.89543 3 5 3 H 9 M 16 17 L 21 12 M 21 12 L 16 7 M 21 12 H 9"
+                  stroke="#DC2626"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -1024,6 +1026,9 @@ export default function ParentDashboardScreen() {
         sessions={recentSessions}
         m3Recommendation={rawM3}
       />
+
+      {/* Universal Parent Bottom Navigation */}
+      <BottomNav role="parent" activeTab="dashboard" />
     </SafeAreaView>
   );
 }
@@ -1035,14 +1040,19 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web' ? { minHeight: '100vh' as any, height: '100vh' as any } : {}),
   },
   topHeader: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: ThemeColors.border,
+  },
+  topHeaderInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: ThemeSpacing.md,
     paddingVertical: ThemeSpacing.sm,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: ThemeColors.border,
+    maxWidth: 960,
+    width: '100%',
+    alignSelf: 'center',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -1083,9 +1093,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
   },
   logoutBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#FEF2F2',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1093,6 +1103,9 @@ const styles = StyleSheet.create({
   scroll: {
     padding: ThemeSpacing.md,
     gap: ThemeSpacing.md,
+    maxWidth: 960,
+    width: '100%',
+    alignSelf: 'center',
   },
   teacherPromoBanner: {
     backgroundColor: '#EFF6FF',
@@ -1104,16 +1117,21 @@ const styles = StyleSheet.create({
   tabPillsRow: {
     flexDirection: 'row',
     backgroundColor: '#E2E8F0',
-    padding: 3,
-    borderRadius: ThemeRadius.full,
+    padding: 4,
+    borderRadius: ThemeRadius.md,
+    maxWidth: 720,
+    width: '100%',
+    alignSelf: 'center',
+    gap: 4,
   },
   tabPill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 7,
-    borderRadius: ThemeRadius.full,
+    paddingVertical: 10,
+    borderRadius: ThemeRadius.sm,
+    minHeight: 42,
   },
   tabPillActive: {
     backgroundColor: ThemeColors.primary,

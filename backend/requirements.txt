@@ -14,8 +14,8 @@ flask-cors==5.0.1
 firebase-admin==6.6.0
 
 # --- Data Science (Lightweight — No GPU needed for stubs) ---
-scikit-learn==1.5.2
-numpy==1.26.4
+scikit-learn==1.6.1
+numpy==2.5.4
 pandas==2.2.3
 joblib==1.4.2
 
@@ -44,4 +44,4 @@ gunicorn==23.0.0
 
 # --- M2/M3/M4: Advanced ML ---
 # xgboost==2.1.1
-shap==0.53.0
+shap==0.54.1

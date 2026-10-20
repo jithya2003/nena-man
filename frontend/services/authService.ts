@@ -15,6 +15,7 @@ import {
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { UserProfile, UserRole, RegisterData } from '@/types';
+import { deriveStudentCode } from './connectionService';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:5000/api/v1';
@@ -54,6 +55,7 @@ function createLocalDevProfile(email: string, displayName: string, role: UserRol
     email,
     displayName: displayName || (role === 'child' ? 'ශිෂ්‍යයා' : 'දෙමාපියන්'),
     role,
+    studentCode: role === 'child' ? deriveStudentCode(uid) : undefined,
     age: data?.age || (role === 'child' ? 7 : undefined),
     grade: data?.grade || (role === 'child' ? 2 : undefined),
     schoolName: data?.schoolName || '',
@@ -100,11 +102,14 @@ export const authService = {
         console.warn('[authService] sendEmailVerification warning:', verifyErr);
       }
 
+      const studentCode = data.role === 'child' ? deriveStudentCode(fbUser.uid) : undefined;
+
       const userProfile: UserProfile = {
         uid: fbUser.uid,
         email: fbUser.email || email,
         displayName: data.displayName,
         role: data.role,
+        studentCode,
         age: data.age || (data.role === 'child' ? 7 : undefined),
         grade: data.grade || (data.role === 'child' ? 2 : undefined),
         schoolName: data.schoolName || '',
@@ -133,6 +138,25 @@ export const authService = {
         });
       } catch (firestoreErr) {
         console.warn('[authService] Firestore save warning:', firestoreErr);
+      }
+
+      // Safe registration of minimal student-code lookup record
+      if (data.role === 'child' && studentCode) {
+        try {
+          const codeDocRef = doc(db, 'student_codes', studentCode);
+          const codeSnap = await getDoc(codeDocRef);
+          if (!codeSnap.exists()) {
+            await setDoc(codeDocRef, {
+              childUid: fbUser.uid,
+              studentCode,
+              createdAt: new Date().toISOString(),
+            });
+          } else if (codeSnap.data()?.childUid !== fbUser.uid) {
+            console.warn(`[authService] studentCode ${studentCode} already claimed by another account.`);
+          }
+        } catch (codeErr) {
+          console.warn('[authService] Failed to persist student_codes lookup record:', codeErr);
+        }
       }
 
       const token = await fbUser.getIdToken();
@@ -203,6 +227,39 @@ export const authService = {
         if (snap.exists()) {
           const docData = snap.data();
           const userRole = (docData.role as UserRole) || role;
+          let studentCode = docData.studentCode;
+
+          // Safe backfill for existing authenticated child accounts missing studentCode
+          if (userRole === 'child' && !studentCode) {
+            studentCode = deriveStudentCode(fbUser.uid);
+            try {
+              await setDoc(
+                doc(db, 'users', fbUser.uid),
+                { studentCode },
+                { merge: true }
+              );
+            } catch (backfillErr) {
+              console.warn('[authService] Failed to backfill studentCode on users doc:', backfillErr);
+            }
+          }
+
+          // Ensure student_codes lookup document is present for this child
+          if (userRole === 'child' && studentCode) {
+            try {
+              const codeDocRef = doc(db, 'student_codes', studentCode);
+              const codeSnap = await getDoc(codeDocRef);
+              if (!codeSnap.exists()) {
+                await setDoc(codeDocRef, {
+                  childUid: fbUser.uid,
+                  studentCode,
+                  createdAt: docData.createdAt || new Date().toISOString(),
+                });
+              }
+            } catch (codeErr) {
+              console.warn('[authService] Failed to ensure student_codes lookup record on login:', codeErr);
+            }
+          }
+
           userProfile = {
             uid: fbUser.uid,
             email: fbUser.email || email,
@@ -214,7 +271,7 @@ export const authService = {
             createdAt: docData.createdAt,
             emailVerified: fbUser.emailVerified,
             childProfile: docData.childProfile,
-            studentCode: docData.studentCode,
+            studentCode,
             linkedChildren: docData.linkedChildren,
             linkedGuardians: docData.linkedGuardians,
             avatar: docData.avatar || docData.childProfile?.avatar,
@@ -230,6 +287,7 @@ export const authService = {
           email: fbUser.email || email,
           displayName: fbUser.displayName || (role === 'child' ? 'ශිෂ්‍යයා' : 'දෙමාපියන්'),
           role,
+          studentCode: role === 'child' ? deriveStudentCode(fbUser.uid) : undefined,
           age: role === 'child' ? 7 : undefined,
           grade: role === 'child' ? 2 : undefined,
           createdAt: new Date().toISOString(),

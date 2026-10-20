@@ -18,6 +18,7 @@ import AppText from '@/components/AppText';
 import Card from '@/components/Card';
 import ProgressBar from '@/components/ProgressBar';
 import NavBar from '@/components/NavBar';
+import BottomNav from '@/components/BottomNav';
 import M3RecommendationCard from '@/components/M3RecommendationCard';
 import EmailReportModal from '@/components/EmailReportModal';
 import { sessionService } from '@/services/sessionService';
@@ -426,6 +427,9 @@ export default function ReportsScreen() {
         sessions={rawSessions}
         m3Recommendation={m3Data || undefined}
       />
+
+      {/* Universal Parent Bottom Navigation */}
+      <BottomNav role="parent" activeTab="reports" />
     </SafeAreaView>
   );
 }
@@ -438,6 +442,9 @@ const styles = StyleSheet.create({
   scroll: {
     padding: ThemeSpacing.md,
     gap: ThemeSpacing.md,
+    maxWidth: 960,
+    width: '100%',
+    alignSelf: 'center',
   },
   childHeaderCard: {
     flexDirection: 'row',

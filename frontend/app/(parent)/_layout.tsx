@@ -17,6 +17,7 @@ export default function ParentLayout() {
 
   const isFallback = (auth as any)?.isFallback;
   const isUnverified = user && (user.role === 'parent' || user.role === 'teacher') && !user.emailVerified && !isFallback;
+  const isChild = user && user.role === 'child';
 
   useEffect(() => {
     if (!isLoading) {
@@ -27,12 +28,14 @@ export default function ParentLayout() {
           pathname: '/(auth)/verify-email',
           params: { email: user?.email || '', unverified: 'true' },
         });
+      } else if (isChild) {
+        router.replace('/(child)/home');
       }
     }
-  }, [isAuthenticated, isLoading, user, isUnverified]);
+  }, [isAuthenticated, isLoading, user, isUnverified, isChild]);
 
   // Render nothing while the auth state is loading or redirect is in progress
-  if (isLoading || !isAuthenticated || isUnverified) {
+  if (isLoading || !isAuthenticated || isUnverified || isChild) {
     return null;
   }
 

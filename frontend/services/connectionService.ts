@@ -18,7 +18,7 @@ import {
   arrayRemove,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { ConnectionRequest, LinkedPerson, UserProfile, UserRole } from '@/types';
 import { AppStorage } from '@/utils/storage';
 
@@ -60,109 +60,102 @@ export const connectionService = {
       throw new Error('ඔබගේම ගිණුමට සම්බන්ධතා ඉල්ලීම් යැවිය නොහැක. (Cannot send connection request to yourself.)');
     }
 
-    // 1. Locate student in Firestore
-    let targetChild: UserProfile | null = null;
-    let targetChildDocId = '';
+    // Guard against unconfigured Firebase environment
+    if ((auth as any)?.isFallback) {
+      throw new Error(
+        'Firebase සේවාව සකසා නොමැත. සිසුන් සම්බන්ධ කිරීම සඳහා කරුණාකර frontend/.env ගොනුවේ Firebase credentials ඇතුළත් කරන්න. (Firebase is unconfigured. Real Firebase credentials in frontend/.env are required to link student accounts.)'
+      );
+    }
+
+    // 1. Locate student in Firestore via privacy-safe student_codes lookup
+    if (input.includes('@')) {
+      throw new Error(
+        'විද්‍යුත් තැපෑල මගින් සම්බන්ධ කිරීම පෞද්ගලිකත්ව ආරක්ෂාව හේතුවෙන් තාවකාලිකව අත්හිටුවා ඇත. කරුණාකර ශිෂ්‍ය කේතය (Student Code) භාවිත කරන්න. (Email-based linking is temporarily disabled for privacy safety. Please use the Student Code.)'
+      );
+    }
+
+    const formattedCode = input.toUpperCase().trim();
+    let childUid = '';
 
     try {
-      // Search by email first
-      if (input.includes('@')) {
-        const qEmail = query(
-          collection(db, COLLECTION_USERS),
-          where('email', '==', input.toLowerCase())
+      const codeDocRef = doc(db, 'student_codes', formattedCode);
+      const codeSnap = await getDoc(codeDocRef);
+
+      if (!codeSnap.exists()) {
+        throw new Error(
+          'මෙම කේතයට අදාළ ශිෂ්‍ය ගිණුමක් හමු නොවීය. කරුණාකර නිවැරදි ශිෂ්‍ය කේතය පරීක්ෂා කරන්න. (No student account found with this student code.)'
         );
-        const snap = await getDocs(qEmail);
-        if (!snap.empty) {
-          const docData = snap.docs[0].data() as UserProfile;
-          targetChild = docData;
-          targetChildDocId = snap.docs[0].id;
-        }
       }
 
-      // If not found by exact email, try by studentCode or UID
-      if (!targetChild) {
-        const formattedCode = input.toUpperCase();
-        const qCode = query(
-          collection(db, COLLECTION_USERS),
-          where('studentCode', '==', formattedCode)
+      const codeData = codeSnap.data();
+      childUid = codeData.childUid;
+    } catch (err: any) {
+      if (err.message && (err.message.includes('මෙම කේතයට') || err.message.includes('විද්‍යුත් තැපෑල'))) {
+        throw err;
+      }
+      console.warn('[connectionService] student_codes search error:', err);
+      if (err?.code === 'permission-denied') {
+        throw new Error(
+          'ශිෂ්‍ය කේතය පරීක්ෂා කිරීමට අවසර නොමැත. (Permission denied accessing student code in Firestore.)'
         );
-        const codeSnap = await getDocs(qCode);
-        if (!codeSnap.empty) {
-          targetChild = codeSnap.docs[0].data() as UserProfile;
-          targetChildDocId = codeSnap.docs[0].id;
-        }
       }
-
-      // Fallback: check all users if studentCode wasn't explicitly saved
-      if (!targetChild) {
-        const qAll = query(collection(db, COLLECTION_USERS), where('role', '==', 'child'));
-        const allSnap = await getDocs(qAll);
-        for (const docSnap of allSnap.docs) {
-          const u = docSnap.data() as UserProfile;
-          const derived = deriveStudentCode(docSnap.id);
-          if (
-            u.email?.toLowerCase() === input.toLowerCase() ||
-            derived.toLowerCase() === input.toLowerCase() ||
-            docSnap.id.toLowerCase() === input.toLowerCase()
-          ) {
-            targetChild = u;
-            targetChildDocId = docSnap.id;
-            break;
-          }
-        }
+      if (err?.code === 'unavailable' || err?.message?.includes('network')) {
+        throw new Error(
+          'ජාල දෝෂයකි. කරුණාකර අන්තර්ජාල සම්බන්ධතාවය පරීක්ෂා කරන්න. (Network error. Please check your connection.)'
+        );
       }
-    } catch (err) {
-      console.warn('[connectionService] Firestore search warning:', err);
-    }
-
-    if (!targetChild) {
       throw new Error(
-        'මෙම විද්‍යුත් තැපෑල හෝ කේතයට අදාළ ශිෂ්‍ය ගිණුමක් හමු නොවීය. කරුණාකර නිවැරදි තොරතුරු පරීක්ෂා කරන්න. (No student account found with this email or code.)'
+        `ශිෂ්‍ය කේතය සෙවීමේදී දෝෂයක් ඇති විය: ${err?.message || 'අඥාත දෝෂයකි'} (Error searching for student code.)`
       );
     }
 
-    if (targetChild.role !== 'child') {
+    if (!childUid) {
       throw new Error(
-        'ඇතුළත් කළ ගිණුම ශිෂ්‍ය ගිණුමක් නොවේ. දෙමාපිය/ගුරු ගිණුම් වෙත සම්බන්ධතා ඉල්ලීම් යැවිය නොහැක. (The entered account is not a student account.)'
+        'මෙම කේතයට අදාළ ශිෂ්‍ය ගිණුමක් හමු නොවීය. (No student account found with this student code.)'
       );
     }
 
-    const childUid = targetChildDocId || targetChild.uid;
+    if (childUid === sender.uid) {
+      throw new Error('ඔබගේම ගිණුමට සම්බන්ධතා ඉල්ලීම් යැවිය නොහැක. (Cannot send connection request to yourself.)');
+    }
 
-    // 2. Check if already linked
+    // 2. Check if already linked in local sender profile
     if (sender.linkedChildren && sender.linkedChildren.some((c) => c.uid === childUid)) {
       throw new Error('මෙම ශිෂ්‍යයා දැනටමත් ඔබගේ ගිණුමට සම්බන්ධ කර ඇත. (This student is already linked to your account.)');
     }
 
-    // 3. Check for existing pending request
+    // 3. Check for existing request using deterministic ID $(senderUid)_$(childUid)
+    const deterministicLinkId = `${sender.uid}_${childUid}`;
+    const linkDocRef = doc(db, COLLECTION_REQUESTS, deterministicLinkId);
+
     try {
-      const qExisting = query(
-        collection(db, COLLECTION_REQUESTS),
-        where('senderUid', '==', sender.uid),
-        where('childUid', '==', childUid),
-        where('status', '==', 'pending')
-      );
-      const existingSnap = await getDocs(qExisting);
-      if (!existingSnap.empty) {
-        throw new Error('මෙම ශිෂ්‍යයා වෙත දැනටමත් සම්බන්ධතා ඉල්ලීමක් යවා ඇත. (A connection request has already been sent to this student.)');
+      const existingLinkSnap = await getDoc(linkDocRef);
+      if (existingLinkSnap.exists()) {
+        const existingStatus = existingLinkSnap.data()?.status;
+        if (existingStatus === 'accepted') {
+          throw new Error('මෙම ශිෂ්‍යයා දැනටමත් ඔබගේ ගිණුමට සම්බන්ධ කර ඇත. (This student is already linked to your account.)');
+        }
+        if (existingStatus === 'pending') {
+          throw new Error('මෙම ශිෂ්‍යයා වෙත දැනටමත් සම්බන්ධතා ඉල්ලීමක් යවා ඇත. කරුණාකර ශිෂ්‍යයා විසින් එය තහවුරු කරන තෙක් රැඳී සිටින්න. (A connection request has already been sent to this student.)');
+        }
       }
     } catch (err: any) {
-      if (err.message && err.message.includes('දැනටමත්')) {
+      if (err.message && (err.message.includes('දැනටමත් ඔබගේ') || err.message.includes('දැනටමත් සම්බන්ධතා'))) {
         throw err;
       }
-      console.warn('[connectionService] Check existing requests warning:', err);
+      console.warn('[connectionService] Check existing deterministic request warning:', err);
     }
 
-    // 4. Create connection request in Firestore
+    // 4. Create or reactivate connection request in Firestore with deterministic ID
     const newRequest: Omit<ConnectionRequest, 'id'> = {
       senderUid: sender.uid,
       senderName: sender.displayName || (sender.role === 'teacher' ? 'ගුරුතුමා / ගුරුතුමිය' : 'දෙමාපියන්'),
       senderEmail: sender.email,
       senderRole: (sender.role as 'parent' | 'teacher') || 'parent',
       childUid,
-      childEmail: targetChild.email,
-      childName: targetChild.displayName || 'ශිෂ්‍යයා',
-      childGrade: targetChild.grade || 2,
+      childEmail: '', // Not exposed via public code lookup; populated on student accept
+      childName: 'ශිෂ්‍යයා',
+      childGrade: 2,
       relationship:
         relationship ||
         (sender.role === 'teacher' ? 'පන්ති භාර ගුරුතුමා / ගුරුතුමිය' : 'දෙමාපියන් / භාරකරු'),
@@ -170,19 +163,31 @@ export const connectionService = {
       createdAt: new Date().toISOString(),
     };
 
-    let docId = `req_${Date.now()}`;
     try {
-      const docRef = await addDoc(collection(db, COLLECTION_REQUESTS), {
+      await setDoc(linkDocRef, {
         ...newRequest,
+        updatedAt: new Date().toISOString(),
         serverTimestamp: serverTimestamp(),
       });
-      docId = docRef.id;
-    } catch (createErr) {
-      console.warn('[connectionService] Firestore addDoc warning:', createErr);
+    } catch (createErr: any) {
+      console.error('[connectionService] Firestore setDoc error:', createErr);
+      if (createErr?.code === 'permission-denied') {
+        throw new Error(
+          'සම්බන්ධතා ඉල්ලීම සුරැකීමට අවසර නොමැත. (Permission denied creating connection request in Firestore.)'
+        );
+      }
+      if (createErr?.code === 'unavailable' || createErr?.message?.includes('network')) {
+        throw new Error(
+          'ජාල දෝෂයකි. කරුණාකර අන්තර්ජාල සම්බන්ධතාවය පරීක්ෂා කර නැවත උත්සාහ කරන්න. (Network error creating connection request.)'
+        );
+      }
+      throw new Error(
+        `සම්බන්ධතා ඉල්ලීම යැවීම අසාර්ථක විය: ${createErr?.message || 'අඥාත දෝෂයකි'} (Failed to send connection request.)`
+      );
     }
 
     const createdRecord: ConnectionRequest = {
-      id: docId,
+      id: deterministicLinkId,
       ...newRequest,
     };
 
@@ -203,13 +208,13 @@ export const connectionService = {
    */
   async getPendingRequestsForChild(
     childUid: string,
-    childEmail: string
+    childEmail?: string
   ): Promise<ConnectionRequest[]> {
     const list: ConnectionRequest[] = [];
     const seenIds = new Set<string>();
 
     try {
-      // Query by childUid
+      // Query by childUid (secure UID lookup compliant with firestore.rules)
       if (childUid) {
         const qUid = query(
           collection(db, COLLECTION_REQUESTS),
@@ -218,22 +223,6 @@ export const connectionService = {
         );
         const snapUid = await getDocs(qUid);
         snapUid.forEach((d) => {
-          if (!seenIds.has(d.id)) {
-            seenIds.add(d.id);
-            list.push({ id: d.id, ...(d.data() as Omit<ConnectionRequest, 'id'>) });
-          }
-        });
-      }
-
-      // Query by childEmail
-      if (childEmail) {
-        const qEmail = query(
-          collection(db, COLLECTION_REQUESTS),
-          where('childEmail', '==', childEmail.toLowerCase()),
-          where('status', '==', 'pending')
-        );
-        const snapEmail = await getDocs(qEmail);
-        snapEmail.forEach((d) => {
           if (!seenIds.has(d.id)) {
             seenIds.add(d.id);
             list.push({ id: d.id, ...(d.data() as Omit<ConnectionRequest, 'id'>) });
@@ -308,15 +297,18 @@ export const connectionService = {
       await updateDoc(reqRef, {
         status: 'accepted',
         childUid: childUser.uid,
-        childEmail: childUser.email.toLowerCase(),
+        childName: childUser.displayName || 'ශිෂ්‍යයා',
+        childGrade: childUser.grade || 2,
+        childEmail: childUser.email ? childUser.email.toLowerCase() : '',
         respondedAt,
+        updatedAt: respondedAt,
       });
     } catch (err) {
       console.warn('[connectionService] Error updating request status:', err);
     }
 
     try {
-      // 2. Update child document with linked guardian
+      // 2. Update child document with linked guardian (owner write)
       const childRef = doc(db, COLLECTION_USERS, childUser.uid);
       await setDoc(
         childRef,
@@ -329,19 +321,8 @@ export const connectionService = {
       console.warn('[connectionService] Error linking guardian to child doc:', err);
     }
 
-    try {
-      // 3. Update parent document with linked child
-      const parentRef = doc(db, COLLECTION_USERS, request.senderUid);
-      await setDoc(
-        parentRef,
-        {
-          linkedChildren: arrayUnion(childLink),
-        },
-        { merge: true }
-      );
-    } catch (err) {
-      console.warn('[connectionService] Error linking child to parent doc:', err);
-    }
+    // Note: Cross-user write to users/{request.senderUid} has been eliminated.
+    // The relationship is authoritatively tracked in connection_requests where status == 'accepted'.
 
     // Save locally for both child and parent caches
     try {
@@ -388,7 +369,7 @@ export const connectionService = {
   async getLinkedChildren(parentUid: string, parentEmail?: string): Promise<LinkedPerson[]> {
     const map = new Map<string, LinkedPerson>();
 
-    // 1. Query connection_requests where status == 'accepted' and sender matches
+    // 1. Authoritative source: Query connection_requests where status == 'accepted' and sender matches
     try {
       if (parentUid) {
         const qSender = query(
@@ -413,35 +394,11 @@ export const connectionService = {
           }
         });
       }
-
-      if (parentEmail) {
-        const qEmail = query(
-          collection(db, COLLECTION_REQUESTS),
-          where('senderEmail', '==', parentEmail.toLowerCase()),
-          where('status', '==', 'accepted')
-        );
-        const snapEmail = await getDocs(qEmail);
-        snapEmail.forEach((d) => {
-          const data = d.data() as ConnectionRequest;
-          const key = data.childUid || data.childEmail;
-          if (key) {
-            map.set(key, {
-              uid: data.childUid,
-              name: data.childName,
-              email: data.childEmail,
-              role: 'child',
-              grade: data.childGrade,
-              relationship: data.relationship,
-              linkedAt: data.respondedAt || data.createdAt,
-            });
-          }
-        });
-      }
     } catch (err) {
       console.warn('[connectionService] getLinkedChildren requests query warning:', err);
     }
 
-    // 2. Query users/{parentUid} in Firestore
+    // 2. Query users/{parentUid} in Firestore (Owner profile read)
     try {
       if (parentUid) {
         const userRef = doc(db, COLLECTION_USERS, parentUid);
@@ -451,7 +408,7 @@ export const connectionService = {
           if (data.linkedChildren && Array.isArray(data.linkedChildren)) {
             data.linkedChildren.forEach((c: LinkedPerson) => {
               const key = c?.uid || c?.email;
-              if (key) map.set(key, c);
+              if (key && !map.has(key)) map.set(key, c);
             });
           }
         }
@@ -478,54 +435,35 @@ export const connectionService = {
   },
 
   /**
-   * Get all linked parents/guardians for a child
+   * Get all linked parents/guardians for a student
    */
   async getLinkedGuardians(childUid: string, childEmail?: string): Promise<LinkedPerson[]> {
     const map = new Map<string, LinkedPerson>();
+    const declinedSenderUids = new Set<string>();
 
-    // 1. Query connection_requests where status == 'accepted' and childUid matches
+    // 1. Authoritative source: Query connection_requests where childUid matches
     try {
       if (childUid) {
         const qUid = query(
           collection(db, COLLECTION_REQUESTS),
-          where('childUid', '==', childUid),
-          where('status', '==', 'accepted')
+          where('childUid', '==', childUid)
         );
         const snapUid = await getDocs(qUid);
         snapUid.forEach((d) => {
           const data = d.data() as ConnectionRequest;
           if (data.senderUid) {
-            map.set(data.senderUid, {
-              uid: data.senderUid,
-              name: data.senderName,
-              email: data.senderEmail,
-              role: data.senderRole,
-              relationship: data.relationship,
-              linkedAt: data.respondedAt || data.createdAt,
-            });
-          }
-        });
-      }
-
-      // 2. Also check connection_requests where childEmail matches
-      if (childEmail) {
-        const qEmail = query(
-          collection(db, COLLECTION_REQUESTS),
-          where('childEmail', '==', childEmail.toLowerCase()),
-          where('status', '==', 'accepted')
-        );
-        const snapEmail = await getDocs(qEmail);
-        snapEmail.forEach((d) => {
-          const data = d.data() as ConnectionRequest;
-          if (data.senderUid) {
-            map.set(data.senderUid, {
-              uid: data.senderUid,
-              name: data.senderName,
-              email: data.senderEmail,
-              role: data.senderRole,
-              relationship: data.relationship,
-              linkedAt: data.respondedAt || data.createdAt,
-            });
+            if (data.status === 'accepted') {
+              map.set(data.senderUid, {
+                uid: data.senderUid,
+                name: data.senderName,
+                email: data.senderEmail,
+                role: data.senderRole,
+                relationship: data.relationship,
+                linkedAt: data.respondedAt || data.createdAt,
+              });
+            } else if (data.status === 'declined') {
+              declinedSenderUids.add(data.senderUid);
+            }
           }
         });
       }
@@ -533,7 +471,7 @@ export const connectionService = {
       console.warn('[connectionService] getLinkedGuardians requests query warning:', err);
     }
 
-    // 3. Query users/{childUid} in Firestore
+    // 2. Query users/{childUid} in Firestore, excluding any declined/disconnected guardians
     try {
       if (childUid) {
         const userRef = doc(db, COLLECTION_USERS, childUid);
@@ -542,7 +480,9 @@ export const connectionService = {
           const data = snap.data();
           if (data.linkedGuardians && Array.isArray(data.linkedGuardians)) {
             data.linkedGuardians.forEach((g: LinkedPerson) => {
-              if (g?.uid) map.set(g.uid, g);
+              if (g?.uid && !declinedSenderUids.has(g.uid) && !map.has(g.uid)) {
+                map.set(g.uid, g);
+              }
             });
           }
         }
@@ -551,14 +491,16 @@ export const connectionService = {
       console.warn('[connectionService] getLinkedGuardians users doc warning:', err);
     }
 
-    // 4. Local storage fallback
+    // 3. Local storage fallback, excluding any declined/disconnected guardians
     try {
       if (childUid) {
         const stored = await AppStorage.getItem(`@nena_man_linked_guardians_${childUid}`);
         if (stored) {
           const parsed: LinkedPerson[] = JSON.parse(stored);
           parsed.forEach((g) => {
-            if (g?.uid && !map.has(g.uid)) map.set(g.uid, g);
+            if (g?.uid && !declinedSenderUids.has(g.uid) && !map.has(g.uid)) {
+              map.set(g.uid, g);
+            }
           });
         }
       }
@@ -597,7 +539,9 @@ export const connectionService = {
         if (isMatch) {
           await updateDoc(doc(db, COLLECTION_REQUESTS, d.id), {
             status: 'declined', // Mark as declined so queries ignore it
+            disconnectedAt: new Date().toISOString(),
             removedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           });
         }
       }
@@ -626,27 +570,10 @@ export const connectionService = {
       console.warn('[connectionService] remove from parent doc warning:', err);
     }
 
-    // 3. Remove parent from child document in Firestore users/{childUid}
-    try {
-      const targetChildId = childUid || childEmail;
-      if (targetChildId) {
-        const childRef = doc(db, COLLECTION_USERS, targetChildId);
-        const snap = await getDoc(childRef);
-        if (snap.exists()) {
-          const data = snap.data();
-          if (data.linkedGuardians && Array.isArray(data.linkedGuardians)) {
-            const updated = data.linkedGuardians.filter(
-              (g: LinkedPerson) => g.uid !== parentUid
-            );
-            await updateDoc(childRef, { linkedGuardians: updated });
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('[connectionService] remove from child doc warning:', err);
-    }
+    // Note: Cross-user write to users/{targetChildId} has been eliminated.
+    // The relationship revocation is authoritatively governed by connection_requests status == 'declined'.
 
-    // 4. Update local storage caches
+    // 3. Update local storage caches
     try {
       const parentKey = `@nena_man_linked_children_${parentUid}`;
       const stored = await AppStorage.getItem(parentKey);

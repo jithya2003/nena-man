@@ -16,8 +16,12 @@ import AppText from '@/components/AppText';
 import Card from '@/components/Card';
 import ProgressBar from '@/components/ProgressBar';
 import Button from '@/components/Button';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function RecommendationSimulator() {
+  const { language } = useLanguage();
+  const isSi = language === 'si';
+
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('medium');
   const [support, setSupport] = useState<SupportType>('simplification');
   const [duration, setDuration] = useState<number>(10);
@@ -40,16 +44,16 @@ export default function RecommendationSimulator() {
   };
 
   const difficulties: { key: DifficultyLevel; label: string; icon: string }[] = [
-    { key: 'easy', label: 'Easy', icon: '🟢' },
-    { key: 'medium', label: 'Medium', icon: '🟡' },
-    { key: 'hard', label: 'Hard', icon: '🔴' },
+    { key: 'easy', label: isSi ? 'පහසු' : 'Easy', icon: '🟢' },
+    { key: 'medium', label: isSi ? 'සාමාන්‍ය' : 'Medium', icon: '🟡' },
+    { key: 'hard', label: isSi ? 'උසස්' : 'Hard', icon: '🔴' },
   ];
 
   const supports: { key: SupportType; label: string; icon: string }[] = [
-    { key: 'simplification', label: 'AI Simplify', icon: '✨' },
-    { key: 'syllable_split', label: 'Syllables', icon: '🔤' },
-    { key: 'audio', label: 'Audio Cue', icon: '🔊' },
-    { key: 'picture', label: 'Picture Cue', icon: '🖼️' },
+    { key: 'simplification', label: isSi ? 'සරල කිරීම' : 'Simplification', icon: '✨' },
+    { key: 'syllable_split', label: isSi ? 'අක්ෂර වෙන්කිරීම' : 'Syllables', icon: '🔤' },
+    { key: 'audio', label: isSi ? 'හඬ සහාය' : 'Audio Cue', icon: '🔊' },
+    { key: 'picture', label: isSi ? 'පින්තූර සහාය' : 'Picture Cue', icon: '🖼️' },
   ];
 
   const durations = [5, 10, 15];
@@ -60,17 +64,17 @@ export default function RecommendationSimulator() {
         <View style={styles.moduleTag}>
           <View style={[styles.moduleDot, { backgroundColor: ThemeColors.m3 }]} />
           <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
-            M3 — What-If Recommendation Simulator
+            {isSi ? 'අන්තර්ක්‍රියාකාරී පුහුණු සැලසුම්කාරකය' : 'Interactive Practice Planner'}
           </AppText>
         </View>
         <AppText size="xs" color={ThemeColors.textMuted}>
-          Simulate Pedagogical Shifts
+          {isSi ? 'පුහුණු සැලසුම වෙනස් කර බලන්න' : 'Plan Practice Activities & Support'}
         </AppText>
       </View>
 
       {/* ── Lever 1: Text Difficulty ────────────────────────────────────── */}
       <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.leverTitle}>
-        1. Select Target Difficulty Level:
+        {isSi ? '1. අභ්‍යාසවල අපහසුතා මට්ටම තෝරන්න:' : '1. Select Target Difficulty Level:'}
       </AppText>
       <View style={styles.pillRow}>
         {difficulties.map((d) => {
@@ -97,7 +101,7 @@ export default function RecommendationSimulator() {
 
       {/* ── Lever 2: Scaffolding Strategy ───────────────────────────────── */}
       <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.leverTitle}>
-        2. Primary Scaffolding Level:
+        {isSi ? '2. ලබාදෙන කියවීමේ සහාය:' : '2. Primary Support Strategy:'}
       </AppText>
       <View style={styles.pillRow}>
         {supports.map((s) => {
@@ -124,7 +128,7 @@ export default function RecommendationSimulator() {
 
       {/* ── Lever 3: Daily Duration ─────────────────────────────────────── */}
       <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.leverTitle}>
-        3. Daily Session Duration:
+        {isSi ? '3. දිනකට පුහුණු වන කාලය:' : '3. Daily Practice Duration:'}
       </AppText>
       <View style={styles.pillRow}>
         {durations.map((mins) => {
@@ -141,7 +145,7 @@ export default function RecommendationSimulator() {
                 weight={isSelected ? 'bold' : 'medium'}
                 color={isSelected ? ThemeColors.accentDark : ThemeColors.textPrimary}
               >
-                ⏱ {mins} mins / day
+                ⏱ {isSi ? `දිනකට මිනිත්තු ${mins}` : `${mins} mins / day`}
               </AppText>
             </TouchableOpacity>
           );
@@ -151,13 +155,13 @@ export default function RecommendationSimulator() {
       {/* ── Real-Time Prediction Results Matrix ─────────────────────────── */}
       <View style={styles.resultsBox}>
         <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={{ marginBottom: ThemeSpacing.xs }}>
-          🤖 ML Model Simulated Forecast:
+          {isSi ? '📈 අපේක්ෂිත ප්‍රගති පුරෝකථනය:' : '📈 Projected Progress Forecast:'}
         </AppText>
 
         <View style={styles.metricsRow}>
           <View style={styles.forecastItem}>
             <AppText size="xs" color={ThemeColors.textMuted}>
-              Predicted Accuracy
+              {isSi ? 'අපේක්ෂිත නිරවද්‍යතාව' : 'Predicted Accuracy'}
             </AppText>
             <AppText
               size="lg"
@@ -170,7 +174,7 @@ export default function RecommendationSimulator() {
 
           <View style={styles.forecastItem}>
             <AppText size="xs" color={ThemeColors.textMuted}>
-              Frustration Risk
+              {isSi ? 'අපහසු වීමේ අවදානම' : 'Challenge Risk'}
             </AppText>
             <AppText
               size="lg"
@@ -183,10 +187,10 @@ export default function RecommendationSimulator() {
 
           <View style={styles.forecastItem}>
             <AppText size="xs" color={ThemeColors.textMuted}>
-              Time to Milestone
+              {isSi ? 'මීළඟ පියවරට කාලය' : 'Time to Next Milestone'}
             </AppText>
             <AppText size="lg" weight="extrabold" color={ThemeColors.accentDark}>
-              {outputs.timeToNextMilestoneDays} days
+              {isSi ? `දින ${outputs.timeToNextMilestoneDays}ක්` : `${outputs.timeToNextMilestoneDays} days`}
             </AppText>
           </View>
         </View>
@@ -202,13 +206,15 @@ export default function RecommendationSimulator() {
       {appliedNotice && (
         <View style={styles.appliedPill}>
           <AppText size="xs" weight="bold" color={ThemeColors.success}>
-            ✓ Customized strategy saved and applied to Nimasha's next session!
+            {isSi
+              ? '✓ නව පුහුණු සැලසුම දරුවාගේ මීළඟ සැසිය සඳහා සාර්ථකව යොදන ලදී!'
+              : '✓ Customized strategy saved and applied to next session!'}
           </AppText>
         </View>
       )}
 
       <Button
-        label="Apply This Customized Strategy ⚡"
+        label={isSi ? 'මෙම පුහුණු සැලසුම යොදන්න ⚡' : 'Apply This Practice Plan ⚡'}
         onPress={handleApply}
         fullWidth
         size="md"

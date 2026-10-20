@@ -112,8 +112,8 @@ export default function M3RecommendationCard({
           <View style={[styles.moduleDot, { backgroundColor: ThemeColors.m3 }]} />
           <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
             {language === 'si'
-              ? 'අනුවර්තී නිර්දේශ එන්ජිම (M3 AI Guidance)'
-              : 'Adaptive Recommendation Engine (M3)'}
+              ? 'දරුවාට ගැළපෙන ඉගෙනුම් සැලැස්ම'
+              : 'Personalized Learning Plan'}
           </AppText>
         </View>
         <View style={[styles.confidenceBadge, { backgroundColor: ThemeColors.surface }]}>
@@ -123,7 +123,7 @@ export default function M3RecommendationCard({
         </View>
       </View>
 
-      {/* View Mode Toggle (Parent-Friendly vs Clinical XAI) */}
+      {/* View Mode Toggle (Parent-Friendly vs Detailed Educator View) */}
       <View style={styles.modeToggleRow}>
         <TouchableOpacity
           style={[styles.modeToggleBtn, viewMode === 'parent' && styles.modeToggleBtnActive]}
@@ -141,7 +141,7 @@ export default function M3RecommendationCard({
           activeOpacity={0.8}
         >
           <AppText size="xs" weight="bold" color={viewMode === 'clinical' ? '#FFFFFF' : ThemeColors.textSecondary}>
-            {language === 'si' ? '🔬 අධ්‍යාපනික XAI විග්‍රහය' : '🔬 Educator & Technical XAI (SHAP)'}
+            {language === 'si' ? '🔬 සවිස්තරාත්මක ඉගෙනුම් සාධක' : '🔬 Detailed Learning Factors'}
           </AppText>
         </TouchableOpacity>
       </View>
@@ -156,7 +156,7 @@ export default function M3RecommendationCard({
           </View>
           <View style={{ flex: 1 }}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
-              {language === 'si' ? 'AI නිර්දේශිත පියවර:' : 'AI Prescribed Adaptation:'}
+              {language === 'si' ? 'මීළඟ ඉගෙනුම් පියවර:' : 'Recommended Next Step:'}
             </AppText>
             <AppText size="md" weight="extrabold" color={badgeStyle.text}>
               {badgeStyle.label}
@@ -182,7 +182,7 @@ export default function M3RecommendationCard({
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
               <AppText size="sm">💡</AppText>
               <AppText size="xs" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
-                {language === 'si' ? 'මෙම නිර්දේශය ලබාදීමට හේතුව:' : 'Why the AI made this choice:'}
+                {language === 'si' ? 'මෙම පියවර තෝරාගැනීමට හේතුව:' : 'Reason for this learning step:'}
               </AppText>
             </View>
             <AppText size="xs" color={ThemeColors.textPrimary} style={{ lineHeight: 20 }}>
@@ -204,14 +204,14 @@ export default function M3RecommendationCard({
           </View>
         </View>
       ) : (
-        /* ── EDUCATOR & TECHNICAL XAI VIEW ─────────────────────────────────── */
+        /* ── EDUCATOR & DETAILED LEARNING FACTORS VIEW ──────────────────────── */
         <View style={styles.clinicalContentBox}>
           {/* Plain Language AI Rationale */}
           <AppText size="xs" color={ThemeColors.textSecondary} style={styles.rationaleText}>
             {Array.isArray(data.rationale) ? data.rationale.join(' ') : data.rationale}
           </AppText>
 
-          {/* 1. Explainable AI (XAI) Feature Importance Section */}
+          {/* 1. Key Learning Factors Section */}
           <View style={styles.accordionContainer}>
             <TouchableOpacity
               style={styles.accordionHeader}
@@ -221,7 +221,7 @@ export default function M3RecommendationCard({
               <View style={styles.accordionTitleRow}>
                 <AppText size="sm">🔍</AppText>
                 <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-                  Explainable AI (XAI) — Feature Contributions
+                  {language === 'si' ? 'කියවීමේ හැකියාවට බලපෑ ප්‍රධාන සාධක' : 'Key Factors Influencing Reading Progress'}
                 </AppText>
               </View>
               <AppText size="xs" weight="bold" color={ThemeColors.accentDark}>
@@ -236,7 +236,9 @@ export default function M3RecommendationCard({
                   <View style={styles.shapBadgeRow}>
                     <View style={[styles.methodPill, isShap ? styles.methodPillShap : styles.methodPillFallback]}>
                       <AppText size="xs" weight="bold" color={isShap ? '#047857' : '#9A3412'}>
-                        {isShap ? '✓ SHAP TreeExplainer (Local Attribution)' : '⚠️ Heuristic Attribution Fallback'}
+                        {isShap
+                          ? (language === 'si' ? '✓ සවිස්තරාත්මක සාධක විශ්ලේෂණය' : '✓ Detailed Factor Analysis')
+                          : (language === 'si' ? '✓ මූලික සාධක විශ්ලේෂණය' : '✓ Standard Factor Analysis')}
                       </AppText>
                     </View>
                     <AppText size="xs" color={ThemeColors.textSecondary}>
@@ -246,13 +248,9 @@ export default function M3RecommendationCard({
                     </AppText>
                   </View>
                   <AppText size="xs" color={ThemeColors.textMuted} style={styles.shapDisclaimer}>
-                    {isShap
-                      ? (language === 'si'
-                          ? '* ප්‍රස්ථාර ප්‍රතිශත මගින් මෙම සැසියේ නිර්දේශය සඳහා එක් එක් සාධකයේ සාපේක්ෂ බලපෑම පෙන්වයි (සායනික හේතු දැක්වීමක් නොවේ).'
-                          : '* Bar percentages represent normalized relative display weights for this session (not clinical causation).')
-                      : (language === 'si'
-                          ? '* SHAP ඇල්ගොරිතමය නොමැති අවස්ථාවක ආදේශක නීති මඟින් සාපේක්ෂ බලපෑම් ගණනය කර ඇත.'
-                          : '* Fallback rule-based weights displayed because SHAP explainer was unavailable.')}
+                    {language === 'si'
+                      ? '* ප්‍රස්ථාර ප්‍රතිශත මඟින් දරුවාගේ කියවීමේ ප්‍රගතියට එක් එක් සාධකයේ බලපෑම පෙන්වයි.'
+                      : '* Bar percentages represent relative weights of each factor in guiding the student\'s learning progress.'}
                   </AppText>
                 </View>
 
@@ -271,7 +269,7 @@ export default function M3RecommendationCard({
                           {factor.name}
                         </AppText>
                         <AppText size="xs" weight="bold" color={barColor}>
-                          {factor.weight}% (Relative weight)
+                          {factor.weight}% {language === 'si' ? '(සාපේක්ෂ බලපෑම)' : '(Relative impact)'}
                         </AppText>
                       </View>
                       <ProgressBar value={factor.weight} color={barColor} height={6} />
@@ -291,8 +289,8 @@ export default function M3RecommendationCard({
                   >
                     <AppText size="xs" weight="bold" color={ThemeColors.primary}>
                       {showAllShapFeatures
-                        ? '▲ Hide Additional Features'
-                        : `▼ View All ${allContributions.length} SHAP Model Features`}
+                        ? (language === 'si' ? '▲ අමතර සාධක සඟවන්න' : '▲ Hide Additional Factors')
+                        : (language === 'si' ? `▼ තවත් සාධක ${allContributions.length}ක් බලන්න` : `▼ View All ${allContributions.length} Factors`)}
                     </AppText>
                   </TouchableOpacity>
                 )}
@@ -312,7 +310,7 @@ export default function M3RecommendationCard({
                             {feat.feature}
                           </AppText>
                           <AppText size="xs" weight="bold" color={barColor}>
-                            {feat.shapValue > 0 ? '+' : ''}{feat.shapValue.toFixed(4)} SHAP
+                            {feat.shapValue > 0 ? '+' : ''}{(feat.shapValue * 100).toFixed(1)}%
                           </AppText>
                         </View>
                         <AppText size="xs" color={ThemeColors.textSecondary} style={styles.xaiDesc}>
@@ -325,7 +323,7 @@ export default function M3RecommendationCard({
             )}
           </View>
 
-          {/* 2. KNN Peer-Cohort Benchmark Section */}
+          {/* 2. Peer Benchmark Section */}
           {data.peerBenchmark && (
             <View style={[styles.accordionContainer, { marginTop: ThemeSpacing.xs }]}>
               <TouchableOpacity
@@ -336,7 +334,9 @@ export default function M3RecommendationCard({
                 <View style={styles.accordionTitleRow}>
                   <AppText size="sm">👥</AppText>
                   <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
-                    KNN Peer Benchmark ({data.peerBenchmark.similarityScore}% Match)
+                    {language === 'si'
+                      ? `සම වයස් ළමුන්ගේ සැසඳීම (${data.peerBenchmark.similarityScore}% සමානතාව)`
+                      : `Peer Benchmark (${data.peerBenchmark.similarityScore}% Match)`}
                   </AppText>
                 </View>
                 <AppText size="xs" weight="bold" color={ThemeColors.accentDark}>
@@ -348,11 +348,12 @@ export default function M3RecommendationCard({
                 <View style={styles.peerBody}>
                   <View style={styles.cohortTag}>
                     <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
-                      Cohort: {data.peerBenchmark.cohortName}
+                      {language === 'si' ? 'කණ්ඩායම: ' : 'Group: '}{data.peerBenchmark.cohortName}
                     </AppText>
                   </View>
                   <AppText size="xs" color={ThemeColors.textPrimary} style={{ marginVertical: 4 }}>
-                    📈 Expected Growth: <AppText size="xs" weight="bold" color={ThemeColors.success}>{data.peerBenchmark.averageGrowthRate}</AppText>
+                    {language === 'si' ? '📈 අපේක්ෂිත ප්‍රගතිය: ' : '📈 Expected Growth: '}
+                    <AppText size="xs" weight="bold" color={ThemeColors.success}>{data.peerBenchmark.averageGrowthRate}</AppText>
                   </AppText>
                   <AppText size="xs" color={ThemeColors.textSecondary} style={{ fontStyle: 'italic', lineHeight: 18 }}>
                     "{data.peerBenchmark.comparisonNote}"
@@ -369,14 +370,14 @@ export default function M3RecommendationCard({
         <View style={styles.actionFooter}>
           <View style={styles.nextInfoRow}>
             <AppText size="xs" color={ThemeColors.textSecondary}>
-              {language === 'si' ? 'නියමිත මීළඟ අභ්‍යාසය:' : 'Prescribed Next Activity:'}
+              {language === 'si' ? 'නියමිත මීළඟ අභ්‍යාසය:' : 'Recommended Next Activity:'}
             </AppText>
             <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary}>
               {data.nextActivityLabel}
             </AppText>
           </View>
           <Button
-            label={language === 'si' ? 'අභ්‍යාසයට පිවිසෙන්න 🚀' : 'Launch Prescribed Activity 🚀'}
+            label={language === 'si' ? 'අභ්‍යාසය ආරම්භ කරන්න 🚀' : 'Start Recommended Activity 🚀'}
             variant="primary"
             size="md"
             onPress={handleLaunchActivity}
