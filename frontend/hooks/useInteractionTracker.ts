@@ -231,6 +231,19 @@ export function useInteractionTracker(options: UseInteractionTrackerOptions = {}
 
   const getMetrics = useCallback(() => metricsRef.current, []);
 
+  // Formats pure interaction telemetry object expected by M4 backend /api/v1/behavior/detect
+  const getInteractionPayload = useCallback(() => {
+    const telemetry = getTelemetry();
+    return {
+      responseTime: telemetry.responseTime,
+      tapSpeed: telemetry.tapSpeed,
+      retryCount: telemetry.retryCount,
+      missClicks: telemetry.missClicks,
+      idleTime: telemetry.idleTime,
+      skipFrequency: telemetry.skipFrequency,
+    };
+  }, [getTelemetry]);
+
   return useMemo(
     () => ({
       metrics: metricsRef.current,
@@ -242,6 +255,7 @@ export function useInteractionTracker(options: UseInteractionTrackerOptions = {}
       setTaskCompletion,
       resetTracker,
       getTelemetry,
+      getInteractionPayload,
     }),
     [
       getMetrics,
@@ -252,6 +266,7 @@ export function useInteractionTracker(options: UseInteractionTrackerOptions = {}
       setTaskCompletion,
       resetTracker,
       getTelemetry,
+      getInteractionPayload,
     ]
   );
 }

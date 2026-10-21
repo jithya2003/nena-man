@@ -94,8 +94,30 @@ export async function getBehaviorState(
     return mockGetBehaviorState(input);
   }
 
-  // Real backend endpoint placeholder
-  return apiClient.post('/behavior-state', input);
+  // Format multimodal payload for M4 backend
+  const payload = {
+    interaction: {
+      responseTime: input.responseTime,
+      tapSpeed: input.tapSpeed,
+      retryCount: input.retryCount,
+      missClicks: input.missClicks,
+      idleTime: input.idleTime,
+      skipFrequency: input.skipFrequency,
+    },
+    voice: {
+      readingSpeed: input.readingSpeed,
+      hesitationCount: input.hesitationCount,
+      pauseDuration: input.pauseDuration,
+      fluencyScore: input.fluencyScore,
+      speakingPattern: input.speakingPattern,
+    },
+    camera: (input as any).cameraLandmarks || null,
+    // Include top-level fields for full backward compatibility
+    ...input,
+  };
+
+  const response: any = await apiClient.post('/behavior/detect', payload);
+  return response?.data || response;
 }
 
 // =============================================================================

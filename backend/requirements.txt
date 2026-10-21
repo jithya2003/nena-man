@@ -51,3 +51,8 @@ torch>=2.0.0
 transformers>=4.40.0
 peft>=0.10.0
 sentencepiece>=0.1.99
+
+# --- M4: Behavioral Detection (PUSHPAKUMARA — IT23177246) ---
+# torch>=2.0.0
+# tensorflow>=2.15.0 (or keras>=3.0.0)
+

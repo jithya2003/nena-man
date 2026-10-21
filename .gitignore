@@ -79,6 +79,9 @@ instance/
 ml/checkpoints/*
 !ml/checkpoints/.gitkeep
 
+# Allow M4 lightweight behavioral detection models (<3.5 MB total) so all teammates get them
+!backend/app/modules/behavioral_detection/models/*
+
 # Raw datasets — store on Google Drive / university NAS, NOT in git
 ml/data/*
 !ml/data/.gitkeep

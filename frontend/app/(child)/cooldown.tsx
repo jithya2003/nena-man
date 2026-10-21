@@ -23,10 +23,15 @@ import RewardsModal from '@/components/RewardsModal';
 
 export default function CoolDownGamesScreen() {
   const router = useRouter();
-  const { mode, intervention } = useLocalSearchParams<{ mode?: string; intervention?: string }>();
+  const { mode, intervention, state } = useLocalSearchParams<{ mode?: string; intervention?: string; state?: string }>();
   const [showRewards, setShowRewards] = useState(false);
 
-  const games = [
+  // Normalize detected state and intervention from M4 backend
+  const isFrustrated = state === 'Frustrated' || intervention === 'game-breathing' || mode === 'calm' || intervention === 'cooldown_activity';
+  const isDistracted = state === 'Distracted' || intervention === 'game-star' || mode === 'focus' || intervention === 'focus_game';
+  const isEngaged = state === 'Engaged' || intervention === 'game-bubble' || intervention === 'celebration_reward' || mode === 'celebrate';
+
+  const baseGames = [
     {
       id: 'star-catch',
       icon: '⭐',
@@ -36,7 +41,8 @@ export default function CoolDownGamesScreen() {
       bgColor: '#FEF3C7',
       iconColor: '#F59E0B',
       route: '/(child)/game-star',
-      badge: '✨ ජනප්‍රියයි',
+      badge: isDistracted ? '🎯 අවධානයට නිර්දේශිතයි' : '✨ ජනප්‍රියයි',
+      isRecommended: isDistracted,
     },
     {
       id: 'guided-breathing',
@@ -47,18 +53,8 @@ export default function CoolDownGamesScreen() {
       bgColor: '#E0F2FE',
       iconColor: '#0284C7',
       route: '/(child)/game-breathing',
-      badge: intervention === 'cooldown_activity' || mode === 'calm' ? '🌿 නිර්දේශිතයි' : undefined,
-    },
-    {
-      id: 'memory-game',
-      icon: '🧠',
-      title: 'මතක ක්‍රීඩාව',
-      desc: 'Memory card matching',
-      duration: 'මිනිත්තු 3',
-      bgColor: '#DCFCE7',
-      iconColor: '#10B981',
-      route: '/(child)/game-memory',
-      badge: intervention === 'focus_game' || mode === 'focus' ? '🎯 අවධානය' : undefined,
+      badge: isFrustrated ? '🌿 සන්සුන් වීමට නිර්දේශිතයි' : undefined,
+      isRecommended: isFrustrated,
     },
     {
       id: 'bubble-calm',
@@ -69,6 +65,20 @@ export default function CoolDownGamesScreen() {
       bgColor: '#E0E7FF',
       iconColor: '#6366F1',
       route: '/(child)/game-bubble',
+      badge: isEngaged ? '🎉 ජයග්‍රහණය සැමරීමට (Reward)' : (isFrustrated && !isDistracted ? '🫧 මනස සැහැල්ලු' : undefined),
+      isRecommended: isEngaged,
+    },
+    {
+      id: 'memory-game',
+      icon: '🧠',
+      title: 'මතක ක්‍රීඩාව',
+      desc: 'Memory card matching',
+      duration: 'මිනිත්තු 3',
+      bgColor: '#DCFCE7',
+      iconColor: '#10B981',
+      route: '/(child)/game-memory',
+      badge: undefined,
+      isRecommended: false,
     },
     {
       id: 'letter-puzzle',
@@ -79,6 +89,8 @@ export default function CoolDownGamesScreen() {
       bgColor: '#DBEAFE',
       iconColor: '#3B82F6',
       route: '/(child)/game-puzzle',
+      badge: undefined,
+      isRecommended: false,
     },
     {
       id: 'color-match',
@@ -89,8 +101,15 @@ export default function CoolDownGamesScreen() {
       bgColor: '#FFEDD5',
       iconColor: '#F97316',
       route: '/(child)/game-color',
+      badge: undefined,
+      isRecommended: false,
     },
   ];
+
+  // Dynamically sort so the recommended game appears at the very top
+  const games = React.useMemo(() => {
+    return [...baseGames].sort((a, b) => (b.isRecommended ? 1 : 0) - (a.isRecommended ? 1 : 0));
+  }, [isFrustrated, isDistracted]);
 
   return (
     <SafeAreaView style={styles.container}>

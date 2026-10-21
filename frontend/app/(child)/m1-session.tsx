@@ -1911,82 +1911,135 @@ export default function SpeechSessionScreen() {
         <View style={{ height: ThemeSpacing.xl }} />
       </ScrollView>
 
-      {/* ── Gamified Pop-up: "අපි සෙල්ලමක් කරමුද?" (Routes to CoolDown) ────────────────── */}
+      {/* ── Gamified Pop-up: Behavior-Aware Adaptive Game Route ────────────────── */}
       <Modal
         visible={showGamePopup}
         transparent
         animationType="fade"
         onRequestClose={() => setShowGamePopup(false)}
       >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.gameModalCard, ThemeShadow.lg]}>
-            {/* Mascot / Icon Badge */}
-            <View style={styles.gameModalIconCircle}>
-              <AppText size="display">🎮</AppText>
-            </View>
+        {(() => {
+          const detectedState = session.results.behaviorState?.state || (session.results.behaviorState?.raw as any)?.behaviour_state || 'Engaged';
+          const isFrustrated = detectedState === 'Frustrated' || session.interventionType === 'game-breathing';
+          const isDistracted = detectedState === 'Distracted' || session.interventionType === 'game-star';
+          const isEngaged = detectedState === 'Engaged' || session.interventionType === 'game-bubble';
 
-            <AppText size="xl" weight="extrabold" color={ThemeColors.primary} align="center" style={{ marginTop: 10 }}>
-              අපි සෙල්ලමක් කරමුද?
-            </AppText>
+          const modalIcon = isFrustrated ? '🎈' : isDistracted ? '⭐' : isEngaged ? '🫧' : '🎮';
+          const modalTitle = isFrustrated
+            ? 'හුස්ම ගනිමින් සන්සුන් වෙමුද?'
+            : isDistracted
+            ? 'අවධානය නැවත ලබා ගනිමුද?'
+            : isEngaged
+            ? 'නියමයි! අද ඉතාම හොඳින් කියෙව්වා! 🌟'
+            : 'අපි සෙල්ලමක් කරමුද?';
+          const pillText = isFrustrated
+            ? '🌿 සන්සුන් වීමේ ක්‍රීඩාව (Balloon Breathing)'
+            : isDistracted
+            ? '🎯 අවධානය රඳවා ගැනීමේ ක්‍රීඩාව (Catch the Star)'
+            : isEngaged
+            ? '🎉 ජයග්‍රහණ සැමරීමේ ක්‍රීඩාව (Bubble Pop)'
+            : '🎲 විනෝදජනක සන්සුන් ක්‍රීඩා (CoolDown)';
+          const promptText = isFrustrated
+            ? 'කියවීමේදී මනස තරමක් වෙහෙසට පත් වූ විට සන්සුන් හුස්ම ගැනීමේ ක්‍රීඩාවක් කිරීමෙන් මනස සැහැල්ලු කරගත හැක.'
+            : isDistracted
+            ? 'කියවීමට නැවත අවධානය යොමු කර ගැනීම සඳහා විනෝදජනක තරු ඇල්ලීමේ ක්‍රීඩාවක් කරමු.'
+            : isEngaged
+            ? 'ඔබ අද ඉතාම උනන්දුවෙන් සහ සාර්ථකව කියෙව්වා! ජයග්‍රහණය සැමරීමට සහ මනස සැහැල්ලු කර ගැනීමට විනෝදජනක Bubble Pop ක්‍රීඩාවක් කරමුද?'
+            : `කියවීමෙන් පසු මනස සැහැල්ලු කර ගැනීමට සහ '${currentSentence.targetLetterToPractice}' ශබ්දය විනෝදයෙන් පුහුණු වීමට ක්‍රීඩාවක් කරමුද?`;
+          const directRoute = isFrustrated
+            ? '/(child)/game-breathing'
+            : isDistracted
+            ? '/(child)/game-star'
+            : isEngaged
+            ? '/(child)/game-bubble'
+            : '/(child)/cooldown';
+          const buttonLabel = isFrustrated
+            ? '🎈 Balloon Breathing කරමු!'
+            : isDistracted
+            ? '⭐ Catch the Star කරමු!'
+            : isEngaged
+            ? '🫧 Bubble Pop කරමු!'
+            : '🎮 ඔව්, සෙල්ලම් කරමු!';
 
-            <View style={styles.gamePillTag}>
-              <AppText size="xs" weight="bold" color="#92400E">
-                🎲 විනෝදජනක සන්සුන් ක්‍රීඩා (CoolDown)
-              </AppText>
-            </View>
+          return (
+            <View style={styles.modalBackdrop}>
+              <View style={[styles.gameModalCard, ThemeShadow.lg]}>
+                {/* Mascot / Icon Badge */}
+                <View style={styles.gameModalIconCircle}>
+                  <AppText size="display">{modalIcon}</AppText>
+                </View>
 
-            <AppText
-              size="sm"
-              color={ThemeColors.textPrimary}
-              align="center"
-              style={{ marginTop: 10, lineHeight: 22, paddingHorizontal: 4 }}
-            >
-              කියවීමෙන් පසු මනස සැහැල්ලු කර ගැනීමට සහ{' '}
-              <AppText size="sm" weight="extrabold" color="#DC2626">
-                '{currentSentence.targetLetterToPractice}'
-              </AppText>{' '}
-              ශබ්දය විනෝදයෙන් පුහුණු වීමට ක්‍රීඩාවක් කරමුද?
-            </AppText>
-
-            <View style={styles.soundPracticeBox}>
-              <AppText size="xs" weight="bold" color={ThemeColors.primary}>
-                ඉලක්ක අකුර: '{currentSentence.targetLetterToPractice}' ශබ්දය සහ විවේක ක්‍රීඩා
-              </AppText>
-            </View>
-
-            {/* Modal Buttons */}
-            <View style={styles.gameModalButtons}>
-              <TouchableOpacity
-                style={styles.playGameBtn}
-                onPress={() => {
-                  setShowGamePopup(false);
-                  router.push({
-                    pathname: '/(child)/cooldown',
-                    params: {
-                      intervention: session.interventionType || 'cooldown_activity',
-                      mode: session.interventionType === 'focus_game' ? 'focus' : 'calm',
-                    },
-                  });
-                }}
-                activeOpacity={0.85}
-              >
-                <AppText size="md" weight="bold" color="#FFFFFF">
-                  🎮 ඔව්, සෙල්ලම් කරමු!
+                <AppText size="xl" weight="extrabold" color={ThemeColors.primary} align="center" style={{ marginTop: 10 }}>
+                  {modalTitle}
                 </AppText>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.continueReadingBtn}
-                onPress={() => setShowGamePopup(false)}
-                activeOpacity={0.8}
-              >
-                <AppText size="sm" weight="bold" color={ThemeColors.textSecondary}>
-                  📖 තව ටිකක් කියවමු
+                <View style={styles.gamePillTag}>
+                  <AppText size="xs" weight="bold" color="#92400E">
+                    {pillText}
+                  </AppText>
+                </View>
+
+                <AppText
+                  size="sm"
+                  color={ThemeColors.textPrimary}
+                  align="center"
+                  style={{ marginTop: 10, lineHeight: 22, paddingHorizontal: 4 }}
+                >
+                  {promptText}
                 </AppText>
-              </TouchableOpacity>
+
+                <View style={styles.soundPracticeBox}>
+                  <AppText size="xs" weight="bold" color={ThemeColors.primary}>
+                    ඉලක්ක අකුර: '{currentSentence.targetLetterToPractice}' ශබ්දය සහ විවේක ක්‍රීඩා
+                  </AppText>
+                </View>
+
+                {/* Modal Buttons */}
+                <View style={styles.gameModalButtons}>
+                  <TouchableOpacity
+                    style={styles.playGameBtn}
+                    onPress={() => {
+                      setShowGamePopup(false);
+                      router.push({
+                        pathname: directRoute as any,
+                        params: {
+                          state: detectedState,
+                          intervention: session.interventionType || (isFrustrated ? 'game-breathing' : isDistracted ? 'game-star' : 'game-bubble'),
+                          mode: isFrustrated ? 'calm' : isDistracted ? 'focus' : 'celebrate',
+                        },
+                      });
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <AppText size="md" weight="bold" color="#FFFFFF">
+                      {buttonLabel}
+                    </AppText>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.continueReadingBtn}
+                    onPress={() => {
+                      setShowGamePopup(false);
+                      router.push({
+                        pathname: '/(child)/cooldown',
+                        params: {
+                          state: detectedState,
+                          intervention: session.interventionType || 'cooldown_activity',
+                          mode: isFrustrated ? 'calm' : isDistracted ? 'focus' : 'celebrate',
+                        },
+                      });
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <AppText size="sm" weight="bold" color={ThemeColors.textSecondary}>
+                      🎲 සියලුම ක්‍රීඩා බලන්න (CoolDown Hub)
+                    </AppText>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
+          );
+        })()}
       </Modal>
 
       {/* Rewards & Badges Modal */}
