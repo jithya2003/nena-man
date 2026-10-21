@@ -35,6 +35,8 @@ import { useReadingSession } from '@/hooks/useReadingSession';
 import { useInteractionTracker } from '@/hooks/useInteractionTracker';
 import { useLanguage } from '@/context/LanguageContext';
 import { LoadingView, ErrorView, OfflineBanner } from '@/components/shared-states';
+import { USE_MOCK_READING_ANALYSIS } from '@/config/flags';
+import RecordingPlayback from '@/components/RecordingPlayback';
 
 // Curated 3 Core Sentences for Interactive Demo with Reading Rate & Audio Comparison Metadata
 const PRACTICE_SENTENCES = [
@@ -159,9 +161,9 @@ const PRACTICE_SENTENCES = [
 // Error type metadata with colorblind-safe shape icons
 const ERROR_META = {
   substitution: { icon: '🔷', label: 'අකුරු මාරුව (Substitution)', desc: 'වැරදි ශබ්දයක් හෝ අකුරක් ආදේශ වීම', color: '#7C3AED', bg: '#F5F3FF' },
-  omission:     { icon: '⬜', label: 'පිල්ලම් මඟහැරීම (Omission)',  desc: 'අකුරක් හෝ පිල්ලමක් කියවීමේදී මඟහැරීම', color: '#B45309', bg: '#FEF3C7' },
-  reversal:     { icon: '🔄', label: 'අකුරු පෙරළිය (Reversal)',    desc: 'අකුරු පිහිටීමේ අනුපිළිවෙල මාරුවීම', color: '#DC2626', bg: '#FEF2F2' },
-  hesitation:   { icon: '⏸️', label: 'පැකිලීම (Hesitation)',       desc: 'වචනයක් කියවීමේදී දිගු වේලාවක් පැකිලීම', color: '#0369A1', bg: '#EFF6FF' },
+  omission: { icon: '⬜', label: 'පිල්ලම් මඟහැරීම (Omission)', desc: 'අකුරක් හෝ පිල්ලමක් කියවීමේදී මඟහැරීම', color: '#B45309', bg: '#FEF3C7' },
+  reversal: { icon: '🔄', label: 'අකුරු පෙරළිය (Reversal)', desc: 'අකුරු පිහිටීමේ අනුපිළිවෙල මාරුවීම', color: '#DC2626', bg: '#FEF2F2' },
+  hesitation: { icon: '⏸️', label: 'පැකිලීම (Hesitation)', desc: 'වචනයක් කියවීමේදී දිගු වේලාවක් පැකිලීම', color: '#0369A1', bg: '#EFF6FF' },
 } as const;
 
 // Progressive Learning Support Ladder (Component: Sinhala Text Difficulty & Progressive Support)
@@ -452,6 +454,8 @@ export default function SpeechSessionScreen() {
     return [targetSinhala];
   }, [difficultyResult, targetSinhala]);
 
+  // State-based lock to freeze expected reading text for each recording attempt
+  const [lockedExpectedText, setLockedExpectedText] = useState<string | null>(null);
   // Level 1 Focus Highlight progression index
   const [activeHighlightIndex, setActiveHighlightIndex] = useState<number>(0);
 
@@ -485,15 +489,38 @@ export default function SpeechSessionScreen() {
     setRetryCount(0);
     setActiveHighlightIndex(0);
     attemptHandledRef.current = false;
+    setLockedExpectedText(null);
     stopActiveSpeech();
     setTtsError(null);
   }, [targetSinhala, stopActiveSpeech]);
+
+  // Derived expected reading text for live reading-error classification (M1):
+  // - Support Levels 0–3: targetSinhala
+  // - Support Level 4: exact simplified text currently rendered in Level 4 support panel
+  const candidateExpectedText = useMemo(() => {
+    if (currentSupportLevel === 4) {
+      return (
+        difficultyResult.simplifiedText ||
+        (isPracticeSentenceMatch ? currentSentence.simplifiedSinhala : undefined) ||
+        targetSinhala
+      );
+    }
+    return targetSinhala;
+  }, [
+    currentSupportLevel,
+    difficultyResult.simplifiedText,
+    isPracticeSentenceMatch,
+    currentSentence.simplifiedSinhala,
+    targetSinhala,
+  ]);
+
+  const expectedReadingText = lockedExpectedText ?? candidateExpectedText;
 
   // ── Central Reading Session Hook ───────────────────────────────────────────
   const session = useReadingSession({
     text: {
       id: targetTextId,
-      content: targetSinhala,
+      content: expectedReadingText,
       difficulty: 'medium',
     },
     interactionData: interactionTracker.getTelemetry(),
@@ -506,6 +533,17 @@ export default function SpeechSessionScreen() {
       }).start();
     },
   });
+
+  // Release lock only after an attempt genuinely completes or fails (Requirement 5)
+  useEffect(() => {
+    if (
+      session.sessionStatus === 'done' ||
+      session.sessionStatus === 'partial_error' ||
+      session.sessionStatus === 'error'
+    ) {
+      setLockedExpectedText((prev) => (prev !== null ? null : prev));
+    }
+  }, [session.sessionStatus]);
 
   // Feature 3: Auto-prompt cooldown when behavioral intervention is required
   useEffect(() => {
@@ -533,40 +571,193 @@ export default function SpeechSessionScreen() {
     const m1 = session.results.errorAnalysis;
     const m1Raw: any = m1?.raw;
 
-    const accuracy =
-      m1Raw?.readingAccuracy ??
-      (m1?.severity !== undefined ? Math.round((1 - m1.severity) * 100) : 80);
+    // Requirement 7: If M1 analysis is unavailable, do not treat the attempt as successful using fallback accuracy
+    const hasM1Analysis = Boolean(m1Raw || m1);
+    const rawAcc = m1Raw?.readingAccuracy;
+    let accuracy = 0;
+    if (rawAcc !== undefined && rawAcc !== null) {
+      accuracy = rawAcc <= 1.0 && rawAcc > 0 ? Math.round(rawAcc * 100) : Math.round(rawAcc);
+    } else if (m1?.severity !== undefined) {
+      accuracy = Math.round((1 - m1.severity) * 100);
+    } else if (USE_MOCK_READING_ANALYSIS) {
+      accuracy = 80;
+    }
 
-    const isAccurate = accuracy >= 85;
+    const rawWords: any[] = Array.isArray(m1Raw?.words)
+      ? m1Raw.words
+      : Array.isArray(m1?.words)
+        ? m1.words
+        : [];
 
-    const errors =
-      m1Raw?.detectedErrors && m1Raw.detectedErrors.length > 0
-        ? m1Raw.detectedErrors.map((e: any) => ({
+    let errors: any[] = [];
+    let transcription = '';
+    let targetWord = isPracticeSentenceMatch ? currentSentence.targetWord : '';
+    let spokenWord = isPracticeSentenceMatch ? currentSentence.spokenWord : '';
+
+    if (!USE_MOCK_READING_ANALYSIS) {
+      // Live M1 mode
+      // Requirement 1: Derive detected speech from m1Raw.words[].text rather than falling back to expected text
+      const liveDetectedSpeech = rawWords
+        .map((w: any) => (typeof w.text === 'string' ? w.text.trim() : ''))
+        .filter(Boolean)
+        .join(' ');
+      transcription = m1Raw?.transcription || liveDetectedSpeech || '';
+
+      // Requirement 2: Derive displayed errors from m1Raw.words where status !== 'correct'
+      // Preserve actual error types ("substitution", "omission", "hesitation") and expected/recognized words
+      const liveErrorWords = rawWords.filter(
+        (w: any) => w.status && w.status !== 'correct'
+      );
+
+      if (liveErrorWords.length > 0) {
+        errors = liveErrorWords.map((w: any) => {
+          const type = (w.status || 'substitution') as
+            | 'substitution'
+            | 'omission'
+            | 'reversal'
+            | 'hesitation';
+          const expected = w.expected || targetSinhala;
+          const detected = w.text || '';
+          const severity =
+            w.severity !== undefined
+              ? w.severity
+              : w.confidence !== undefined
+                ? Math.max(0, Math.min(1, Math.round((1 - w.confidence) * 100) / 100))
+                : m1Raw?.severity ?? 0.4;
+
+          let explanation = w.explanation;
+          if (!explanation) {
+            if (type === 'hesitation') {
+              explanation =
+                detected && detected !== expected
+                  ? `'${expected}' වෙනුවට '${detected}' කියවීමේදී පැකිලීමක් හඳුනාගැනිණි.`
+                  : `'${expected}' වචනය කියවීමේදී පැකිලීමක් හඳුනාගැනිණි.`;
+            } else if (type === 'substitution') {
+              explanation = `'${expected}' වෙනුවට '${detected}' ලෙස කියවීම (අකුරු ආදේශ වීම).`;
+            } else if (type === 'omission') {
+              explanation = `'${expected}' වචනයේ කොටස් හෝ පිල්ලම් මඟහැරී ඇත.`;
+            } else if (type === 'reversal') {
+              explanation = `'${expected}' වෙනුවට '${detected}' ලෙස අකුරු පෙරළියක් හඳුනාගැනිණි.`;
+            } else {
+              explanation = `'${expected}' කියවීමේ දෝෂයක් හඳුනාගැනිණි.`;
+            }
+          }
+
+          let tip = w.tip;
+          if (!tip) {
+            if (type === 'hesitation') {
+              tip = `🗣️ '${expected}' වචනය පැකිලීමකින් තොරව චතුරව උච්චාරණය කිරීමට පුහුණු වන්න.`;
+            } else if (type === 'substitution') {
+              tip = `🗣️ '${expected}' නිවැරදිව ශබ්ද නගා උච්චාරණය කරන්න.`;
+            } else if (type === 'omission') {
+              tip = `🗣️ '${expected}' වචනයේ සියලු අකුරු සහ පිල්ලම් පැහැදිලිව කියවන්න.`;
+            } else if (type === 'reversal') {
+              tip = `🗣️ අකුරු පිහිටීමේ අනුපිළිවෙල අනුව '${expected}' ලෙස කියවන්න.`;
+            } else {
+              tip = `🗣️ '${expected}' පැහැදිලිව උච්චාරණය කරන්න.`;
+            }
+          }
+
+          return {
+            type,
+            word: expected,
+            detected,
+            severity,
+            explanation,
+            tip,
+          };
+        });
+
+        targetWord = liveErrorWords[0]?.expected || targetSinhala;
+        spokenWord = liveErrorWords[0]?.text || transcription;
+      } else if (Array.isArray(m1Raw?.detectedErrors) && m1Raw.detectedErrors.length > 0) {
+        errors = m1Raw.detectedErrors.map((e: any) => ({
+          type: (e.type || 'substitution') as any,
+          word: e.word || targetSinhala,
+          detected: e.detected || transcription,
+          severity: e.severity ?? 0.4,
+          explanation: e.explanation || `'${e.word || targetSinhala}' කියවීමේ දෝෂයක් හඳුනාගැනිණි.`,
+          tip: e.tip || `🗣️ '${e.word || targetSinhala}' නිවැරදිව උච්චාරණය කරන්න.`,
+        }));
+        targetWord = errors[0]?.word || targetSinhala;
+        spokenWord = errors[0]?.detected || transcription;
+      } else {
+        targetWord = targetSinhala;
+        spokenWord = transcription || targetSinhala;
+      }
+    } else {
+      // Requirement 5: Preserve existing mock-mode behavior
+      const mockIsAccurate = accuracy >= 85;
+      errors =
+        m1Raw?.detectedErrors && m1Raw.detectedErrors.length > 0
+          ? m1Raw.detectedErrors.map((e: any) => ({
             type: (e.type || 'substitution') as any,
             word: e.word || (isPracticeSentenceMatch ? currentSentence.targetWord : ''),
             detected: e.detected || (isPracticeSentenceMatch ? currentSentence.spokenWord : ''),
             severity: e.severity || 0.4,
-            explanation: e.explanation || (isPracticeSentenceMatch ? currentSentence.simulatedErrors?.[0]?.explanation : ''),
-            tip: e.tip || (isPracticeSentenceMatch ? currentSentence.simulatedErrors?.[0]?.tip : ''),
+            explanation:
+              e.explanation ||
+              (isPracticeSentenceMatch ? currentSentence.simulatedErrors?.[0]?.explanation : ''),
+            tip:
+              e.tip ||
+              (isPracticeSentenceMatch ? currentSentence.simulatedErrors?.[0]?.tip : ''),
           }))
-        : isAccurate
-        ? []
-        : (isPracticeSentenceMatch ? currentSentence.simulatedErrors : []);
+          : mockIsAccurate
+            ? []
+            : (isPracticeSentenceMatch ? currentSentence.simulatedErrors : []);
+
+      transcription =
+        m1Raw?.transcription || (isPracticeSentenceMatch ? currentSentence.sinhala : targetSinhala);
+      targetWord = isPracticeSentenceMatch ? currentSentence.targetWord : '';
+      spokenWord = isPracticeSentenceMatch ? currentSentence.spokenWord : '';
+    }
+
+    // Requirement 3: For live responses, determine successful reading using actual backend accuracy and error classifications.
+    // An attempt with readingAccuracy: 0 and a hesitation must never display success.
+    // Requirement 7: If M1 analysis is unavailable, do not treat as successful using fallback accuracy.
+    let isAccurate: boolean;
+    if (!USE_MOCK_READING_ANALYSIS) {
+      const backendIsAccurate = m1Raw?.isAccurate;
+      isAccurate =
+        hasM1Analysis &&
+        (backendIsAccurate !== undefined ? Boolean(backendIsAccurate) : true) &&
+        accuracy >= 85 &&
+        errors.length === 0 &&
+        accuracy > 0;
+    } else {
+      isAccurate = hasM1Analysis && accuracy >= 85;
+    }
+
+    const rawFluency = m1Raw?.fluencyScore;
+    const fluencyScore =
+      rawFluency !== undefined
+        ? rawFluency <= 1.0 && rawFluency > 0
+          ? Math.round(rawFluency * 100)
+          : Math.round(rawFluency)
+        : (isPracticeSentenceMatch ? currentSentence.fluencyScore : 80);
 
     return {
       accuracy,
-      transcription: m1Raw?.transcription || (isPracticeSentenceMatch ? currentSentence.sinhala : targetSinhala),
+      transcription,
       errors,
       isAccurate,
       wpm: m1Raw?.readingSpeed ?? (isPracticeSentenceMatch ? currentSentence.wpm : 30),
-      fluencyScore: m1Raw?.fluencyScore ?? (isPracticeSentenceMatch ? currentSentence.fluencyScore : 80),
-      avgPauseDuration: m1Raw?.pauseDuration ? `${m1Raw.pauseDuration}s` : (isPracticeSentenceMatch ? currentSentence.avgPauseDuration : '1.2s'),
+      fluencyScore,
+      avgPauseDuration: m1Raw?.pauseDuration
+        ? `${m1Raw.pauseDuration}s`
+        : (isPracticeSentenceMatch ? currentSentence.avgPauseDuration : '1.2s'),
       syllablesPerSec: isPracticeSentenceMatch ? currentSentence.syllablesPerSec : '2.0 syl/s',
-      targetWord: isPracticeSentenceMatch ? currentSentence.targetWord : '',
-      spokenWord: isPracticeSentenceMatch ? currentSentence.spokenWord : '',
+      targetWord,
+      spokenWord,
       phoneticBreakdown: isPracticeSentenceMatch ? currentSentence.phoneticBreakdown : '',
     };
-  }, [session.sessionStatus, session.results.errorAnalysis, currentSentence, isPracticeSentenceMatch, targetSinhala]);
+  }, [
+    session.sessionStatus,
+    session.results.errorAnalysis,
+    currentSentence,
+    isPracticeSentenceMatch,
+    targetSinhala,
+  ]);
 
   // Advance to next valid progressive support level respecting applicableSupportLevels
   const advanceSupportLevel = useCallback(
@@ -770,6 +961,7 @@ export default function SpeechSessionScreen() {
   const handleReset = useCallback(() => {
     stopActiveSpeech();
     attemptHandledRef.current = false;
+    setLockedExpectedText(null);
     interactionTracker.recordRetry();
     interactionTracker.resetTracker();
     session.resetSession();
@@ -909,16 +1101,16 @@ export default function SpeechSessionScreen() {
         (isPracticeSentenceMatch && currentSentence?.splitWords && currentSentence.splitWords.length > 0)
           ? currentSentence.splitWords
           : words.map((w) => ({
-              word: w,
-              parts: splitSinhalaGraphemes(w),
-            }));
+            word: w,
+            parts: splitSinhalaGraphemes(w),
+          }));
 
       const fallbackParts: string[] =
         (isPracticeSentenceMatch && currentSentence?.syllables && currentSentence.syllables.length > 1)
           ? currentSentence.syllables
           : (difficultyResult.splitParts && difficultyResult.splitParts.length > 0)
-          ? difficultyResult.splitParts
-          : splitSinhalaGraphemes(targetSinhala);
+            ? difficultyResult.splitParts
+            : splitSinhalaGraphemes(targetSinhala);
 
       return (
         <View
@@ -1051,7 +1243,7 @@ export default function SpeechSessionScreen() {
         (m2Analysis
           ? null
           : difficultyResult.simplifiedText ||
-            (isPracticeSentenceMatch ? currentSentence?.simplifiedSinhala : undefined));
+          (isPracticeSentenceMatch ? currentSentence?.simplifiedSinhala : undefined));
 
       return (
         <View
@@ -1097,19 +1289,21 @@ export default function SpeechSessionScreen() {
               </View>
             )}
 
-            {showTryAgain && !analysisResult?.isAccurate && (
-              <TouchableOpacity
-                style={styles.ladderTryAgainBtn}
-                onPress={handleReset}
-                activeOpacity={0.85}
-              >
-                <AppText size="xs" weight="extrabold" color="#FFFFFF">
-                  → නැවත කියවමු (Try Again) 🎙️
-                </AppText>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+            {
+              showTryAgain && !analysisResult?.isAccurate && (
+                <TouchableOpacity
+                  style={styles.ladderTryAgainBtn}
+                  onPress={handleReset}
+                  activeOpacity={0.85}
+                >
+                  <AppText size="xs" weight="extrabold" color="#FFFFFF">
+                    → නැවත කියවමු (Try Again) 🎙️
+                  </AppText>
+                </TouchableOpacity>
+              )
+            }
+          </View >
+        </View >
       );
     }
 
@@ -1191,15 +1385,15 @@ export default function SpeechSessionScreen() {
                     predictedDifficulty === 'Easy'
                       ? '#047857'
                       : predictedDifficulty === 'Medium'
-                      ? '#B45309'
-                      : '#DC2626'
+                        ? '#B45309'
+                        : '#DC2626'
                   }
                 >
                   {predictedDifficulty === 'Easy'
                     ? '🟢 පහසු (Easy)'
                     : predictedDifficulty === 'Medium'
-                    ? '🟡 මධ්‍යම (Medium)'
-                    : '🔴 අභියෝගාත්මක (Hard)'}
+                      ? '🟡 මධ්‍යම (Medium)'
+                      : '🔴 අභියෝගාත්මක (Hard)'}
                 </AppText>
               </View>
             </View>
@@ -1222,8 +1416,14 @@ export default function SpeechSessionScreen() {
                 {PRACTICE_SENTENCES.map((t, i) => (
                   <TouchableOpacity
                     key={t.id}
-                    style={[styles.textPill, currentTextIndex === i && styles.textPillActive]}
+                    disabled={session.isRecording || session.isProcessing}
+                    style={[
+                      styles.textPill,
+                      currentTextIndex === i && styles.textPillActive,
+                      (session.isRecording || session.isProcessing) && { opacity: 0.5 },
+                    ]}
                     onPress={() => {
+                      if (session.isRecording || session.isProcessing) return;
                       setCurrentTextIndex(i);
                       handleReset();
                     }}
@@ -1253,7 +1453,7 @@ export default function SpeechSessionScreen() {
               color={ThemeColors.textPrimary}
               style={styles.sentenceText}
             >
-              {targetSinhala}
+              {expectedReadingText}
             </AppText>
           </View>
         </View>
@@ -1292,13 +1492,21 @@ export default function SpeechSessionScreen() {
                   styles.circleMicButton,
                   session.isRecording && styles.circleMicButtonRecording,
                 ]}
-                onPress={() => {
+                onPress={async () => {
                   interactionTracker.recordTap();
                   if (session.isRecording) {
                     session.stopRecording();
                   } else {
                     stopActiveSpeech();
-                    session.startRecording();
+                    setLockedExpectedText(candidateExpectedText);
+                    try {
+                      const started = await session.startRecording();
+                      if (!started) {
+                        setLockedExpectedText(null);
+                      }
+                    } catch {
+                      setLockedExpectedText(null);
+                    }
                   }
                 }}
                 activeOpacity={0.85}
@@ -1600,8 +1808,8 @@ export default function SpeechSessionScreen() {
                 {session.isPersisting
                   ? '⏳ සැසිය Firestore වෙත සුරකිමින්...'
                   : session.savedSessionId
-                  ? '☁️ සැසිය Firestore හි සුරැකිණි (Session Persisted)'
-                  : '☁️ සැසිය සාර්ථකව සුරැකිණි'}
+                    ? '☁️ සැසිය Firestore හි සුරැකිණි (Session Persisted)'
+                    : '☁️ සැසිය සාර්ථකව සුරැකිණි'}
               </AppText>
             </View>
 
@@ -1614,6 +1822,9 @@ export default function SpeechSessionScreen() {
                 "{analysisResult.transcription}"
               </AppText>
             </View>
+
+            {/* Playback of the exact recording analyzed above */}
+            <RecordingPlayback audioUri={session.audioUri} />
 
             {/* ── FEATURE 1: FLUENCY & READING RATE METRICS (WPM & චතුරතාව) ── */}
             <View style={styles.fluencySection}>

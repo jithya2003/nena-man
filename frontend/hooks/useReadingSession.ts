@@ -116,6 +116,9 @@ export function useReadingSession({
 
   const [lastAudioUri, setLastAudioUri] = useState<string | null>(null);
   const [pendingOfflineAudioUri, setPendingOfflineAudioUri] = useState<string | null>(null);
+  const recordingAttemptSnapshotRef = useRef<{ id: string; content: string } | null>(null);
+  const lastTextSnapshotRef = useRef<{ id: string; content: string } | null>(null);
+  const pendingOfflineSnapshotRef = useRef<{ id: string; content: string } | null>(null);
   const [isRetryingModule, setIsRetryingModule] = useState<PipelineModule | null>(null);
   const [isPersisting, setIsPersisting] = useState<boolean>(false);
   const [savedSessionId, setSavedSessionId] = useState<string | null>(null);
@@ -179,14 +182,36 @@ export function useReadingSession({
   // 3. Pipeline Execution Trigger
   // ---------------------------------------------------------------------------
   const executePipeline = useCallback(
-    async (audioUriToProcess: string) => {
+    async (
+      audioUriToProcess: string,
+      textSnapshot: { id: string; content: string }
+    ) => {
+      if (!textSnapshot || !textSnapshot.content?.trim()) {
+        const errorObj: ApiError = {
+          message: 'Missing or empty expected text snapshot for reading analysis',
+          isNetworkError: false,
+        };
+        setPipelineErrors((prev) => ({
+          ...prev,
+          readingAnalysis: errorObj,
+        }));
+        useSessionStoreBase.getState().setRecordingStatus('error');
+        setSessionStatus('error');
+        return;
+      }
+
       setSessionStatus('processing');
       useSessionStoreBase.getState().setRecordingStatus('uploading');
+
+      const targetTextMeta = {
+        id: textSnapshot.id,
+        content: textSnapshot.content,
+      };
 
       try {
         const pipelineResult: PipelineResult = await runReadingSessionPipeline(
           audioUriToProcess,
-          { id: text.id, content: text.content },
+          targetTextMeta,
           effectiveGradeLevel,
           interactionDataRef.current || {}
         );
@@ -225,13 +250,17 @@ export function useReadingSession({
         setSessionStatus('error');
       }
     },
-    [text.id, text.content, effectiveGradeLevel, onSuccess]
+    [effectiveGradeLevel, onSuccess]
   );
 
   // ---------------------------------------------------------------------------
   // 4. Session Start & Audio Recording
   // ---------------------------------------------------------------------------
   const startRecording = useCallback(async (): Promise<boolean> => {
+    // Capture snapshot for this recording attempt
+    const attemptSnapshot = { id: text.id, content: text.content };
+    recordingAttemptSnapshotRef.current = attemptSnapshot;
+
     // Initialize session in store if starting anew
     useSessionStoreBase.getState().startSession(text.id);
     useSessionStoreBase.getState().setCurrentText({
@@ -249,28 +278,66 @@ export function useReadingSession({
 
     const started = await audioRecorder.startRecording();
     if (started) {
+      // Clear previous recording pairing so a subsequent failure cannot reuse it
+      setLastAudioUri(null);
+      lastTextSnapshotRef.current = null;
+      setPendingOfflineAudioUri(null);
+      pendingOfflineSnapshotRef.current = null;
+
       setSessionStatus('recording');
       useSessionStoreBase.getState().setRecordingStatus('recording');
       return true;
     }
+
+    // Recording failed to start: clear attempt snapshot and reset status
+    recordingAttemptSnapshotRef.current = null;
+    setSessionStatus('idle');
+    useSessionStoreBase.getState().setRecordingStatus('idle');
     return false;
   }, [text.id, text.content, text.difficulty, audioRecorder]);
 
   const stopRecording = useCallback(async () => {
     const uri = await audioRecorder.stopRecording();
-    if (!uri) return;
+    if (!uri) {
+      // Failed to stop or empty recording: clear in-flight snapshot and reset status
+      recordingAttemptSnapshotRef.current = null;
+      setSessionStatus('idle');
+      useSessionStoreBase.getState().setRecordingStatus('idle');
+      return;
+    }
+
+    // Use only recordingAttemptSnapshotRef.current as the snapshot for the completed recording
+    const recordingSnapshot = recordingAttemptSnapshotRef.current;
+    recordingAttemptSnapshotRef.current = null;
+
+    if (!recordingSnapshot || !recordingSnapshot.content?.trim()) {
+      setLastAudioUri(null);
+      lastTextSnapshotRef.current = null;
+      setPipelineErrors((prev) => ({
+        ...prev,
+        readingAnalysis: {
+          message: 'Missing expected reading text snapshot for recording attempt',
+          isNetworkError: false,
+        },
+      }));
+      useSessionStoreBase.getState().setRecordingStatus('error');
+      setSessionStatus('error');
+      return;
+    }
 
     setLastAudioUri(uri);
+    lastTextSnapshotRef.current = recordingSnapshot;
 
     // Offline check: If offline, don't attempt pipeline. Queue attempt and show offline state.
     if (!isOnline) {
       setPendingOfflineAudioUri(uri);
+      pendingOfflineSnapshotRef.current = recordingSnapshot;
       setSessionStatus('idle');
       return;
     }
 
-    // Online: automatically trigger pipeline
-    await executePipeline(uri);
+    // Online: automatically trigger pipeline with the recorded snapshot
+    await executePipeline(uri, recordingSnapshot);
   }, [audioRecorder, isOnline, executePipeline]);
 
   // ---------------------------------------------------------------------------
@@ -279,8 +346,24 @@ export function useReadingSession({
   useEffect(() => {
     if (isOnline && pendingOfflineAudioUri && sessionStatus === 'idle') {
       const uriToRetry = pendingOfflineAudioUri;
+      const snapshotToRetry = pendingOfflineSnapshotRef.current;
       setPendingOfflineAudioUri(null);
-      executePipeline(uriToRetry);
+      pendingOfflineSnapshotRef.current = null;
+
+      if (!snapshotToRetry || !snapshotToRetry.content?.trim()) {
+        setPipelineErrors((prev) => ({
+          ...prev,
+          readingAnalysis: {
+            message: 'Missing expected text snapshot for offline queued recording',
+            isNetworkError: false,
+          },
+        }));
+        useSessionStoreBase.getState().setRecordingStatus('error');
+        setSessionStatus('error');
+        return;
+      }
+
+      executePipeline(uriToRetry, snapshotToRetry);
     }
   }, [isOnline, pendingOfflineAudioUri, sessionStatus, executePipeline]);
 
@@ -294,8 +377,11 @@ export function useReadingSession({
       try {
         switch (moduleName) {
           case 'readingAnalysis': {
-            if (!lastAudioUri) return false;
-            const res = await analyzeReading(lastAudioUri);
+            if (!lastAudioUri || !lastTextSnapshotRef.current?.content?.trim()) {
+              return false;
+            }
+            const expectedContent = lastTextSnapshotRef.current.content;
+            const res = await analyzeReading(lastAudioUri, expectedContent);
             useSessionStoreBase.getState().attachResult('errorAnalysis', {
               words: res.words.map((w) => ({
                 text: w.text,
@@ -406,8 +492,12 @@ export function useReadingSession({
   );
 
   const retryPipeline = useCallback(async () => {
-    if (lastAudioUri) {
-      await executePipeline(lastAudioUri);
+    if (
+      lastAudioUri &&
+      lastTextSnapshotRef.current &&
+      lastTextSnapshotRef.current.content?.trim()
+    ) {
+      await executePipeline(lastAudioUri, lastTextSnapshotRef.current);
     }
   }, [lastAudioUri, executePipeline]);
 
@@ -451,8 +541,8 @@ export function useReadingSession({
       sessionId,
       childId,
       childName,
-      textId: text.id,
-      textContent: text.content,
+      textId: lastTextSnapshotRef.current?.id || text.id,
+      textContent: lastTextSnapshotRef.current?.content || text.content,
       startTime,
       endTime,
       durationSeconds,
@@ -538,6 +628,11 @@ export function useReadingSession({
     if (!useSessionStoreBase.getState().isSavedToCloud) {
       persistCompletedSession();
     }
+    setLastAudioUri(null);
+    lastTextSnapshotRef.current = null;
+    recordingAttemptSnapshotRef.current = null;
+    setPendingOfflineAudioUri(null);
+    pendingOfflineSnapshotRef.current = null;
   }, [persistCompletedSession]);
 
   const resetSession = useCallback(() => {
@@ -545,7 +640,10 @@ export function useReadingSession({
     audioRecorder.resetRecording();
     setSessionStatus('idle');
     setLastAudioUri(null);
+    lastTextSnapshotRef.current = null;
+    recordingAttemptSnapshotRef.current = null;
     setPendingOfflineAudioUri(null);
+    pendingOfflineSnapshotRef.current = null;
     setSavedSessionId(null);
     setPipelineErrors({
       readingAnalysis: undefined,
