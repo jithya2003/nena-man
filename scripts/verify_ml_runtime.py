@@ -16,7 +16,12 @@ Usage:
 
 import sys
 import os
+import warnings
 from pathlib import Path
+
+# Silence scikit-learn InconsistentVersionWarning for cleaner audit output
+warnings.filterwarnings("ignore", message=".*Trying to unpickle estimator.*")
+
 
 # Resolve project repository root
 REPO_ROOT = Path(__file__).resolve().parents[1]

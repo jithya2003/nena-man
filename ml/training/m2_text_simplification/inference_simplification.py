@@ -23,9 +23,8 @@ from typing import Any, Dict, List, Optional, Tuple
 if platform.system() == "Darwin" and not platform.mac_ver()[0]:
     platform.mac_ver = lambda: ("26.2.0", ("", "", ""), "")
 
-# Set offline flags by default for local execution
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+# Ensure offline mode is only preferred if cached, allowing first-run download
+
 
 import torch
 from peft import PeftModel
@@ -432,6 +431,8 @@ class SinhalaSimplifier:
             )
         except Exception:
             if self.local_files_only:
+                os.environ.pop("HF_HUB_OFFLINE", None)
+                os.environ.pop("TRANSFORMERS_OFFLINE", None)
                 base_model = AutoModelForSeq2SeqLM.from_pretrained(
                     self.base_model_name,
                     local_files_only=False
