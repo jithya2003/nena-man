@@ -5,7 +5,7 @@
  * Enforces the strict, dependent sequencing order across all four AI modules:
  *
  *   Step 1 (Parallel):
- *     ├── M1: analyzeReading(audioData)
+ *     ├── M1: analyzeReading(audioData, textMeta.content)
  *     └── M2: analyzeText(textMeta.content, gradeLevel)
  *
  *   Step 2:
@@ -100,7 +100,7 @@ export async function runReadingSessionPipeline(
   // ---------------------------------------------------------------------------
   const [textPromise, readingPromise] = await Promise.allSettled([
     analyzeText(textMeta.content, gradeLevel),
-    analyzeReading(audioData),
+    analyzeReading(audioData, textMeta.content),
   ]);
 
   // Handle M2 Text Difficulty result
