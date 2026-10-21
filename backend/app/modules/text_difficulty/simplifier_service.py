@@ -105,11 +105,24 @@ class TextSimplifierService:
                     device = get_device()
                     logger.info("Resolved compute device for Model 2: %s", device)
 
-                    self._simplifier = SinhalaSimplifier(
-                        adapter_path=self._adapter_path,
-                        device=device,
-                        local_files_only=True
-                    )
+                    try:
+                        self._simplifier = SinhalaSimplifier(
+                            adapter_path=self._adapter_path,
+                            device=device,
+                            local_files_only=True
+                        )
+                    except Exception as local_err:
+                        logger.warning(
+                            "Offline loading failed (%s). Attempting online fetch for google/mt5-small base model...",
+                            local_err
+                        )
+                        os.environ.pop("HF_HUB_OFFLINE", None)
+                        os.environ.pop("TRANSFORMERS_OFFLINE", None)
+                        self._simplifier = SinhalaSimplifier(
+                            adapter_path=self._adapter_path,
+                            device=device,
+                            local_files_only=False
+                        )
                     logger.info(
                         "Model 2 Simplifier loaded successfully on device: %s from %s",
                         self._simplifier.device,
