@@ -7,6 +7,7 @@ import {
   Alert,
   Platform,
   Modal,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -78,6 +79,9 @@ function calculateVerifiedStreak(records: ReadingSessionRecord[]): number {
 
 export default function ParentDashboardScreen() {
   const router = useRouter();
+  const { width: screenWidth } = useWindowDimensions();
+  // Phones: compact header (icon-only student switch, single-line name)
+  const isNarrow = screenWidth < 420;
   const { t, language } = useLanguage();
   const { user, logout } = useAuth();
   const currentChild = useChildStoreBase((s) => s.currentChild);
@@ -367,11 +371,11 @@ export default function ParentDashboardScreen() {
               <NenaManLogo size="sm" showText={false} />
             </TouchableOpacity>
 
-            <View style={{ marginLeft: 10, flexShrink: 1 }}>
-              <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
+            <View style={{ marginLeft: 10, flexShrink: 1, minWidth: 0 }}>
+              <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} numberOfLines={isNarrow ? 1 : undefined}>
                 {isTeacher ? (language === 'si' ? 'ගුරු පුවරුව' : 'Teacher Portal') : t('dashboard.parentTitle')}
               </AppText>
-              <AppText size="md" weight="extrabold" color={ThemeColors.primary}>
+              <AppText size="md" weight="extrabold" color={ThemeColors.primary} numberOfLines={isNarrow ? 1 : undefined}>
                 {effectiveParentName} 👏
               </AppText>
             </View>
@@ -389,9 +393,11 @@ export default function ParentDashboardScreen() {
               accessibilityLabel="Switch to Student Account"
             >
               <AppText size="sm">🌟</AppText>
-              <AppText size="xs" weight="extrabold" color="#047857" style={{ marginLeft: 4 }}>
-                {language === 'si' ? 'ශිෂ්‍ය මාදිලිය' : 'Student'}
-              </AppText>
+              {!isNarrow && (
+                <AppText size="xs" weight="extrabold" color="#047857" style={{ marginLeft: 4 }}>
+                  {language === 'si' ? 'ශිෂ්‍ය මාදිලිය' : 'Student'}
+                </AppText>
+              )}
             </TouchableOpacity>
 
             {/* Notification Bell */}
@@ -587,8 +593,8 @@ export default function ParentDashboardScreen() {
                         {student.name.charAt(0)}
                       </AppText>
                     </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ flex: 1, marginLeft: 12, minWidth: 0 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                         <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary}>
                           {student.name}
                         </AppText>
@@ -605,7 +611,7 @@ export default function ParentDashboardScreen() {
                         {student.relationship || (language === 'si' ? 'ශිෂ්‍යයා' : 'Student')}
                       </AppText>
                       {student.email ? (
-                        <AppText size="xs" color={ThemeColors.textMuted} style={{ marginTop: 1 }}>
+                        <AppText size="xs" color={ThemeColors.textMuted} style={{ marginTop: 1 }} numberOfLines={1}>
                           ✉️ {student.email}
                         </AppText>
                       ) : null}
@@ -655,7 +661,7 @@ export default function ParentDashboardScreen() {
               <View style={styles.childHeroTop}>
                 <StudentAvatarPhoto size={56} showEditBadge={false} />
                 <View style={{ marginLeft: 14, flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
                     <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
                       {activeChildName}
                     </AppText>
@@ -710,7 +716,7 @@ export default function ParentDashboardScreen() {
                 <View style={[styles.metricIconWrap, { backgroundColor: '#DCFCE7' }]}>
                   <AppText size="md">📖</AppText>
                 </View>
-                <View style={{ marginLeft: 10 }}>
+                <View style={{ marginLeft: 10, flexShrink: 1 }}>
                   <AppText size="xs" color={ThemeColors.textSecondary} weight="bold">
                     {t('dashboard.metrics.totalSessions')}
                   </AppText>
@@ -724,7 +730,7 @@ export default function ParentDashboardScreen() {
                 <View style={[styles.metricIconWrap, { backgroundColor: '#E0F2FE' }]}>
                   <AppText size="md">🎯</AppText>
                 </View>
-                <View style={{ marginLeft: 10 }}>
+                <View style={{ marginLeft: 10, flexShrink: 1 }}>
                   <AppText size="xs" color={ThemeColors.textSecondary} weight="bold">
                     {t('dashboard.metrics.avgAccuracy')}
                   </AppText>
@@ -738,7 +744,7 @@ export default function ParentDashboardScreen() {
                 <View style={[styles.metricIconWrap, { backgroundColor: '#FEF3C7' }]}>
                   <AppText size="md">⭐</AppText>
                 </View>
-                <View style={{ marginLeft: 10 }}>
+                <View style={{ marginLeft: 10, flexShrink: 1 }}>
                   <AppText size="xs" color={ThemeColors.textSecondary} weight="bold">
                     {t('dashboard.metrics.starsEarned')}
                   </AppText>
@@ -752,7 +758,7 @@ export default function ParentDashboardScreen() {
                 <View style={[styles.metricIconWrap, { backgroundColor: '#FEE2E2' }]}>
                   <AppText size="md">🔥</AppText>
                 </View>
-                <View style={{ marginLeft: 10 }}>
+                <View style={{ marginLeft: 10, flexShrink: 1 }}>
                   <AppText size="xs" color={ThemeColors.textSecondary} weight="bold">
                     {t('dashboard.metrics.currentStreak')}
                   </AppText>
@@ -766,7 +772,7 @@ export default function ParentDashboardScreen() {
             {/* Home Tips Guidance */}
             <View style={[styles.homeTipsCard, ThemeShadow.sm]}>
               <View style={styles.cardHeaderRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
                   <AppText size="sm">🏡</AppText>
                   <AppText size="md" weight="extrabold" color="#9A3412" style={{ marginLeft: 6 }}>
                     {t('dashboard.homeTips.title')}
@@ -806,7 +812,7 @@ export default function ParentDashboardScreen() {
             {aiInsight && (
               <View style={[styles.insightsCard, ThemeShadow.sm]}>
                 <View style={styles.cardHeaderRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
                     <AppText size="sm">🧠</AppText>
                     <AppText size="md" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
                       {language === 'si' ? 'දරුවාගේ ඉගෙනුම් ප්‍රගතිය' : 'Student Learning Progress'}
@@ -848,7 +854,7 @@ export default function ParentDashboardScreen() {
             {/* Recent Sessions */}
             <View style={[styles.progressCard, ThemeShadow.sm]}>
               <View style={styles.cardHeaderRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
                   <AppText size="sm">📜</AppText>
                   <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginLeft: 6 }}>
                     {t('dashboard.recentSessions.title')}
@@ -1058,11 +1064,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   childSwitchBtn: {
     flexDirection: 'row',
@@ -1070,14 +1078,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#ECFDF5',
     borderWidth: 1.5,
     borderColor: '#6EE7B7',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 5,
+    minHeight: 40,
+    minWidth: 40,
+    justifyContent: 'center',
     borderRadius: ThemeRadius.full,
   },
   bellBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1116,6 +1127,7 @@ const styles = StyleSheet.create({
   },
   tabPillsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     backgroundColor: '#E2E8F0',
     padding: 4,
     borderRadius: ThemeRadius.md,
@@ -1125,13 +1137,15 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   tabPill: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 96,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
+    paddingHorizontal: 6,
     borderRadius: ThemeRadius.sm,
-    minHeight: 42,
+    minHeight: 44,
   },
   tabPillActive: {
     backgroundColor: ThemeColors.primary,
@@ -1146,6 +1160,7 @@ const styles = StyleSheet.create({
   childHeroTop: {
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: 0,
   },
   gradeBadge: {
     backgroundColor: ThemeColors.primaryLight,
@@ -1155,6 +1170,7 @@ const styles = StyleSheet.create({
   },
   childHeroActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 10,
     marginTop: ThemeSpacing.md,
@@ -1163,23 +1179,35 @@ const styles = StyleSheet.create({
     borderTopColor: '#F1F5F9',
   },
   practiceNowBtn: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 200,
     backgroundColor: ThemeColors.primary,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: ThemeRadius.md,
     alignItems: 'center',
   },
   connectOtherBtn: {
+    flexGrow: 1,
+    flexBasis: 120,
     paddingVertical: 10,
     paddingHorizontal: 12,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: ThemeRadius.md,
     borderWidth: 1,
     borderColor: ThemeColors.primaryBorder,
     alignItems: 'center',
   },
   emailReportQuickBtn: {
+    flexGrow: 1,
+    flexBasis: 120,
     paddingVertical: 10,
     paddingHorizontal: 12,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: ThemeRadius.md,
     borderWidth: 1.5,
     borderColor: '#BAE6FD',
@@ -1192,8 +1220,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   metricCard: {
-    flex: 1,
-    minWidth: '47%',
+    flexGrow: 1,
+    flexBasis: '46%',
+    minWidth: 140,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
@@ -1266,8 +1295,10 @@ const styles = StyleSheet.create({
   },
   cardHeaderRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 6,
     marginBottom: ThemeSpacing.sm,
   },
   sessionItemRow: {
@@ -1370,14 +1401,18 @@ const styles = StyleSheet.create({
   },
   sectionHeaderRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
     marginBottom: 4,
   },
   addStudentBtnSmall: {
     backgroundColor: ThemeColors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    minHeight: 40,
+    justifyContent: 'center',
     borderRadius: ThemeRadius.md,
   },
   studentCardRow: {
@@ -1406,15 +1441,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#86EFAC',
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 8,
+    minHeight: 40,
+    justifyContent: 'center',
     borderRadius: ThemeRadius.md,
   },
   removeBtnSmall: {
     backgroundColor: '#FEE2E2',
     borderWidth: 1,
     borderColor: '#FECACA',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minWidth: 40,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: ThemeRadius.md,
   },
 });

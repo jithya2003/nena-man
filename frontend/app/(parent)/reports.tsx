@@ -220,7 +220,7 @@ export default function ReportsScreen() {
               {activeChildName.charAt(0)}
             </AppText>
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flexGrow: 1, flexShrink: 1, flexBasis: 160, minWidth: 0 }}>
             <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
               {activeChildName} — {language === 'si' ? 'ප්‍රගති වාර්තාව' : 'Progress Report'}
             </AppText>
@@ -242,11 +242,11 @@ export default function ReportsScreen() {
         {/* ── PDF EMAIL PROGRESS REPORT PROMO CARD ── */}
         <View style={[styles.pdfPromoCard, ThemeShadow.sm]}>
           <View style={styles.pdfPromoInner}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexGrow: 1, flexShrink: 1, flexBasis: 220, minWidth: 0 }}>
               <View style={styles.pdfIconCircle}>
                 <AppText size="lg">📄</AppText>
               </View>
-              <View style={{ marginLeft: 10, flex: 1 }}>
+              <View style={{ marginLeft: 10, flex: 1, minWidth: 0 }}>
                 <AppText size="sm" weight="extrabold" color="#0B7A44">
                   {language === 'si' ? 'සතිපතා / මාසික PDF වාර්තාව' : 'Weekly / Monthly PDF Report'}
                 </AppText>
@@ -313,7 +313,7 @@ export default function ReportsScreen() {
                   ]}
                 >
                   <AppText size="sm">{meta.icon}</AppText>
-                  <AppText size="xs" weight="bold" color={meta.color}>
+                  <AppText size="xs" weight="bold" color={meta.color} style={{ flexShrink: 1 }}>
                     {meta.label}
                   </AppText>
                 </View>
@@ -448,6 +448,7 @@ const styles = StyleSheet.create({
   },
   childHeaderCard: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: ThemeRadius.lg,
@@ -468,8 +469,10 @@ const styles = StyleSheet.create({
   },
   backDashBtn: {
     backgroundColor: ThemeColors.surfaceMuted,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 40,
+    justifyContent: 'center',
     borderRadius: ThemeRadius.md,
   },
   pdfPromoCard: {
@@ -481,9 +484,10 @@ const styles = StyleSheet.create({
   },
   pdfPromoInner: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: 12,
   },
   pdfIconCircle: {
     width: 40,
@@ -494,9 +498,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   openPdfModalBtn: {
+    flexGrow: 1,
     backgroundColor: ThemeColors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minHeight: 44,
     borderRadius: ThemeRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -514,12 +520,16 @@ const styles = StyleSheet.create({
   },
   errorDetailHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 6,
   },
   errorDetailBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
+    maxWidth: '100%',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: ThemeRadius.md,
@@ -544,12 +554,17 @@ const styles = StyleSheet.create({
   },
   sessionHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 6,
   },
   sessionStats: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
+    rowGap: 8,
+    columnGap: 8,
     borderTopWidth: 1,
     borderTopColor: ThemeColors.borderLight,
     paddingTop: 8,

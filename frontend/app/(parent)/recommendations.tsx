@@ -168,6 +168,7 @@ export default function RecommendationsScreen() {
                   size="xs"
                   weight={isActive ? 'extrabold' : 'semibold'}
                   color={isActive ? ThemeColors.accentDark : ThemeColors.textPrimary}
+                  style={{ textAlign: 'center', flexShrink: 1 }}
                 >
                   {tab.label}
                 </AppText>
@@ -305,11 +306,16 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: ThemeSpacing.xs,
     justifyContent: 'space-between',
   },
   tabButton: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 120,
+    minWidth: 0,
+    minHeight: 44,
+    paddingHorizontal: 6,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: ThemeSpacing.sm,

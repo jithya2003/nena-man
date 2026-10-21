@@ -150,7 +150,7 @@ export default function ConnectStudentScreen() {
 
         <View style={styles.headerTitleWrap}>
           <AppText size="sm">🔗</AppText>
-          <AppText size="md" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
+          <AppText size="md" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6, flexShrink: 1 }}>
             ශිෂ්‍යයෙකු සම්බන්ධ කරන්න
           </AppText>
         </View>
@@ -203,7 +203,8 @@ export default function ConnectStudentScreen() {
               }}
               activeOpacity={0.8}
             >
-              <AppText size="xs" weight="bold" color={inputMode === 'email' ? '#FFFFFF' : ThemeColors.textSecondary}>
+              <AppText size="xs" weight="bold" color={inputMode === 'email' ? '#FFFFFF' : ThemeColors.textSecondary} style={styles.modeTabText}>
+
                 ✉️ විද්‍යුත් තැපෑල (Email)
               </AppText>
             </TouchableOpacity>
@@ -216,7 +217,7 @@ export default function ConnectStudentScreen() {
               }}
               activeOpacity={0.8}
             >
-              <AppText size="xs" weight="bold" color={inputMode === 'code' ? '#FFFFFF' : ThemeColors.textSecondary}>
+              <AppText size="xs" weight="bold" color={inputMode === 'code' ? '#FFFFFF' : ThemeColors.textSecondary} style={styles.modeTabText}>
                 🏷️ ශිෂ්‍ය කේතය (Code)
               </AppText>
             </TouchableOpacity>
@@ -231,7 +232,7 @@ export default function ConnectStudentScreen() {
               style={styles.input}
               placeholder={
                 inputMode === 'email'
-                  ? 'උදා: senuli@gmail.com හෝ senuli@nenaman.lk'
+                  ? 'උදා: senuli@gmail.com'
                   : 'උදා: NM-4892'
               }
               placeholderTextColor={ThemeColors.textMuted}
@@ -313,7 +314,7 @@ export default function ConnectStudentScreen() {
 
         {/* ── SENT REQUESTS LIST ── */}
         <View style={styles.sectionWrap}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
             <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
               යවන ලද ඉල්ලීම් ({sentRequests.length})
             </AppText>
@@ -339,7 +340,7 @@ export default function ConnectStudentScreen() {
                   <View style={styles.requestAvatarCircle}>
                     <AppText size="md">🎓</AppText>
                   </View>
-                  <View style={{ marginLeft: 10, flex: 1 }}>
+                  <View style={{ marginLeft: 10, flex: 1, minWidth: 0 }}>
                     <AppText size="sm" weight="bold" color={ThemeColors.textPrimary}>
                       {req.childName}
                     </AppText>
@@ -353,7 +354,7 @@ export default function ConnectStudentScreen() {
                 </View>
 
                 {/* Status Badge & Remove Action */}
-                <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                <View style={{ alignItems: 'flex-end', gap: 6, flexShrink: 0, maxWidth: '45%' }}>
                   <View
                     style={[
                       styles.statusBadge,
@@ -447,6 +448,9 @@ const styles = StyleSheet.create({
   headerTitleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    marginHorizontal: 8,
   },
   scroll: {
     paddingHorizontal: ThemeSpacing.md,
@@ -483,23 +487,32 @@ const styles = StyleSheet.create({
   },
   modeTabsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     backgroundColor: '#F1F5F9',
     borderRadius: 12,
     padding: 4,
     gap: 4,
   },
   modeTab: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 130,
+    minWidth: 0,
     paddingVertical: 10,
+    paddingHorizontal: 8,
     alignItems: 'center',
     borderRadius: 8,
-    minHeight: 40,
+    minHeight: 44,
     justifyContent: 'center',
+  },
+  modeTabText: {
+    textAlign: 'center',
+    flexShrink: 1,
   },
   modeTabActive: {
     backgroundColor: ThemeColors.primary,
   },
   input: {
+    width: '100%',
     borderWidth: 1.5,
     borderColor: ThemeColors.border,
     borderRadius: 12,
@@ -568,8 +581,10 @@ const styles = StyleSheet.create({
   },
   requestCard: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: ThemeSpacing.md,
@@ -579,7 +594,10 @@ const styles = StyleSheet.create({
   requestCardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 200,
+    minWidth: 0,
   },
   requestAvatarCircle: {
     width: 40,
@@ -609,8 +627,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FECACA',
     borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   guideCard: {
     backgroundColor: '#F0F9FF',

@@ -110,14 +110,14 @@ export default function M3RecommendationCard({
       <View style={styles.headerRow}>
         <View style={styles.moduleTag}>
           <View style={[styles.moduleDot, { backgroundColor: ThemeColors.m3 }]} />
-          <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
+          <AppText size="xs" weight="bold" color={ThemeColors.textSecondary} style={styles.shrinkText}>
             {language === 'si'
               ? 'දරුවාට ගැළපෙන ඉගෙනුම් සැලැස්ම'
               : 'Personalized Learning Plan'}
           </AppText>
         </View>
         <View style={[styles.confidenceBadge, { backgroundColor: ThemeColors.surface }]}>
-          <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
+          <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.shrinkText}>
             {Math.round(data.confidence * 100)}% {language === 'si' ? 'විශ්වාසනීයත්වය' : 'Confidence'}
           </AppText>
         </View>
@@ -130,7 +130,7 @@ export default function M3RecommendationCard({
           onPress={() => setViewMode('parent')}
           activeOpacity={0.8}
         >
-          <AppText size="xs" weight="bold" color={viewMode === 'parent' ? '#FFFFFF' : ThemeColors.textSecondary}>
+          <AppText size="xs" weight="bold" color={viewMode === 'parent' ? '#FFFFFF' : ThemeColors.textSecondary} style={styles.centerText}>
             {language === 'si' ? '👨‍👩‍👧 දෙමාපිය මගපෙන්වීම' : '👨‍👩‍👧 Parent Guide'}
           </AppText>
         </TouchableOpacity>
@@ -140,7 +140,7 @@ export default function M3RecommendationCard({
           onPress={() => setViewMode('clinical')}
           activeOpacity={0.8}
         >
-          <AppText size="xs" weight="bold" color={viewMode === 'clinical' ? '#FFFFFF' : ThemeColors.textSecondary}>
+          <AppText size="xs" weight="bold" color={viewMode === 'clinical' ? '#FFFFFF' : ThemeColors.textSecondary} style={styles.centerText}>
             {language === 'si' ? '🔬 සවිස්තරාත්මක ඉගෙනුම් සාධක' : '🔬 Detailed Learning Factors'}
           </AppText>
         </TouchableOpacity>
@@ -154,7 +154,7 @@ export default function M3RecommendationCard({
               {data.recommendation === 'Increase' ? '🚀' : data.recommendation === 'Maintain' ? '⚖️' : '🛡️'}
             </AppText>
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
               {language === 'si' ? 'මීළඟ ඉගෙනුම් පියවර:' : 'Recommended Next Step:'}
             </AppText>
@@ -167,7 +167,7 @@ export default function M3RecommendationCard({
         {/* Target Skill Pill */}
         {data.targetPhonemeSkill && (
           <View style={styles.skillPill}>
-            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
+            <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.shrinkText}>
               🎯 {language === 'si' ? 'ඉලක්කගත ශබ්ද පුහුණුව:' : 'Target Focus:'} {data.targetPhonemeSkill}
             </AppText>
           </View>
@@ -181,7 +181,7 @@ export default function M3RecommendationCard({
           <View style={styles.parentReasonCard}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
               <AppText size="sm">💡</AppText>
-              <AppText size="xs" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
+              <AppText size="xs" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6, flexShrink: 1 }}>
                 {language === 'si' ? 'මෙම පියවර තෝරාගැනීමට හේතුව:' : 'Reason for this learning step:'}
               </AppText>
             </View>
@@ -194,7 +194,7 @@ export default function M3RecommendationCard({
           <View style={styles.parentTipCard}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
               <AppText size="sm">🏡</AppText>
-              <AppText size="xs" weight="extrabold" color="#9A3412" style={{ marginLeft: 6 }}>
+              <AppText size="xs" weight="extrabold" color="#9A3412" style={{ marginLeft: 6, flexShrink: 1 }}>
                 {language === 'si' ? 'අද ගෙදරදී කළ හැකි සරල අභ්‍යාසය:' : 'Actionable Home Exercise for Today:'}
               </AppText>
             </View>
@@ -220,7 +220,7 @@ export default function M3RecommendationCard({
             >
               <View style={styles.accordionTitleRow}>
                 <AppText size="sm">🔍</AppText>
-                <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
+                <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.shrinkText}>
                   {language === 'si' ? 'කියවීමේ හැකියාවට බලපෑ ප්‍රධාන සාධක' : 'Key Factors Influencing Reading Progress'}
                 </AppText>
               </View>
@@ -235,13 +235,13 @@ export default function M3RecommendationCard({
                 <View style={styles.shapMetaCard}>
                   <View style={styles.shapBadgeRow}>
                     <View style={[styles.methodPill, isShap ? styles.methodPillShap : styles.methodPillFallback]}>
-                      <AppText size="xs" weight="bold" color={isShap ? '#047857' : '#9A3412'}>
+                      <AppText size="xs" weight="bold" color={isShap ? '#047857' : '#9A3412'} style={styles.shrinkText}>
                         {isShap
                           ? (language === 'si' ? '✓ සවිස්තරාත්මක සාධක විශ්ලේෂණය' : '✓ Detailed Factor Analysis')
                           : (language === 'si' ? '✓ මූලික සාධක විශ්ලේෂණය' : '✓ Standard Factor Analysis')}
                       </AppText>
                     </View>
-                    <AppText size="xs" color={ThemeColors.textSecondary}>
+                    <AppText size="xs" color={ThemeColors.textSecondary} style={styles.shrinkText}>
                       {isShap && baseProb !== null
                         ? `Base: ${baseProb}% → Pred: ${predProb}%`
                         : `Confidence: ${predProb}%`}
@@ -265,10 +265,10 @@ export default function M3RecommendationCard({
                   return (
                     <View key={idx} style={styles.xaiRow}>
                       <View style={styles.xaiLabelRow}>
-                        <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
+                        <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.shrinkText}>
                           {factor.name}
                         </AppText>
-                        <AppText size="xs" weight="bold" color={barColor}>
+                        <AppText size="xs" weight="bold" color={barColor} style={styles.shrinkText}>
                           {factor.weight}% {language === 'si' ? '(සාපේක්ෂ බලපෑම)' : '(Relative impact)'}
                         </AppText>
                       </View>
@@ -306,10 +306,10 @@ export default function M3RecommendationCard({
                     return (
                       <View key={idx + 4} style={[styles.xaiRow, { marginTop: 4 }]}>
                         <View style={styles.xaiLabelRow}>
-                          <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
+                          <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.shrinkText}>
                             {feat.feature}
                           </AppText>
-                          <AppText size="xs" weight="bold" color={barColor}>
+                          <AppText size="xs" weight="bold" color={barColor} style={styles.shrinkText}>
                             {feat.shapValue > 0 ? '+' : ''}{(feat.shapValue * 100).toFixed(1)}%
                           </AppText>
                         </View>
@@ -333,7 +333,7 @@ export default function M3RecommendationCard({
               >
                 <View style={styles.accordionTitleRow}>
                   <AppText size="sm">👥</AppText>
-                  <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
+                  <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={styles.shrinkText}>
                     {language === 'si'
                       ? `සම වයස් ළමුන්ගේ සැසඳීම (${data.peerBenchmark.similarityScore}% සමානතාව)`
                       : `Peer Benchmark (${data.peerBenchmark.similarityScore}% Match)`}
@@ -400,13 +400,24 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 6,
     marginBottom: ThemeSpacing.sm,
+  },
+  shrinkText: {
+    flexShrink: 1,
+  },
+  centerText: {
+    textAlign: 'center',
+    flexShrink: 1,
   },
   moduleTag: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   moduleDot: {
     width: 8,
@@ -416,22 +427,31 @@ const styles = StyleSheet.create({
   },
   confidenceBadge: {
     paddingHorizontal: ThemeSpacing.sm,
-    paddingVertical: 2,
+    paddingVertical: 4,
     borderRadius: ThemeRadius.full,
     borderWidth: 1,
     borderColor: ThemeColors.border,
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   modeToggleRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     backgroundColor: '#F1F5F9',
     borderRadius: ThemeRadius.md,
     padding: 3,
+    gap: 4,
     marginBottom: ThemeSpacing.sm,
   },
   modeToggleBtn: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 140,
+    minWidth: 0,
     alignItems: 'center',
-    paddingVertical: 6,
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    minHeight: 40,
     borderRadius: ThemeRadius.sm,
   },
   modeToggleBtnActive: {
@@ -460,6 +480,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     alignSelf: 'flex-start',
+    maxWidth: '100%',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: ThemeRadius.sm,
@@ -498,16 +519,21 @@ const styles = StyleSheet.create({
   },
   accordionHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 6,
     paddingHorizontal: ThemeSpacing.sm,
     paddingVertical: 8,
+    minHeight: 40,
     backgroundColor: ThemeColors.surfaceMuted,
   },
   accordionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexShrink: 1,
+    minWidth: 0,
   },
   xaiBody: {
     padding: ThemeSpacing.sm,
@@ -518,7 +544,9 @@ const styles = StyleSheet.create({
   },
   xaiLabelRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
+    gap: 4,
     marginBottom: 2,
   },
   xaiDesc: {
@@ -559,14 +587,18 @@ const styles = StyleSheet.create({
   },
   shapBadgeRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 6,
     marginBottom: 4,
   },
   methodPill: {
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   methodPillShap: {
     backgroundColor: '#D1FAE5',

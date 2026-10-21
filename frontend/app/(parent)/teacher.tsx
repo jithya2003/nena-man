@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -36,6 +37,9 @@ interface StudentMetricSummary {
 export default function TeacherDashboardScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { width: screenWidth } = useWindowDimensions();
+  // Phones / narrow windows: stack the student table row instead of 5 cramped columns
+  const isNarrow = screenWidth < 520;
 
   const [activeMenu, setActiveMenu] = useState('dashboard');
   const [linkedStudents, setLinkedStudents] = useState<LinkedPerson[]>([]);
@@ -287,7 +291,7 @@ export default function TeacherDashboardScreen() {
         >
           {/* Top Header */}
           <View style={styles.topHeader}>
-            <View>
+            <View style={{ flexShrink: 1, minWidth: 0 }}>
               <View style={styles.greetingTitleRow}>
                 <AppText size="lg" weight="extrabold" color={ThemeColors.textPrimary}>
                   සුභ උදෑසනක්, {user?.displayName || 'ගුරුතුමියනි'}
@@ -352,7 +356,7 @@ export default function TeacherDashboardScreen() {
               <View style={[styles.metricIconWrap, { backgroundColor: '#E0F2FE' }]}>
                 <AppText size="md">👥</AppText>
               </View>
-              <View style={{ marginLeft: 8 }}>
+              <View style={{ marginLeft: 8, flexShrink: 1 }}>
                 <AppText size="xs" color={ThemeColors.textSecondary}>
                   සිසුන්
                 </AppText>
@@ -369,7 +373,7 @@ export default function TeacherDashboardScreen() {
                   ✓
                 </AppText>
               </View>
-              <View style={{ marginLeft: 8 }}>
+              <View style={{ marginLeft: 8, flexShrink: 1 }}>
                 <AppText size="xs" color={ThemeColors.textSecondary}>
                   මෑත සැසි (උපරිම 20)
                 </AppText>
@@ -384,7 +388,7 @@ export default function TeacherDashboardScreen() {
               <View style={[styles.metricIconWrap, { backgroundColor: '#FFEDD5' }]}>
                 <AppText size="md">📈</AppText>
               </View>
-              <View style={{ marginLeft: 8 }}>
+              <View style={{ marginLeft: 8, flexShrink: 1 }}>
                 <AppText size="xs" color={ThemeColors.textSecondary}>
                   සාමාන්‍ය ප්‍රගතිය
                 </AppText>
@@ -399,7 +403,7 @@ export default function TeacherDashboardScreen() {
               <View style={[styles.metricIconWrap, { backgroundColor: '#FEE2E2' }]}>
                 <AppText size="md">⚠️</AppText>
               </View>
-              <View style={{ marginLeft: 8 }}>
+              <View style={{ marginLeft: 8, flexShrink: 1 }}>
                 <AppText size="xs" color="#DC2626">
                   අවධානය අවශ්‍ය
                 </AppText>
@@ -422,6 +426,7 @@ export default function TeacherDashboardScreen() {
                   </AppText>
                 </View>
                 <TouchableOpacity
+                  style={styles.addStudentLink}
                   onPress={() => router.push('/(parent)/connect-student')}
                   activeOpacity={0.7}
                 >
@@ -457,8 +462,8 @@ export default function TeacherDashboardScreen() {
                 />
               ) : (
                 <>
-                  {/* Table Column Titles */}
-                  <View style={styles.columnHeaderRow}>
+                  {/* Table Column Titles (hidden on narrow screens; rows are self-labelled) */}
+                  {!isNarrow && (<View style={styles.columnHeaderRow}>
                     <AppText size="xs" color={ThemeColors.textMuted} style={{ flex: 2 }}>
                       නම
                     </AppText>
@@ -474,7 +479,7 @@ export default function TeacherDashboardScreen() {
                     <AppText size="xs" color={ThemeColors.textMuted} style={{ flex: 1.5, textAlign: 'right' }}>
                       ක්‍රියාව
                     </AppText>
-                  </View>
+                  </View>)}
 
                   {/* Real Student Rows */}
                   {linkedStudents.map((st) => {
@@ -492,18 +497,18 @@ export default function TeacherDashboardScreen() {
                     const isNoData = stats.statusType === 'no_data';
 
                     return (
-                      <View key={st.uid || st.email} style={styles.studentTableRow}>
-                        <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={{ flex: 2 }} numberOfLines={1}>
+                      <View key={st.uid || st.email} style={[styles.studentTableRow, isNarrow && styles.studentTableRowNarrow]}>
+                        <AppText size="xs" weight="bold" color={ThemeColors.textPrimary} style={isNarrow ? { flexBasis: '70%', flexGrow: 1, minWidth: 0 } : { flex: 2 }} numberOfLines={1}>
                           {st.name || 'ශිෂ්‍යයා'}
                         </AppText>
 
-                        <AppText size="xs" color={ThemeColors.textSecondary} style={{ flex: 1 }}>
+                        <AppText size="xs" color={ThemeColors.textSecondary} style={isNarrow ? { flexBasis: '25%', textAlign: 'right' } : { flex: 1 }}>
                           {st.grade || 2}
                         </AppText>
 
                         {/* Progress Bar & percentage */}
-                        <View style={{ flex: 3, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <View style={styles.studentTrack}>
+                        <View style={isNarrow ? { flexBasis: '100%', flexDirection: 'row', alignItems: 'center', gap: 6 } : { flex: 3, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={[styles.studentTrack, isNarrow && { flex: 1, width: undefined }]}>
                             <View
                               style={[
                                 styles.studentFill,
@@ -526,7 +531,7 @@ export default function TeacherDashboardScreen() {
                         </View>
 
                         {/* Status Badge */}
-                        <View style={{ flex: 2, alignItems: 'center' }}>
+                        <View style={isNarrow ? { flexBasis: '55%', flexGrow: 1, alignItems: 'flex-start' } : { flex: 2, alignItems: 'center' }}>
                           <View
                             style={[
                               styles.statusBadgePill,
@@ -555,7 +560,7 @@ export default function TeacherDashboardScreen() {
                         </View>
 
                         {/* Action Button */}
-                        <View style={{ flex: 1.5, alignItems: 'flex-end' }}>
+                        <View style={isNarrow ? { flexBasis: '40%', flexGrow: 1, alignItems: 'flex-end' } : { flex: 1.5, alignItems: 'flex-end' }}>
                           <TouchableOpacity
                             style={[
                               styles.viewBtn,
@@ -692,24 +697,33 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   mainScroll: {
-    flex: 1,
-    padding: ThemeSpacing.lg,
+    flexGrow: 1,
+    padding: Platform.OS === 'web' ? ThemeSpacing.lg : ThemeSpacing.md,
     gap: ThemeSpacing.md,
   },
   topHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 10,
     marginBottom: ThemeSpacing.xs,
   },
   greetingTitleRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
   },
   topRightHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+  },
+  addStudentLink: {
+    minHeight: 36,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
   bellBtn: {
     position: 'relative',
@@ -743,10 +757,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#ECFDF5',
     borderWidth: 1,
     borderColor: '#A7F3D0',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 40,
+    justifyContent: 'center',
     borderRadius: ThemeRadius.full,
-    marginRight: 6,
+    marginRight: 2,
   },
   logoutBtn: {
     width: 36,
@@ -764,8 +780,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   metricCard: {
-    flex: 1,
-    minWidth: 140,
+    flexGrow: 1,
+    flexBasis: 140,
+    minWidth: 0,
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: ThemeSpacing.md,
@@ -787,8 +804,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   tableCard: {
-    flex: 2,
-    minWidth: 320,
+    flexGrow: 2,
+    flexBasis: 320,
+    minWidth: 0,
+    maxWidth: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: ThemeSpacing.md,
@@ -797,8 +816,10 @@ const styles = StyleSheet.create({
   },
   tableHeaderRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
     marginBottom: ThemeSpacing.md,
   },
   tableTitleWrap: {
@@ -820,6 +841,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
+  studentTableRowNarrow: {
+    flexWrap: 'wrap',
+    rowGap: 8,
+    columnGap: 8,
+    paddingVertical: 12,
+  },
   studentTrack: {
     width: 70,
     height: 6,
@@ -837,13 +864,19 @@ const styles = StyleSheet.create({
     borderRadius: ThemeRadius.full,
   },
   viewBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    minHeight: 36,
+    minWidth: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 8,
   },
   rightSideCol: {
-    flex: 1,
-    minWidth: 220,
+    flexGrow: 1,
+    flexBasis: 220,
+    minWidth: 0,
+    maxWidth: '100%',
     gap: ThemeSpacing.md,
   },
   adaptiveInsightsCard: {
@@ -867,7 +900,9 @@ const styles = StyleSheet.create({
   viewRecsBtn: {
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: ThemeColors.borderLight,
@@ -889,7 +924,9 @@ const styles = StyleSheet.create({
   startNewActBtn: {
     backgroundColor: '#065F46',
     borderRadius: 10,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   stateCenterWrap: {
