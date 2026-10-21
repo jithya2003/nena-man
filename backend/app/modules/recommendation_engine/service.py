@@ -150,6 +150,16 @@ class RecommendationService:
             if not METADATA_PATH.exists():
                 raise FileNotFoundError(f"Activity metadata not found at {METADATA_PATH}")
 
+            # Ensure backward compatibility for ColumnTransformer unpickling across scikit-learn versions
+            try:
+                import sklearn.compose._column_transformer as _ct
+                if not hasattr(_ct, '_RemainderColsList'):
+                    class _RemainderColsList(list):
+                        pass
+                    _ct._RemainderColsList = _RemainderColsList
+            except Exception:
+                pass
+
             logger.info("[M3 Service] Loading Random Forest model from %s", RF_MODEL_PATH)
             self._rf_pipeline = joblib.load(RF_MODEL_PATH)
 
