@@ -43,5 +43,11 @@ gunicorn==23.0.0
 # soundfile==0.12.1
 
 # --- M2/M3/M4: Advanced ML ---
-# xgboost==2.1.1
+# --- M3: Explainable AI ---
 shap==0.54.1
+
+# --- M2: Sinhala Sentence Simplification (EDIRISOORIYA — IT23179844) ---
+torch>=2.0.0
+transformers>=4.40.0
+peft>=0.10.0
+sentencepiece>=0.1.99

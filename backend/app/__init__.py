@@ -44,26 +44,40 @@ def create_app(config_name: str = None) -> Flask:
 
     # ── CORS ───────────────────────────────────────────────────────────────────
     # Allow:
-    #   - Expo Web (localhost:8081, localhost:19006)
+    #   - Expo Web development (http://localhost:8081, http://127.0.0.1:8081)
+    #   - Alternate dev ports (8082, 8083, 19006, 3000)
     #   - Android Emulator host (10.0.2.2)
-    #   - All local network IPs (192.168.x.x) for physical device testing
+    #   - All local network IPs (192.168.x.x) for physical mobile devices
+    dev_origins = [
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+        "http://localhost:8082",
+        "http://127.0.0.1:8082",
+        "http://localhost:8083",
+        "http://127.0.0.1:8083",
+        "http://localhost:19006",
+        "http://127.0.0.1:19006",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://10.0.2.2:8081",
+        "http://10.0.2.2:8082",
+        "http://10.0.2.2:19006",
+        r"^http://localhost:\d+$",
+        r"^http://127\.0\.0\.1:\d+$",
+        r"^http://192\.168\.\d+\.\d+(:\d+)?$",
+    ]
+
     CORS(app, resources={
-        r"/api/*": {
-            "origins": [
-                "http://localhost:8081",
-                "http://localhost:8082",
-                "http://localhost:8083",
-                "http://localhost:19006",
-                "http://localhost:3000",
-                "http://10.0.2.2:8081",
-                "http://10.0.2.2:8082",
-                "http://10.0.2.2:19006",
-                r"^http://localhost:\d+$",
-                r"^http://127\.0\.0\.1:\d+$",
-                r"http://192\.168\.\d+\.\d+:*",
-            ],
+        r"/api.*": {
+            "origins": dev_origins,
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            "allow_headers": ["Content-Type", "Authorization"],
+            "allow_headers": [
+                "Content-Type",
+                "Authorization",
+                "Accept",
+                "Origin",
+                "X-Requested-With",
+            ],
         }
     })
 
