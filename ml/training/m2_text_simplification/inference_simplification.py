@@ -408,18 +408,37 @@ class SinhalaSimplifier:
         self.adapter_path = Path(adapter_path)
         self.base_model_name = base_model_name
         self.local_files_only = local_files_only
-        
+
         # Load Tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            str(self.adapter_path),
-            local_files_only=self.local_files_only
-        )
-        
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                str(self.adapter_path),
+                local_files_only=self.local_files_only
+            )
+        except Exception:
+            if self.local_files_only:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    str(self.adapter_path),
+                    local_files_only=False
+                )
+            else:
+                raise
+
         # Load Base Model + LoRA Adapter
-        base_model = AutoModelForSeq2SeqLM.from_pretrained(
-            self.base_model_name,
-            local_files_only=self.local_files_only
-        )
+        try:
+            base_model = AutoModelForSeq2SeqLM.from_pretrained(
+                self.base_model_name,
+                local_files_only=self.local_files_only
+            )
+        except Exception:
+            if self.local_files_only:
+                base_model = AutoModelForSeq2SeqLM.from_pretrained(
+                    self.base_model_name,
+                    local_files_only=False
+                )
+            else:
+                raise
+
         self.model = PeftModel.from_pretrained(
             base_model,
             str(self.adapter_path),
