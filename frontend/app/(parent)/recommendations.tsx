@@ -4,6 +4,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,9 +14,6 @@ import {
   ThemeRadius,
   ThemeShadow,
 } from '@/constants/theme';
-import {
-  MOCK_M3_RESPONSE,
-} from '@/mock/data';
 import AppText from '@/components/AppText';
 import Card from '@/components/Card';
 import NavBar from '@/components/NavBar';
@@ -26,7 +24,7 @@ import RecommendationSimulator from '@/components/RecommendationSimulator';
 import M3RecommendationCard from '@/components/M3RecommendationCard';
 import { sessionService } from '@/services/sessionService';
 import { recommendationService } from '@/services/recommendationService';
-import { useCurrentChild, useAuthStore } from '@/store/hooks';
+import { useCurrentChild } from '@/store/hooks';
 import { useLanguage } from '@/context/LanguageContext';
 import type { M3Response } from '@/types';
 
@@ -36,40 +34,73 @@ export default function RecommendationsScreen() {
   const router = useRouter();
   const { language } = useLanguage();
   const { currentChild } = useCurrentChild();
-  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<TabKey>('roadmap');
-  const [m3Data, setM3Data] = useState<M3Response>(MOCK_M3_RESPONSE);
+  const [m3Data, setM3Data] = useState<M3Response | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const activeChildName = currentChild?.name || user?.name || (language === 'si' ? 'සෙනුලි පෙරේරා' : 'Senuli Perera');
-  const activeChildId = currentChild?.id || user?.uid || 'child_default';
+  const activeChildName = currentChild?.name || (language === 'si' ? 'ශිෂ්‍යයා' : 'Student');
+  const activeChildId = currentChild?.id || '';
 
   useEffect(() => {
+    let isMounted = true;
     async function loadM3() {
+      if (!activeChildId) {
+        if (isMounted) {
+          setM3Data(null);
+          setIsLoading(false);
+          setFetchError(null);
+        }
+        return;
+      }
       try {
+        setIsLoading(true);
+        setFetchError(null);
+        setM3Data(null);
+
         const records = await sessionService.getChildSessions(activeChildId, 1);
+        if (!isMounted) return;
+
         const latest = records && records.length > 0 ? records[0] : null;
         const res = await recommendationService.getNextRecommendation(activeChildId, latest);
-        setM3Data(res);
-      } catch (err) {
-        console.warn('[RecommendationsScreen] Error loading M3 recommendation:', err);
+        if (isMounted) {
+          setM3Data(res);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          console.warn('[RecommendationsScreen] Error loading M3 recommendation:', err);
+          setFetchError(
+            err?.message ||
+              (language === 'si'
+                ? 'නිර්දේශ දත්ත ලබාගැනීමට නොහැකි විය.'
+                : 'Failed to load recommendations.')
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     }
     loadM3();
-  }, [activeChildId]);
+    return () => {
+      isMounted = false;
+    };
+  }, [activeChildId, language]);
 
   const tabs: { key: TabKey; label: string; icon: string }[] = [
-    { key: 'roadmap', label: language === 'si' ? 'ඉගෙනුම් මාවත' : 'Roadmap', icon: '🗺️' },
-    { key: 'xai', label: language === 'si' ? 'AI මගපෙන්වීම' : 'XAI Logic', icon: '🧠' },
-    { key: 'peer_cluster', label: language === 'si' ? 'සම වයස් Radar' : 'Peer KNN', icon: '👥' },
-    { key: 'simulator', label: language === 'si' ? 'උපකල්පන Simulator' : 'Simulator', icon: '🧪' },
+    { key: 'roadmap', label: language === 'si' ? 'ඉගෙනුම් පියවර' : 'Learning Steps', icon: '🗺️' },
+    { key: 'xai', label: language === 'si' ? 'ගුරු මඟපෙන්වීම' : 'Teaching Guide', icon: '💡' },
+    { key: 'peer_cluster', label: language === 'si' ? 'සම වයස් සැසඳීම' : 'Peer Comparison', icon: '📊' },
+    { key: 'simulator', label: language === 'si' ? 'පුහුණු සැලසුම' : 'Practice Planner', icon: '🎯' },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Universal App Bar */}
       <NavBar
-        title={language === 'si' ? 'AI නිර්දේශ හබ් (Module 3)' : 'AI Recommendation Hub'}
-        subtitle={`Adaptive Learning Engine · ${activeChildName}`}
+        title={language === 'si' ? 'දරුවාගේ ඉගෙනුම් ප්‍රගතිය' : 'Student Learning Progress'}
+        subtitle={language === 'si' ? `දරුවාට ගැළපෙන ඉගෙනුම් සැලැස්ම · ${activeChildName}` : `Adaptive Learning Plan · ${activeChildName}`}
         showBack={true}
         fallbackRoute="/(parent)/dashboard"
         showSettings={true}
@@ -79,24 +110,43 @@ export default function RecommendationsScreen() {
         {/* Hub Introduction Banner */}
         <Card style={styles.introCard}>
           <View style={styles.moduleTag}>
-            <View style={[styles.moduleDot, { backgroundColor: ThemeColors.m3 }]} />
+            <View style={[styles.moduleDot, { backgroundColor: ThemeColors.primary }]} />
             <AppText size="xs" weight="bold" color={ThemeColors.textSecondary}>
               {language === 'si'
-                ? 'අනුවර්තී ඉගෙනුම් මාර්ග සහ නිර්දේශ එන්ජිම (M3)'
-                : 'Adaptive Recommendation & Learning Pathway Engine'}
+                ? 'දරුවාට ගැළපෙන ඉගෙනුම් සැලැස්ම'
+                : 'Personalized Adaptive Learning Plan'}
             </AppText>
           </View>
           <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={{ marginVertical: 2 }}>
             {language === 'si'
-              ? 'පුද්ගලානුබද්ධ ඩිස්ලෙක්සියා ඉගෙනුම් සැලසුම් සහ Explainable AI'
-              : 'Personalized Dyslexia Scaffolding & Explainable AI'}
+              ? 'දරුවාගේ කියවීමේ කුසලතා වර්ධනය කිරීමේ පියවර'
+              : 'Personalized Reading Development Steps'}
           </AppText>
           <AppText size="xs" color={ThemeColors.textSecondary} style={{ lineHeight: 18 }}>
             {language === 'si'
-              ? 'M1 කථන දෝෂ, M2 වාක්‍ය සංකීර්ණතාව සහ M4 හැසිරීම් දත්ත පදනම් කරගෙන Random Forest හා KNN ඇල්ගොරිතම මගින් දරුවාට වඩාත්ම උචිත ඊළඟ අභ්‍යාසය තීරණය කරයි.'
-              : 'Random Forest classifiers and KNN peer-similarity modeling predict optimal text difficulty, phonological milestones, and scaffolding strategies tailored for Sinhala readers.'}
+              ? 'දරුවාගේ කියවීමේ වේගය, අකුරු හා පිල්ලම් හඳුනාගැනීම සහ දෝෂ රටා සැලකිල්ලට ගනිමින් ඊළඟට පුහුණු විය යුතු වඩාත්ම උචිත අභ්‍යාස මෙහිදී නිර්දේශ කෙරේ.'
+              : 'Analyzes reading speed, letter and diacritic recognition, and error patterns to recommend the optimal next practice activity tailored to the student.'}
           </AppText>
         </Card>
+
+        {/* Notice banner if no active child selected */}
+        {!activeChildId && (
+          <Card style={styles.noticeCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <AppText size="lg">ℹ️</AppText>
+              <View style={{ flex: 1 }}>
+                <AppText size="xs" weight="bold" color={ThemeColors.textPrimary}>
+                  {language === 'si' ? 'ශිෂ්‍යයෙකු තෝරාගෙන නොමැත' : 'No Student Profile Selected'}
+                </AppText>
+                <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 2 }}>
+                  {language === 'si'
+                    ? 'සාමාන්‍ය විෂය නිර්දේශ මාර්ග සිතියම පෙන්වයි. දරුවාගේ පුද්ගලික නිර්දේශ සඳහා මුල් පිටුවෙන් දරුවෙකු තෝරන්න හෝ සම්බන්ධ කරන්න.'
+                    : 'Showing standard curriculum roadmap. Select a student on the dashboard for tailored insights.'}
+                </AppText>
+              </View>
+            </View>
+          </Card>
+        )}
 
         {/* Tab Navigation Controls */}
         <View style={styles.tabBar}>
@@ -118,6 +168,7 @@ export default function RecommendationsScreen() {
                   size="xs"
                   weight={isActive ? 'extrabold' : 'semibold'}
                   color={isActive ? ThemeColors.accentDark : ThemeColors.textPrimary}
+                  style={{ textAlign: 'center', flexShrink: 1 }}
                 >
                   {tab.label}
                 </AppText>
@@ -130,37 +181,68 @@ export default function RecommendationsScreen() {
         {activeTab === 'roadmap' && (
           <View style={styles.tabContent}>
             <AppText size="sm" weight="bold" color={ThemeColors.textSecondary} style={styles.sectionHeading}>
-              🗺️ {language === 'si' ? 'සිංහල කියවීමේ පියවරෙන් පියවර ඉගෙනුම් සැලැස්ම' : 'Multi-Stage Sinhala Curriculum Roadmap'}
+              🗺️ {language === 'si' ? 'සිංහල කියවීමේ පියවරෙන් පියවර ඉගෙනුම් සැලැස්ම' : 'Step-by-Step Sinhala Reading Plan'}
             </AppText>
             <LearningRoadmap />
           </View>
         )}
 
-        {/* ── Tab 2: Explainable AI (XAI) Deep-Dive ───────────────────────── */}
+        {/* ── Tab 2: Teaching Guidance ────────────────────────────────────── */}
         {activeTab === 'xai' && (
           <View style={styles.tabContent}>
             <AppText size="sm" weight="bold" color={ThemeColors.textSecondary} style={styles.sectionHeading}>
-              🧠 {language === 'si' ? 'AI තීරණ පැහැදිලි කිරීම සහ දෙමාපිය මගපෙන්වීම' : 'Full Explainable AI Decision Breakdown'}
+              💡 {language === 'si' ? 'නිර්දේශ සහ ගුරු මඟපෙන්වීම' : 'Recommendations & Teaching Guidance'}
             </AppText>
-            <M3RecommendationCard data={m3Data} showLauncher={true} />
+            {m3Data ? (
+              <M3RecommendationCard data={m3Data} showLauncher={true} />
+            ) : (
+              <Card style={styles.stateCard}>
+                {isLoading ? (
+                  <View style={{ alignItems: 'center', paddingVertical: ThemeSpacing.md }}>
+                    <ActivityIndicator size="small" color={ThemeColors.primary} />
+                    <AppText size="xs" color={ThemeColors.textSecondary} style={{ marginTop: 8, textAlign: 'center' }}>
+                      {language === 'si' ? 'නිර්දේශ සකස් කරමින් පවතී...' : 'Preparing recommendations...'}
+                    </AppText>
+                  </View>
+                ) : fetchError ? (
+                  <View style={{ alignItems: 'center', paddingVertical: ThemeSpacing.md }}>
+                    <AppText size="sm" weight="bold" color={ThemeColors.error} style={{ textAlign: 'center' }}>
+                      ⚠️ {fetchError}
+                    </AppText>
+                  </View>
+                ) : (
+                  <View style={{ alignItems: 'center', paddingVertical: ThemeSpacing.md, gap: 8 }}>
+                    <AppText size="lg">📊</AppText>
+                    <AppText size="sm" weight="bold" color={ThemeColors.textPrimary} style={{ textAlign: 'center' }}>
+                      {language === 'si' ? 'දත්ත ප්‍රමාණවත් නොවේ' : 'Insufficient Session Data'}
+                    </AppText>
+                    <AppText size="xs" color={ThemeColors.textSecondary} style={{ textAlign: 'center', lineHeight: 18 }}>
+                      {language === 'si'
+                        ? 'දරුවාට අදාළ අනුවර්තී නිර්දේශ ලබාගැනීම සඳහා කියවීමේ සැසියක් සම්පූර්ණ කරන්න.'
+                        : 'Complete at least one reading session to generate personalized recommendations.'}
+                    </AppText>
+                  </View>
+                )}
+              </Card>
+            )}
           </View>
         )}
 
-        {/* ── Tab 3: KNN Peer-Cohort Clustering ───────────────────────────── */}
+        {/* ── Tab 3: Peer Cohort Comparison ───────────────────────────────── */}
         {activeTab === 'peer_cluster' && (
           <View style={styles.tabContent}>
             <AppText size="sm" weight="bold" color={ThemeColors.textSecondary} style={styles.sectionHeading}>
-              👥 {language === 'si' ? 'සම වයස් ළමුන්ගේ දක්ෂතා සැසඳීම (Grade 2 KNN)' : 'KNN Peer-Cohort Clustering (Grade 2 Norms)'}
+              📊 {language === 'si' ? 'සම වයස් ළමුන්ගේ දක්ෂතා සැසඳීම (2 ශ්‍රේණිය)' : 'Grade 2 Peer Reading Comparison'}
             </AppText>
-            <PeerClusterRadar />
+            <PeerClusterRadar childName={activeChildName} />
           </View>
         )}
 
-        {/* ── Tab 4: What-If Pedagogical Simulator ────────────────────────── */}
+        {/* ── Tab 4: Teaching Practice Planner ────────────────────────────── */}
         {activeTab === 'simulator' && (
           <View style={styles.tabContent}>
             <AppText size="sm" weight="bold" color={ThemeColors.textSecondary} style={styles.sectionHeading}>
-              🧪 {language === 'si' ? 'අන්තර්ක්‍රියාකාරී "What-If" ඉගැන්වීම් උපකල්පන Simulator' : 'Interactive "What-If" Teaching Strategy Simulator'}
+              🎯 {language === 'si' ? 'අන්තර්ක්‍රියාකාරී ඉගැන්වීම් සැලසුම්කාරකය' : 'Interactive Teaching Practice Planner'}
             </AppText>
             <RecommendationSimulator />
           </View>
@@ -170,7 +252,7 @@ export default function RecommendationsScreen() {
       </ScrollView>
 
       {/* Universal Bottom Navigation */}
-      <BottomNav role="parent" activeTab="dashboard" />
+      <BottomNav role="parent" activeTab="recommendations" />
     </SafeAreaView>
   );
 }
@@ -183,6 +265,9 @@ const styles = StyleSheet.create({
   scroll: {
     padding: ThemeSpacing.md,
     gap: ThemeSpacing.md,
+    maxWidth: 960,
+    width: '100%',
+    alignSelf: 'center',
   },
   introCard: {
     backgroundColor: ThemeColors.card,
@@ -191,6 +276,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: ThemeColors.border,
     gap: 4,
+  },
+  noticeCard: {
+    backgroundColor: ThemeColors.surface,
+    borderRadius: ThemeRadius.md,
+    padding: ThemeSpacing.md,
+    borderWidth: 1,
+    borderColor: ThemeColors.border,
+  },
+  stateCard: {
+    backgroundColor: ThemeColors.card,
+    borderRadius: ThemeRadius.lg,
+    padding: ThemeSpacing.md,
+    borderWidth: 1,
+    borderColor: ThemeColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   moduleTag: {
     flexDirection: 'row',
@@ -205,11 +306,16 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: ThemeSpacing.xs,
     justifyContent: 'space-between',
   },
   tabButton: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 120,
+    minWidth: 0,
+    minHeight: 44,
+    paddingHorizontal: 6,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: ThemeSpacing.sm,

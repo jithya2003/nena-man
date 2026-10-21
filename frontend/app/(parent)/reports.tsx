@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -13,17 +13,12 @@ import {
   ThemeRadius,
   ThemeShadow,
 } from '@/constants/theme';
-import {
-  MOCK_CHILD,
-  MOCK_SESSIONS,
-  MOCK_ERROR_BREAKDOWN,
-  MOCK_M3_RESPONSE,
-} from '@/mock/data';
 import { BehaviorBadge } from '@/components/Badge';
 import AppText from '@/components/AppText';
 import Card from '@/components/Card';
 import ProgressBar from '@/components/ProgressBar';
 import NavBar from '@/components/NavBar';
+import BottomNav from '@/components/BottomNav';
 import M3RecommendationCard from '@/components/M3RecommendationCard';
 import EmailReportModal from '@/components/EmailReportModal';
 import { sessionService } from '@/services/sessionService';
@@ -35,17 +30,19 @@ import type { SessionData, M3Response, ReadingSessionRecord } from '@/types';
 export default function ReportsScreen() {
   const router = useRouter();
   const { language } = useLanguage();
-  const [sessions, setSessions] = useState<SessionData[]>(MOCK_SESSIONS);
+  const [sessions, setSessions] = useState<SessionData[]>([]);
   const [rawSessions, setRawSessions] = useState<ReadingSessionRecord[]>([]);
-  const [m3Data, setM3Data] = useState<M3Response>(MOCK_M3_RESPONSE);
+  const [m3Data, setM3Data] = useState<M3Response | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [isRealData, setIsRealData] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const { currentChild } = useCurrentChild();
   const { user } = useAuthStore();
 
-  const activeChildName = currentChild?.name || user?.name || (language === 'si' ? 'සෙනුලි පෙරේරා' : 'Senuli Perera');
+  const activeChildName = currentChild?.name || (language === 'si' ? 'ශිෂ්‍යයා' : 'Student');
   const activeChildGrade = currentChild?.grade || 2;
-  const activeChildId = currentChild?.id || user?.uid || 'child_default';
+  const activeChildId = currentChild?.id || '';
 
   const ERROR_DETAIL = {
     substitution: {
@@ -102,12 +99,70 @@ export default function ReportsScreen() {
     },
   };
 
-  const totalErrors = Object.values(MOCK_ERROR_BREAKDOWN).reduce((a, b) => a + b, 0);
+  // Dynamically calculate error counts from genuine session history
+  const dynamicErrorBreakdown = useMemo(() => {
+    const breakdown = {
+      substitution: 0,
+      omission: 0,
+      reversal: 0,
+      hesitation: 0,
+    };
+
+    rawSessions.forEach((s) => {
+      const err = s.results?.errorAnalysis;
+      if (err) {
+        if (typeof err.hesitationCount === 'number') {
+          breakdown.hesitation += err.hesitationCount;
+        }
+        if (Array.isArray(err.errors)) {
+          err.errors.forEach((e) => {
+            const t = (e.type || '').toLowerCase();
+            if (t.includes('substitution') || t === 'sub') {
+              breakdown.substitution += 1;
+            } else if (t.includes('omission') || t === 'omi') {
+              breakdown.omission += 1;
+            } else if (t.includes('reversal') || t === 'rev') {
+              breakdown.reversal += 1;
+            } else if (t.includes('hesitation') || t === 'pause') {
+              breakdown.hesitation += 1;
+            }
+          });
+        }
+      }
+    });
+
+    return breakdown;
+  }, [rawSessions]);
+
+  const totalErrors = useMemo(() => {
+    return Object.values(dynamicErrorBreakdown).reduce((a, b) => a + b, 0);
+  }, [dynamicErrorBreakdown]);
 
   useEffect(() => {
+    let isMounted = true;
     async function loadSessions() {
+      if (!activeChildId || activeChildId === 'child_default') {
+        if (isMounted) {
+          setSessions([]);
+          setRawSessions([]);
+          setM3Data(null);
+          setIsRealData(false);
+          setIsLoading(false);
+        }
+        return;
+      }
       try {
+        setIsLoading(true);
+        setFetchError(null);
+        // Clear previous student's data immediately so it cannot appear under another student's name
+        setSessions([]);
+        setRawSessions([]);
+        setM3Data(null);
+        setIsRealData(false);
+
         const records = await sessionService.getChildSessions(activeChildId, 15);
+        if (!isMounted) return;
+
         if (records && records.length > 0) {
           const mapped = records.map((r) => sessionService.toSessionData(r));
           setSessions(mapped);
@@ -115,16 +170,34 @@ export default function ReportsScreen() {
           setIsRealData(true);
 
           const rec = await recommendationService.getNextRecommendation(activeChildId, records[0]);
-          setM3Data(rec);
+          if (isMounted) setM3Data(rec);
         } else {
+          setSessions([]);
+          setRawSessions([]);
+          setIsRealData(false);
           const rec = await recommendationService.getNextRecommendation(activeChildId, null);
-          setM3Data(rec);
+          if (isMounted) setM3Data(rec);
         }
-      } catch (err) {
-        console.warn('[ReportsScreen] Error loading real sessions:', err);
+      } catch (err: any) {
+        if (isMounted) {
+          console.warn('[ReportsScreen] Error loading real sessions:', err);
+          setFetchError(
+            err?.message ||
+              (language === 'si'
+                ? 'සැසි දත්ත ලබාගැනීමට නොහැකි විය.'
+                : 'Failed to load session data.')
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     }
     loadSessions();
+    return () => {
+      isMounted = false;
+    };
   }, [activeChildId]);
 
   return (
@@ -147,7 +220,7 @@ export default function ReportsScreen() {
               {activeChildName.charAt(0)}
             </AppText>
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flexGrow: 1, flexShrink: 1, flexBasis: 160, minWidth: 0 }}>
             <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
               {activeChildName} — {language === 'si' ? 'ප්‍රගති වාර්තාව' : 'Progress Report'}
             </AppText>
@@ -169,11 +242,11 @@ export default function ReportsScreen() {
         {/* ── PDF EMAIL PROGRESS REPORT PROMO CARD ── */}
         <View style={[styles.pdfPromoCard, ThemeShadow.sm]}>
           <View style={styles.pdfPromoInner}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexGrow: 1, flexShrink: 1, flexBasis: 220, minWidth: 0 }}>
               <View style={styles.pdfIconCircle}>
                 <AppText size="lg">📄</AppText>
               </View>
-              <View style={{ marginLeft: 10, flex: 1 }}>
+              <View style={{ marginLeft: 10, flex: 1, minWidth: 0 }}>
                 <AppText size="sm" weight="extrabold" color="#0B7A44">
                   {language === 'si' ? 'සතිපතා / මාසික PDF වාර්තාව' : 'Weekly / Monthly PDF Report'}
                 </AppText>
@@ -201,7 +274,17 @@ export default function ReportsScreen() {
         <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
           🧠 {language === 'si' ? 'AI අනුවර්තී මගපෙන්වීම සහ XAI විග්‍රහය' : 'AI Adaptive Recommendation & Explainable AI'}
         </AppText>
-        <M3RecommendationCard data={m3Data} showLauncher={false} />
+        {m3Data ? (
+          <M3RecommendationCard data={m3Data} showLauncher={false} />
+        ) : (
+          <Card style={styles.emptyCard}>
+            <AppText size="xs" color={ThemeColors.textSecondary} style={{ textAlign: 'center' }}>
+              {isLoading
+                ? (language === 'si' ? 'නිර්දේශ සූදානම් කරමින් පවතී...' : 'Preparing recommendations...')
+                : (language === 'si' ? 'නිර්දේශ පූරණය කිරීමට දත්ත ප්‍රමාණවත් නැත.' : 'Insufficient data to compute recommendation.')}
+            </AppText>
+          </Card>
+        )}
 
         {/* Error Deep-Dive */}
         <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
@@ -213,7 +296,7 @@ export default function ReportsScreen() {
             (typeof ERROR_DETAIL)[keyof typeof ERROR_DETAIL],
           ][]
         ).map(([key, meta]) => {
-          const count = MOCK_ERROR_BREAKDOWN[key as keyof typeof MOCK_ERROR_BREAKDOWN] ?? 0;
+          const count = dynamicErrorBreakdown[key] ?? 0;
           return (
             <Card
               key={key}
@@ -230,7 +313,7 @@ export default function ReportsScreen() {
                   ]}
                 >
                   <AppText size="sm">{meta.icon}</AppText>
-                  <AppText size="xs" weight="bold" color={meta.color}>
+                  <AppText size="xs" weight="bold" color={meta.color} style={{ flexShrink: 1 }}>
                     {meta.label}
                   </AppText>
                 </View>
@@ -239,7 +322,7 @@ export default function ReportsScreen() {
                 </AppText>
               </View>
               <ProgressBar
-                value={(count / totalErrors) * 100}
+                value={totalErrors > 0 ? (count / totalErrors) * 100 : 0}
                 color={meta.color}
                 height={6}
               />
@@ -259,48 +342,77 @@ export default function ReportsScreen() {
         <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary} style={styles.sectionTitle}>
           📜 {language === 'si' ? 'සැසි අනුව විස්තරාත්මක ඉතිහාසය' : 'Session History'} {isRealData && (language === 'si' ? '☁️ (සජීවී වාර්තා)' : '☁️ (Live Synced)')}
         </AppText>
-        {sessions.map((s) => (
-          <Card key={s.id} style={styles.sessionCard}>
-            <View style={styles.sessionHeader}>
-              <AppText size="sm" weight="bold" color={ThemeColors.textPrimary}>
-                {s.date}
-              </AppText>
-              <BehaviorBadge state={s.behaviorState} />
-            </View>
-            <View style={styles.sessionStats}>
-              <View style={styles.sessionStat}>
-                <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
-                  {s.accuracy}%
-                </AppText>
-                <AppText size="xs" color={ThemeColors.textMuted}>
-                  {language === 'si' ? 'නිරවද්‍යතාව' : 'Accuracy'}
-                </AppText>
-              </View>
-              <View style={styles.sessionStat}>
-                <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
-                  {s.errorCount}
-                </AppText>
-                <AppText size="xs" color={ThemeColors.textMuted}>
-                  {language === 'si' ? 'දෝෂ ගණන' : 'Errors'}
-                </AppText>
-              </View>
-              <View style={styles.sessionStat}>
-                <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
-                  {Math.round(s.durationSeconds / 60)}m
-                </AppText>
-                <AppText size="xs" color={ThemeColors.textMuted}>
-                  {language === 'si' ? 'කාලය' : 'Duration'}
-                </AppText>
-              </View>
-              <View style={styles.sessionStat}>
-                <AppText size="sm">{'⭐'.repeat(s.starsEarned)}</AppText>
-                <AppText size="xs" color={ThemeColors.textMuted}>
-                  {language === 'si' ? 'තරු' : 'Stars'}
-                </AppText>
-              </View>
-            </View>
+
+        {isLoading ? (
+          <Card style={styles.emptyCard}>
+            <AppText size="sm" color={ThemeColors.textSecondary} style={{ textAlign: 'center' }}>
+              ⏳ {language === 'si' ? 'සැසි වාර්තා ලබාගනිමින් පවතී...' : 'Loading session records...'}
+            </AppText>
           </Card>
-        ))}
+        ) : fetchError ? (
+          <Card style={[styles.emptyCard, { borderColor: '#FECACA', backgroundColor: '#FEF2F2' }]}>
+            <AppText size="sm" weight="bold" color="#DC2626" style={{ textAlign: 'center' }}>
+              ⚠️ {fetchError}
+            </AppText>
+          </Card>
+        ) : sessions.length > 0 ? (
+          sessions.map((s) => (
+            <Card key={s.id} style={styles.sessionCard}>
+              <View style={styles.sessionHeader}>
+                <AppText size="sm" weight="bold" color={ThemeColors.textPrimary}>
+                  {s.date}
+                </AppText>
+                <BehaviorBadge state={s.behaviorState} />
+              </View>
+              <View style={styles.sessionStats}>
+                <View style={styles.sessionStat}>
+                  <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
+                    {s.accuracy}%
+                  </AppText>
+                  <AppText size="xs" color={ThemeColors.textMuted}>
+                    {language === 'si' ? 'නිරවද්‍යතාව' : 'Accuracy'}
+                  </AppText>
+                </View>
+                <View style={styles.sessionStat}>
+                  <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
+                    {s.errorCount}
+                  </AppText>
+                  <AppText size="xs" color={ThemeColors.textMuted}>
+                    {language === 'si' ? 'දෝෂ ගණන' : 'Errors'}
+                  </AppText>
+                </View>
+                <View style={styles.sessionStat}>
+                  <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
+                    {Math.round(s.durationSeconds / 60)}m
+                  </AppText>
+                  <AppText size="xs" color={ThemeColors.textMuted}>
+                    {language === 'si' ? 'කාලය' : 'Duration'}
+                  </AppText>
+                </View>
+                <View style={styles.sessionStat}>
+                  <AppText size="sm">{'⭐'.repeat(Math.max(0, s.starsEarned || 0))}</AppText>
+                  <AppText size="xs" color={ThemeColors.textMuted}>
+                    {language === 'si' ? 'තරු' : 'Stars'}
+                  </AppText>
+                </View>
+              </View>
+            </Card>
+          ))
+        ) : (
+          <Card style={styles.emptyCard}>
+            <AppText size="lg" style={{ textAlign: 'center', marginBottom: 6 }}>
+              📖
+            </AppText>
+            <AppText size="sm" weight="extrabold" color={ThemeColors.textPrimary} style={{ textAlign: 'center' }}>
+              {language === 'si' ? 'තවමත් කියවීමේ සැසි වාර්තා වී නොමැත' : 'No Reading Sessions Recorded Yet'}
+            </AppText>
+            <AppText size="xs" color={ThemeColors.textSecondary} style={{ textAlign: 'center', marginTop: 4, lineHeight: 18 }}>
+              {language === 'si'
+                ? 'මෙම ශිෂ්‍යයා කියවීමේ අභ්‍යාස සම්පූර්ණ කළ පසු, දෝෂ විග්‍රහය සහ සායනික වාර්තා මෙහි ස්වයංක්‍රීයව දිස්වනු ඇත.'
+                : 'Once this student completes reading exercises, detailed error telemetry and clinical insights will appear here.'}
+            </AppText>
+          </Card>
+        )}
 
         <View style={{ height: ThemeSpacing.xl }} />
       </ScrollView>
@@ -313,8 +425,11 @@ export default function ReportsScreen() {
         childName={activeChildName}
         grade={activeChildGrade}
         sessions={rawSessions}
-        m3Recommendation={m3Data}
+        m3Recommendation={m3Data || undefined}
       />
+
+      {/* Universal Parent Bottom Navigation */}
+      <BottomNav role="parent" activeTab="reports" />
     </SafeAreaView>
   );
 }
@@ -327,9 +442,13 @@ const styles = StyleSheet.create({
   scroll: {
     padding: ThemeSpacing.md,
     gap: ThemeSpacing.md,
+    maxWidth: 960,
+    width: '100%',
+    alignSelf: 'center',
   },
   childHeaderCard: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: ThemeRadius.lg,
@@ -350,8 +469,10 @@ const styles = StyleSheet.create({
   },
   backDashBtn: {
     backgroundColor: ThemeColors.surfaceMuted,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 40,
+    justifyContent: 'center',
     borderRadius: ThemeRadius.md,
   },
   pdfPromoCard: {
@@ -363,9 +484,10 @@ const styles = StyleSheet.create({
   },
   pdfPromoInner: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: 12,
   },
   pdfIconCircle: {
     width: 40,
@@ -376,9 +498,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   openPdfModalBtn: {
+    flexGrow: 1,
     backgroundColor: ThemeColors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minHeight: 44,
     borderRadius: ThemeRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -396,12 +520,16 @@ const styles = StyleSheet.create({
   },
   errorDetailHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 6,
   },
   errorDetailBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
+    maxWidth: '100%',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: ThemeRadius.md,
@@ -426,17 +554,31 @@ const styles = StyleSheet.create({
   },
   sessionHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 6,
   },
   sessionStats: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
+    rowGap: 8,
+    columnGap: 8,
     borderTopWidth: 1,
     borderTopColor: ThemeColors.borderLight,
     paddingTop: 8,
   },
   sessionStat: {
     alignItems: 'center',
+  },
+  emptyCard: {
+    padding: ThemeSpacing.lg,
+    backgroundColor: '#FFFFFF',
+    borderRadius: ThemeRadius.lg,
+    borderWidth: 1,
+    borderColor: ThemeColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

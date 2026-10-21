@@ -37,9 +37,8 @@ logger = logging.getLogger(__name__)
 if platform.system() == "Darwin" and not platform.mac_ver()[0]:
     platform.mac_ver = lambda: ("26.2.0", ("", "", ""), "")
 
-# Set offline flags by default for local execution
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+# Ensure offline mode is only preferred if cached, allowing first-run download
+
 
 
 def _find_repo_root() -> Path:

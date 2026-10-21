@@ -51,7 +51,13 @@ interface ErrorBadgeProps {
 }
 
 export function ErrorBadge({ type, compact = false, style }: ErrorBadgeProps) {
-  const meta = ERROR_META[type];
+  const meta = (type && ERROR_META[type]) || {
+    label: type ? String(type) : 'Error',
+    color: ThemeColors.error,
+    bg: ThemeColors.errorSurface,
+    border: ThemeColors.errorBorder,
+    icon: '⚠️',
+  };
   return (
     <View
       style={[
@@ -114,12 +120,18 @@ const BEHAVIOR_META: Record<
 };
 
 interface BehaviorBadgeProps {
-  state: BehaviorState;
+  state?: BehaviorState;
   style?: ViewStyle;
 }
 
 export function BehaviorBadge({ state, style }: BehaviorBadgeProps) {
-  const meta = BEHAVIOR_META[state];
+  const meta = (state && BEHAVIOR_META[state]) || {
+    label: state ? String(state) : 'Normal',
+    color: ThemeColors.textSecondary,
+    bg: ThemeColors.surfaceMint || ThemeColors.surface,
+    border: ThemeColors.border,
+    icon: '🎯',
+  };
   return (
     <View
       style={[
@@ -166,12 +178,18 @@ const DIFFICULTY_META: Record<
 };
 
 interface DifficultyBadgeProps {
-  level: DifficultyLevel;
+  level?: DifficultyLevel;
   style?: ViewStyle;
 }
 
 export function DifficultyBadge({ level, style }: DifficultyBadgeProps) {
-  const meta = DIFFICULTY_META[level];
+  const meta = (level && DIFFICULTY_META[level]) || {
+    label: level ? String(level) : 'Standard',
+    color: ThemeColors.textSecondary,
+    bg: ThemeColors.surface,
+    border: ThemeColors.border,
+    icon: '●',
+  };
   return (
     <View
       style={[

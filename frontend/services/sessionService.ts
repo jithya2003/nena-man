@@ -225,15 +225,19 @@ export const sessionService = {
   ): Promise<ReadingSessionRecord[]> {
     const localSessions = await getLocalSavedSessions();
     const filteredLocal = childId
-      ? localSessions.filter((s) => s.childId === childId || s.childId === 'child_default')
+      ? localSessions.filter((s) => s.childId === childId)
       : localSessions;
+
+    const validChildId = (childId || '').trim();
+    if (!validChildId || validChildId === 'child_default') {
+      // Return safe local-cache result immediately; never issue an unconstrained query against all sessions
+      return filteredLocal.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
+    }
 
     try {
       if (db && typeof db.collection === 'function' || (db && Object.keys(db).length > 0)) {
         const sessionsRef = collection(db, COLLECTION_SESSIONS);
-        let q = childId
-          ? query(sessionsRef, where('childId', '==', childId), limit(limitCount))
-          : query(sessionsRef, limit(limitCount));
+        const q = query(sessionsRef, where('childId', '==', validChildId), limit(limitCount));
 
         const snap = await getDocs(q);
         if (!snap.empty) {

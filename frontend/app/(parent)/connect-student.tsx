@@ -19,14 +19,17 @@ import {
   ThemeShadow,
 } from '@/constants/theme';
 import AppText from '@/components/AppText';
+import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/context/AuthContext';
 import { connectionService } from '@/services/connectionService';
 import { ConnectionRequest } from '@/types';
 import { LoadingView, EmptyView } from '@/components/shared-states';
+import { auth } from '@/services/firebase';
 
 export default function ConnectStudentScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const isFallback = (auth as any)?.isFallback;
 
   const [inputMode, setInputMode] = useState<'email' | 'code'>('email');
   const [identifier, setIdentifier] = useState('');
@@ -147,7 +150,7 @@ export default function ConnectStudentScreen() {
 
         <View style={styles.headerTitleWrap}>
           <AppText size="sm">🔗</AppText>
-          <AppText size="md" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6 }}>
+          <AppText size="md" weight="extrabold" color={ThemeColors.primary} style={{ marginLeft: 6, flexShrink: 1 }}>
             ශිෂ්‍යයෙකු සම්බන්ධ කරන්න
           </AppText>
         </View>
@@ -164,6 +167,15 @@ export default function ConnectStudentScreen() {
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Unconfigured Firebase Banner */}
+        {isFallback && (
+          <View style={styles.unconfiguredBanner}>
+            <AppText size="xs" weight="bold" color="#92400E">
+              ⚠️ Firebase සේවාව සකසා නොමැත. සැබෑ සිසුන් සම්බන්ධ කිරීම සඳහා කරුණාකර frontend/.env ගොනුවේ Firebase credentials ඇතුළත් කරන්න. (Firebase is unconfigured. Real Firebase credentials in frontend/.env are required to link live student accounts.)
+            </AppText>
+          </View>
+        )}
+
         {/* Intro Hero Card */}
         <View style={[styles.heroCard, ThemeShadow.sm]}>
           <View style={styles.heroIconWrap}>
@@ -191,7 +203,8 @@ export default function ConnectStudentScreen() {
               }}
               activeOpacity={0.8}
             >
-              <AppText size="xs" weight="bold" color={inputMode === 'email' ? '#FFFFFF' : ThemeColors.textSecondary}>
+              <AppText size="xs" weight="bold" color={inputMode === 'email' ? '#FFFFFF' : ThemeColors.textSecondary} style={styles.modeTabText}>
+
                 ✉️ විද්‍යුත් තැපෑල (Email)
               </AppText>
             </TouchableOpacity>
@@ -204,7 +217,7 @@ export default function ConnectStudentScreen() {
               }}
               activeOpacity={0.8}
             >
-              <AppText size="xs" weight="bold" color={inputMode === 'code' ? '#FFFFFF' : ThemeColors.textSecondary}>
+              <AppText size="xs" weight="bold" color={inputMode === 'code' ? '#FFFFFF' : ThemeColors.textSecondary} style={styles.modeTabText}>
                 🏷️ ශිෂ්‍ය කේතය (Code)
               </AppText>
             </TouchableOpacity>
@@ -219,7 +232,7 @@ export default function ConnectStudentScreen() {
               style={styles.input}
               placeholder={
                 inputMode === 'email'
-                  ? 'උදා: senuli@gmail.com හෝ senuli@nenaman.lk'
+                  ? 'උදා: senuli@gmail.com'
                   : 'උදා: NM-4892'
               }
               placeholderTextColor={ThemeColors.textMuted}
@@ -301,7 +314,7 @@ export default function ConnectStudentScreen() {
 
         {/* ── SENT REQUESTS LIST ── */}
         <View style={styles.sectionWrap}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
             <AppText size="md" weight="extrabold" color={ThemeColors.textPrimary}>
               යවන ලද ඉල්ලීම් ({sentRequests.length})
             </AppText>
@@ -327,7 +340,7 @@ export default function ConnectStudentScreen() {
                   <View style={styles.requestAvatarCircle}>
                     <AppText size="md">🎓</AppText>
                   </View>
-                  <View style={{ marginLeft: 10, flex: 1 }}>
+                  <View style={{ marginLeft: 10, flex: 1, minWidth: 0 }}>
                     <AppText size="sm" weight="bold" color={ThemeColors.textPrimary}>
                       {req.childName}
                     </AppText>
@@ -341,7 +354,7 @@ export default function ConnectStudentScreen() {
                 </View>
 
                 {/* Status Badge & Remove Action */}
-                <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                <View style={{ alignItems: 'flex-end', gap: 6, flexShrink: 0, maxWidth: '45%' }}>
                   <View
                     style={[
                       styles.statusBadge,
@@ -398,6 +411,9 @@ export default function ConnectStudentScreen() {
           </AppText>
         </View>
       </ScrollView>
+
+      {/* Persistent Parent Bottom Navigation */}
+      <BottomNav role="parent" activeTab="connect" />
     </SafeAreaView>
   );
 }
@@ -413,27 +429,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: ThemeSpacing.md,
-    paddingVertical: ThemeSpacing.xs + 2,
+    paddingVertical: ThemeSpacing.sm,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: ThemeColors.borderLight,
+    maxWidth: 760,
+    width: '100%',
+    alignSelf: 'center',
   },
   navIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: ThemeColors.surfaceMuted,
   },
   headerTitleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    marginHorizontal: 8,
   },
   scroll: {
     paddingHorizontal: ThemeSpacing.md,
     paddingTop: ThemeSpacing.md,
     paddingBottom: ThemeSpacing.xl,
     gap: ThemeSpacing.md,
+    maxWidth: 760,
+    width: '100%',
+    alignSelf: 'center',
   },
   heroCard: {
     flexDirection: 'row',
@@ -455,35 +481,47 @@ const styles = StyleSheet.create({
   formCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    padding: ThemeSpacing.md,
+    padding: ThemeSpacing.md + 2,
     borderWidth: 1,
     borderColor: ThemeColors.borderLight,
   },
   modeTabsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     backgroundColor: '#F1F5F9',
-    borderRadius: 10,
-    padding: 3,
+    borderRadius: 12,
+    padding: 4,
     gap: 4,
   },
   modeTab: {
-    flex: 1,
-    paddingVertical: 8,
+    flexGrow: 1,
+    flexBasis: 130,
+    minWidth: 0,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     alignItems: 'center',
     borderRadius: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  modeTabText: {
+    textAlign: 'center',
+    flexShrink: 1,
   },
   modeTabActive: {
     backgroundColor: ThemeColors.primary,
   },
   input: {
+    width: '100%',
     borderWidth: 1.5,
-    borderColor: ThemeColors.borderLight,
+    borderColor: ThemeColors.border,
     borderRadius: 12,
     paddingHorizontal: ThemeSpacing.md,
-    paddingVertical: 10,
+    paddingVertical: 12,
     fontSize: 14,
     color: ThemeColors.textPrimary,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#FFFFFF',
+    minHeight: 48,
   },
   chipsRow: {
     flexDirection: 'row',
@@ -491,16 +529,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    borderWidth: 1,
-    borderColor: ThemeColors.borderLight,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderWidth: 1.5,
+    borderColor: ThemeColors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
+    minHeight: 40,
+    justifyContent: 'center',
   },
   chipSelected: {
     borderColor: ThemeColors.primary,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#E8F6ED',
   },
   errorBox: {
     backgroundColor: '#FEF2F2',
@@ -521,10 +561,11 @@ const styles = StyleSheet.create({
   submitBtn: {
     backgroundColor: ThemeColors.primary,
     borderRadius: 14,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 16,
+    minHeight: 48,
   },
   sectionWrap: {
     gap: 10,
@@ -540,8 +581,10 @@ const styles = StyleSheet.create({
   },
   requestCard: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: ThemeSpacing.md,
@@ -551,7 +594,10 @@ const styles = StyleSheet.create({
   requestCardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 200,
+    minWidth: 0,
   },
   requestAvatarCircle: {
     width: 40,
@@ -581,8 +627,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FECACA',
     borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   guideCard: {
     backgroundColor: '#F0F9FF',
@@ -590,5 +638,12 @@ const styles = StyleSheet.create({
     borderColor: '#BAE6FD',
     borderRadius: 14,
     padding: ThemeSpacing.md,
+  },
+  unconfiguredBanner: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: ThemeRadius.md,
+    padding: ThemeSpacing.sm,
   },
 });

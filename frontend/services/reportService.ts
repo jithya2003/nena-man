@@ -80,8 +80,8 @@ export const reportService = {
   generateReportHtml(data: ReportGenerationData): string {
     const isSi = data.language !== 'en';
     const periodLabel = data.frequency === 'weekly'
-      ? (isSi ? 'සතිපතා වාර්තාව (පසුගිය දින 7)' : 'Weekly Progress Report (Last 7 Days)')
-      : (isSi ? 'මාසික වාර්තාව (පසුගිය දින 30)' : 'Monthly Progress Report (Last 30 Days)');
+      ? (isSi ? 'සතිපතා ප්‍රගති වාර්තාව (පසුගිය දින 7)' : 'Weekly Progress Report (Last 7 Days)')
+      : (isSi ? 'මාසික ප්‍රගති වාර්තාව (පසුගිය දින 30)' : 'Monthly Progress Report (Last 30 Days)');
 
     const generatedDate = new Date().toLocaleDateString(isSi ? 'si-LK' : 'en-US', {
       year: 'numeric',
@@ -127,20 +127,24 @@ export const reportService = {
 
     const m3Decision = data.m3Recommendation?.recommendation || 'Maintain';
     const m3DecisionLabel = m3Decision === 'Increase'
-      ? (isSi ? 'අපහසුතාව වැඩි කිරීම (Level Up 🚀)' : 'Increase Level 🚀')
+      ? (isSi ? 'මීළඟ අභියෝග්‍ය මට්ටමට යොමු කිරීම (Level Up 🚀)' : 'Progress to Next Level 🚀')
       : m3Decision === 'Decrease'
-      ? (isSi ? 'පහසු කර සහාය ලබා දීම (Gentle Support 🛡️)' : 'Decrease & Scaffold 🛡️')
-      : (isSi ? 'වත්මන් මට්ටම පවත්වා ගැනීම (Maintain ⚖️)' : 'Maintain Difficulty ⚖️');
+      ? (isSi ? 'පහසු පාඨ මඟින් අමතර සහාය ලබා දීම (Gentle Support 🛡️)' : 'Provide Additional Support 🛡️')
+      : (isSi ? 'වත්මන් මට්ටමේ පුහුණුව තවදුරටත් තහවුරු කිරීම (Consolidate Level ⚖️)' : 'Consolidate Current Level ⚖️');
 
-    const targetSkill = data.m3Recommendation?.targetPhonemeSkill || (isSi ? 'ස්වර දිගු කිරීම් (ඩා, පා, මා)' : 'Long Vowel Articulation');
-    const m3Rationale = data.m3Recommendation?.rationale || (isSi ? 'නිරවද්‍යතාවය 80% ට වැඩිව පවතී. දිගු ස්වර ආශ්‍රිත පුහුණුව නිර්දේශ කෙරේ.' : 'Consistent accuracy above 80%. Targeted practice on long vowel sounds.');
+    const targetSkill = data.m3Recommendation?.targetPhonemeSkill || (isSi ? 'දිගු ස්වර ආශ්‍රිත වචන (ඩා, පා, මා)' : 'Long Vowel Articulation');
+    const m3Rationale = data.m3Recommendation?.rationale || (isSi ? 'නිරවද්‍යතාවය 80% ට වැඩි මට්ටමක පවතී. දිගු ස්වර ආශ්‍රිත වචන කියවීම තවදුරටත් පුහුණු කිරීම යෝග්‍ය වේ.' : 'Consistent accuracy above 80%. Targeted practice on long vowel articulation is recommended.');
+
+    const reportCode = data.childId
+      ? `NM-${data.childId.replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase()}`
+      : 'NM-1001';
 
     return `
 <!DOCTYPE html>
 <html lang="${isSi ? 'si' : 'en'}">
 <head>
   <meta charset="utf-8">
-  <title>නැණ මං — Dyslexia Progress Report (${data.childName})</title>
+  <title>නැණ මං — ${isSi ? 'ශිෂ්‍ය කියවීමේ ප්‍රගති වාර්තාව' : 'Student Reading Progress Report'} (${data.childName})</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700;800&family=Lexend:wght@400;600;700;800&display=swap');
     
@@ -345,7 +349,7 @@ export const reportService = {
     <div class="header-bar">
       <div>
         <div class="brand-title">🌟 නැණ මං (Nena-Man)</div>
-        <div class="brand-subtitle">AI-Powered Sinhala Dyslexia Reading Assistant · SLIIT IT4010 Final Year Project</div>
+        <div class="brand-subtitle">${isSi ? 'සිංහල කියවීමේ සහායක යෙදුම · ශිෂ්‍ය කියවීමේ ප්‍රගති වාර්තාව' : 'Sinhala Reading Assistant · Student Reading Progress Report'}</div>
       </div>
       <div class="badge-period">
         <div>${periodLabel}</div>
@@ -353,7 +357,10 @@ export const reportService = {
       </div>
     </div>
 
-    <!-- Student Info -->
+    <!-- Section 1: Student Information & Overall Summary -->
+    <div class="section-title">
+      👤 ${isSi ? 'ශිෂ්‍ය තොරතුරු සහ සමස්ත ප්‍රගතිය' : 'Student Information & Overall Summary'}
+    </div>
     <div class="student-info-grid">
       <div>
         <div class="info-item-label">${isSi ? 'ශිෂ්‍යයාගේ නම' : "Student's Name"}</div>
@@ -365,11 +372,11 @@ export const reportService = {
       </div>
       <div>
         <div class="info-item-label">${isSi ? 'වාර්තා අංකය' : 'Report ID'}</div>
-        <div class="info-item-value">NM-${Math.floor(1000 + Math.random() * 9000)}</div>
+        <div class="info-item-value">${reportCode}</div>
       </div>
     </div>
 
-    <!-- Executive Summary 4 Metrics -->
+    <!-- Executive Summary Metrics -->
     <div class="summary-metrics">
       <div class="metric-card">
         <div class="info-item-label">${isSi ? 'සම්පූර්ණ සැසි' : 'Sessions Read'}</div>
@@ -389,17 +396,17 @@ export const reportService = {
       </div>
     </div>
 
-    <!-- Module 1: Clinical Speech Diagnostic Breakdown -->
+    <!-- Section 2: Reading Error Analysis -->
     <div class="section-title">
-      🎙️ ${isSi ? 'M1 කථන දෝෂ සායනික වර්ගීකරණය' : 'Module 1: Clinical Speech Error Breakdown'}
+      📖 ${isSi ? 'කියවීමේ දෝෂ විශ්ලේෂණය' : 'Reading Error Analysis'}
     </div>
     <table class="errors-table">
       <thead>
         <tr>
-          <th>${isSi ? 'දෝෂ වර්ගය' : 'Error Classification'}</th>
-          <th>${isSi ? 'ගණන' : 'Count'}</th>
+          <th>${isSi ? 'දෝෂ වර්ගය' : 'Error Type'}</th>
+          <th>${isSi ? 'වාර්තා වූ වාර ගණන' : 'Count'}</th>
           <th>${isSi ? 'ප්‍රතිශතය' : 'Frequency Ratio'}</th>
-          <th>${isSi ? 'සායනික පැහැදිලි කිරීම' : 'Clinical Significance'}</th>
+          <th>${isSi ? 'ගුරුවරයාට සහ දෙමාපියන්ට පැහැදිලි කිරීම' : 'Explanation & Classroom Context'}</th>
         </tr>
       </thead>
       <tbody>
@@ -411,7 +418,7 @@ export const reportService = {
               <div class="progress-bar-fill" style="width: ${(subErrors / (totalErrorCount || 1)) * 100}%; background: #0B7A44;"></div>
             </div>
           </td>
-          <td style="font-size: 11px;">${isSi ? 'වචනයක් වෙනුවට වෙනත් ශබ්දයක් කීම ("ගස" වෙනුවට "ගස්")' : 'Replaces target word with phonetically similar word'}</td>
+          <td style="font-size: 11px;">${isSi ? 'වචනයක් වෙනුවට වෙනත් ශබ්දයක් හෝ වචනයක් පැවසීම (උදා: "ගස" වෙනුවට "ගස්")' : 'Replaces target word or sound with another similar word'}</td>
         </tr>
         <tr>
           <td><strong>❌ ${isSi ? 'මඟහැරීම් (Omission)' : 'Omission'}</strong></td>
@@ -421,7 +428,7 @@ export const reportService = {
               <div class="progress-bar-fill" style="width: ${(omErrors / (totalErrorCount || 1)) * 100}%; background: #DC2626;"></div>
             </div>
           </td>
-          <td style="font-size: 11px;">${isSi ? 'අකුරු හෝ පිල්ලම් මඟහැරීම' : 'Skips akuru letters or vowel diacritics'}</td>
+          <td style="font-size: 11px;">${isSi ? 'අකුරු හෝ පිල්ලම් ශබ්ද නොකර මඟහැර කියවීම' : 'Skips letters or vowel diacritics during reading'}</td>
         </tr>
         <tr>
           <td><strong>↩️ ${isSi ? 'පෙරලීම් (Reversal)' : 'Reversal'}</strong></td>
@@ -431,76 +438,73 @@ export const reportService = {
               <div class="progress-bar-fill" style="width: ${(revErrors / (totalErrorCount || 1)) * 100}%; background: #D97706;"></div>
             </div>
           </td>
-          <td style="font-size: 11px;">${isSi ? 'කොම්බුව/ඇලපිල්ල අනුපිළිවෙල මාරු වීම' : 'Reverses kombuwa stroke or modifier order'}</td>
+          <td style="font-size: 11px;">${isSi ? 'අකුරු හෝ කොම්බුව/පිල්ලම් වල අනුපිළිවෙල මාරු කර කියවීම (උදා: කොම්බුව සහිත අකුරු)' : 'Reverses letter order or modifier diacritic sequence (e.g. kombuwa)'}</td>
         </tr>
         <tr>
-          <td><strong>⏸️ ${isSi ? 'චකිතය (Hesitation)' : 'Hesitation'}</strong></td>
+          <td><strong>⏸️ ${isSi ? 'පැකිලීම් (Hesitation)' : 'Hesitation'}</strong></td>
           <td><strong>${hestErrors}</strong></td>
           <td>
             <div class="progress-bar-wrap">
               <div class="progress-bar-fill" style="width: ${(hestErrors / (totalErrorCount || 1)) * 100}%; background: #2563EB;"></div>
             </div>
           </td>
-          <td style="font-size: 11px;">${isSi ? 'තත්පර 2කට වඩා දීර්ඝ නැවතීම්' : 'Acoustic latency exceeding 1.5s per word'}</td>
+          <td style="font-size: 11px;">${isSi ? 'වචනයක් උච්චාරණය කිරීමට පෙර දිගු වේලාවක් නැවතී සිටීම' : 'Pauses for an extended duration before articulating a word'}</td>
         </tr>
       </tbody>
     </table>
 
-    <!-- Module 3: AI Adaptive Recommendation & XAI -->
+    <!-- Section 3: Student Reading Progress -->
     <div class="section-title">
-      🧠 ${isSi ? 'M3 අනුවර්තී නිර්දේශය සහ AI හේතු දැක්වීම (XAI Rationale)' : 'Module 3: Adaptive AI Recommendation & XAI'}
+      🎯 ${isSi ? 'දරුවාගේ කියවීමේ ප්‍රගතිය' : 'Student Reading Progress'}
     </div>
     <div class="ai-rec-box">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+      <div style="margin-bottom: 8px;">
         <span style="font-size: 13px; font-weight: 800; color: #0B7A44;">
-          ${isSi ? 'AI නිර්දේශිත පියවර:' : 'AI Decision:'} ${m3DecisionLabel}
-        </span>
-        <span style="background: #FFFFFF; border: 1px solid #B2E2C3; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; color: #0B7A44;">
-          89% Confidence
+          ${isSi ? 'මීළඟ ඉගෙනුම් පියවර:' : 'Recommended Next Step:'} ${m3DecisionLabel}
         </span>
       </div>
       <div style="font-size: 12px; color: #172B20; margin-bottom: 6px;">
-        <strong>🎯 ${isSi ? 'ඉලක්කගත ශබ්ද පුහුණුව:' : 'Target Phoneme Focus:'}</strong> ${targetSkill}
+        <strong>🎯 ${isSi ? 'විශේෂ අවධානය යොමු කළ යුතු ශබ්ද:' : 'Focus Phonetic Area:'}</strong> ${targetSkill}
       </div>
       <div style="font-size: 11px; color: #4F6659; line-height: 1.5;">
-        <strong>💡 ${isSi ? 'හේතුව (Why this choice):' : 'Rationale:'}</strong> ${m3Rationale}
+        <strong>💡 ${isSi ? 'ගුරු නිරීක්ෂණ සහ උපදෙස්:' : 'Teaching Observation:'}</strong> ${m3Rationale}
       </div>
     </div>
 
-    <!-- Home Interventions for Parents -->
+    <!-- Section 4: Recommended Activities for Teachers & Parents -->
     <div class="section-title">
-      🏡 ${isSi ? 'මීළඟ සතියට දෙමාපියන්ට ගෙදරදී කළ හැකි සරල අභ්‍යාස' : 'Prescribed Home Interventions for Coming Week'}
+      🏫 ${isSi ? 'ගුරුවරයාට නිර්දේශ කරන ක්‍රියාකාරකම්' : 'Recommended Activities for Classroom & Home'}
     </div>
     <div class="home-tips-box">
       <div class="tip-entry">
-        <strong>1. ${isSi ? 'ඇඟිල්ල තබා පෙන්වීම (Finger-Point Tracking):' : 'Finger-Point Tracking:'}</strong>
+        <strong>1. ${isSi ? 'ඇඟිල්ල හෝ පැන්සල තබා පෙන්වීම (Finger-Point Tracking):' : 'Finger-Point Tracking:'}</strong>
         ${isSi
-          ? 'දිනකට විනාඩි 10ක් දරුවා සමඟ කෙටි වාක්‍ය කියවීමේදී අකුරෙන් අකුර ඇඟිල්ල තබා පෙන්වන්න. මෙය මඟහැරීම් (Omissions) අවම කරයි.'
-          : 'Dedicate 10 minutes daily tracking words character by character using a finger guide to minimize word omissions.'}
+          ? 'කෙටි පාඨ කියවීමේදී අකුරෙන් අකුරට ඇඟිල්ල හෝ පැන්සල තබා මඟපෙන්වන්න. මෙය අකුරු සහ පිල්ලම් මඟහැරී යාම (Omissions) අවම කිරීමට උපකාරී වේ.'
+          : 'Guide reading word-by-word with a finger or pencil tracker to minimize omissions of letters and vowel marks.'}
       </div>
       <div class="tip-entry">
-        <strong>2. ${isSi ? 'අහසේ අකුරු ඇඳීම (Air-Tracing Kombuwa):' : 'Air-Tracing Kombuwa Sequencing:'}</strong>
+        <strong>2. ${isSi ? 'අහසේ අකුරු ඇඳීම සහ හැඩ හඳුනාගැනීම (Air-Tracing & Diacritic Sequencing):' : 'Air-Tracing & Sequencing:'}</strong>
         ${isSi
-          ? 'කොම්බුව සහිත අකුරු ලියන විට, කොම්බුව මුලින් ලියා අකුර පසුව ලියන අනුපිළිවෙල අහසේ හෝ වැලි පිඟානක අඳින්න. මෙය Reversal දෝෂ වළක්වයි.'
-          : 'Practice air-tracing or sand tray drawing for kombuwa stroke sequences to overcome diacritic reversal errors.'}
+          ? 'කොම්බුව සහිත අකුරු කියවීමේදී සහ ලිවීමේදී, කොම්බුව පළමුව හඬ නඟා කියවා අකුර වෙත යාමේ නිවැරදි අනුපිළිවෙල පෙන්වා දෙන්න. මෙය අකුරු පෙරලීම් වැළැක්වීමට මහෝපකාරී වේ.'
+          : 'Practice air-tracing kombuwa and modifier stroke sequences before articulating to prevent diacritic reversals.'}
       </div>
       <div class="tip-entry">
-        <strong>3. ${isSi ? 'පින්තූර ආශ්‍රිත ප්‍රශංසාව (Semantic Picture Cues):' : 'Picture-Assisted Vocabulary:'}</strong>
+        <strong>3. ${isSi ? 'පින්තූර ආශ්‍රිත ඉඟි සහ ධනාත්මක ඇගයීම (Visual Context Cues & Encouragement):' : 'Visual Context & Encouragement:'}</strong>
         ${isSi
-          ? 'දරුවා වචනයක් අසල පැකිලෙන විට (Hesitation), පින්තූරය පෙන්වා ඉඟියක් ලබා දෙන්න. බල නොකර උත්සාහය අගය කරන්න.'
-          : 'When the child hesitates on longer words, point to illustrative visual cues to ease cognitive strain.'}
+          ? 'දරුවා වචනයක් අසල පැකිලෙන විට බල නොකර, පින්තූරය හෝ සන්දර්භය පෙන්වා ඉඟියක් ලබා දෙන්න. කුඩා උත්සාහය පවා අගය කර දරුවාගේ කියවීමේ ආත්මවිශ්වාසය ගොඩනගන්න.'
+          : 'Offer supportive visual cues when hesitation occurs and provide positive reinforcement to build reading confidence.'}
       </div>
     </div>
 
     <!-- Footer Stamp -->
     <div class="footer-stamp">
       <div>
-        <strong>නැණ මං (Nena-Man) Clinical Telemetry Report</strong><br>
-        SLIIT Final Year Project J26-IT-361 · Sri Lanka
+        <strong>නැණ මං (Nena-Man) — ${isSi ? 'ශිෂ්‍ය කියවීමේ ප්‍රගති වාර්තාව' : 'Student Reading Progress Report'}</strong><br>
+        ${isSi ? 'ශ්‍රී ලංකාවේ දරුවන්ගේ කියවීමේ කුසලතා සංවර්ධනය උදෙසා නිර්මාණය කරන ලද අධ්‍යාපනික සහායකයෙකි.' : 'Educational Reading Assistant for Sinhala Literacy Support.'}
       </div>
       <div style="text-align: right;">
-        Recipient: ${data.recipientEmail}<br>
-        Status: Verified Electronic Document ✓
+        ${isSi ? 'ලැබිය යුතු ලිපිනය' : 'Recipient'}: ${data.recipientEmail}<br>
+        ${isSi ? 'තත්ත්වය: තහවුරු කළ නිල විද්‍යුත් ලේඛනයකි' : 'Status: Verified Educational Document'} ✓
       </div>
     </div>
   </div>
