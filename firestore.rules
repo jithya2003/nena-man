@@ -1,0 +1,156 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper Functions ─────────────────────────────────────────────────────
+
+    // Checks if the request is from an authenticated user
+    function isAuthenticated() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    // Checks if the caller owns the document by UID
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Validates allowed system roles
+    function isValidRole(role) {
+      return role in ['child', 'parent', 'teacher'];
+    }
+
+    // Validates existing NM-XXXX student-code format (4-character uppercase alphanumeric suffix)
+    function isValidStudentCode(code) {
+      return code.matches('^NM-[0-9A-Z]{4}$');
+    }
+
+    // Checks if caller has an active accepted link to the target child via deterministic ID
+    function hasActiveAcceptedLink(childUid) {
+      let linkId = request.auth.uid + '_' + childUid;
+      return exists(/databases/$(database)/documents/connection_requests/$(linkId)) &&
+             get(/databases/$(database)/documents/connection_requests/$(linkId)).data.status == 'accepted';
+    }
+
+    // Checks if the caller is a participant in the connection request
+    function isRequestParticipant(data) {
+      return request.auth.uid == data.senderUid ||
+             request.auth.uid == data.childUid ||
+             (data.childEmail != '' && request.auth.token.email != null && data.childEmail == request.auth.token.email);
+    }
+
+    // ── 1. Users Collection (users/{userId}) ─────────────────────────────────
+    match /users/{userId} {
+      // Owner can read their own profile; actively linked guardian can read linked student profile
+      allow get: if isOwner(userId) || hasActiveAcceptedLink(userId);
+
+      // Prevent broad enumeration of users collection
+      allow list: if false;
+
+      // Allow owner to create their own user profile document
+      allow create: if isOwner(userId) &&
+                       request.resource.data.uid == userId &&
+                       isValidRole(request.resource.data.role);
+
+      // Allow owner to update their own user profile document
+      // Strictly prevent cross-user writes and role escalation
+      allow update: if isOwner(userId) &&
+                       request.resource.data.uid == userId &&
+                       request.resource.data.role == resource.data.role;
+
+      // Prevent user document deletion through client SDK
+      allow delete: if false;
+    }
+
+    // ── 2. Student Codes Lookup (student_codes/{code}) ────────────────────────
+    match /student_codes/{code} {
+      // Authenticated users can resolve a specific code into a childUid
+      allow get: if isAuthenticated();
+
+      // Strictly deny listing to prevent enumeration of student codes
+      allow list: if false;
+
+      // Child can create their own student-code lookup record if unoccupied
+      allow create: if isAuthenticated() &&
+                       request.resource.data.childUid == request.auth.uid &&
+                       request.resource.data.studentCode == code &&
+                       isValidStudentCode(code) &&
+                       !exists(/databases/$(database)/documents/student_codes/$(code));
+
+      // Student-code lookup records are immutable; ownership cannot be transferred or overwritten
+      allow update: if false;
+
+      // Deletion is disallowed via client SDK
+      allow delete: if false;
+    }
+
+    // ── 3. Connection Requests (connection_requests/{requestId}) ─────────────
+    match /connection_requests/{requestId} {
+      // Senders and recipients can read individual request documents
+      allow get: if isAuthenticated() && isRequestParticipant(resource.data);
+
+      // Senders and recipients can list requests filtered by their UID
+      allow list: if isAuthenticated() &&
+                     (resource.data.senderUid == request.auth.uid ||
+                      resource.data.childUid == request.auth.uid);
+
+      // Parent or Teacher creates a connection request with deterministic ID $(senderUid)_$(childUid)
+      allow create: if isAuthenticated() &&
+                       request.resource.data.senderUid == request.auth.uid &&
+                       request.resource.data.senderRole in ['parent', 'teacher'] &&
+                       request.resource.data.status == 'pending' &&
+                       request.resource.data.childUid != request.auth.uid &&
+                       requestId == request.auth.uid + '_' + request.resource.data.childUid;
+
+      // Strict state transitions and protected field immutability
+      allow update: if isAuthenticated() &&
+                       isRequestParticipant(resource.data) &&
+                       // Protected fields are immutable:
+                       request.resource.data.senderUid == resource.data.senderUid &&
+                       request.resource.data.childUid == resource.data.childUid &&
+                       request.resource.data.senderRole == resource.data.senderRole &&
+                       request.resource.data.createdAt == resource.data.createdAt &&
+                       (
+                         // Transition 1: Child confirms (pending -> accepted) or declines (pending -> declined)
+                         (
+                           request.auth.uid == resource.data.childUid &&
+                           resource.data.status == 'pending' &&
+                           request.resource.data.status in ['accepted', 'declined']
+                         ) ||
+                         // Transition 2: Sender (Parent/Teacher) detaches or cancels (any -> declined)
+                         (
+                           request.auth.uid == resource.data.senderUid &&
+                           request.resource.data.status == 'declined'
+                         )
+                       );
+
+      // Prevent request record deletion; history remains for auditing
+      allow delete: if false;
+    }
+
+    // ── 4. Reading Sessions (sessions/{sessionId}) ───────────────────────────
+    match /sessions/{sessionId} {
+      // Child can read own sessions; actively linked guardian can read student sessions
+      allow get: if isAuthenticated() &&
+                    (request.auth.uid == resource.data.childId ||
+                     hasActiveAcceptedLink(resource.data.childId));
+
+      // Queries must filter by childId matching the caller or an actively linked child
+      allow list: if isAuthenticated() &&
+                     (request.auth.uid == resource.data.childId ||
+                      hasActiveAcceptedLink(resource.data.childId));
+
+      // Child writes completed reading session for their own UID
+      allow create: if isAuthenticated() &&
+                       request.auth.uid == request.resource.data.childId;
+
+      // Child can update their own session if necessary; childId is immutable
+      allow update: if isAuthenticated() &&
+                       request.auth.uid == resource.data.childId &&
+                       request.resource.data.childId == resource.data.childId;
+
+      // Prevent session deletion through client SDK
+      allow delete: if false;
+    }
+
+  }
+}
