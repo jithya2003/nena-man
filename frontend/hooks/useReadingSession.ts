@@ -53,7 +53,8 @@ export interface UseReadingSessionParams {
     difficulty?: string;
   };
   gradeLevel?: number | string;
-  interactionData?: Partial<CameraInteractionData>;
+  /** Static telemetry object, or a getter (preferred) that returns fresh telemetry when the pipeline runs */
+  interactionData?: Partial<CameraInteractionData> | (() => Partial<CameraInteractionData>);
   onSuccess?: () => void;
 }
 
@@ -188,7 +189,9 @@ export function useReadingSession({
           audioUriToProcess,
           { id: text.id, content: text.content },
           effectiveGradeLevel,
-          interactionDataRef.current || {}
+          (typeof interactionDataRef.current === 'function'
+            ? interactionDataRef.current()
+            : interactionDataRef.current) || {}
         );
 
         setPipelineErrors({

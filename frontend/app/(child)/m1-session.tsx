@@ -31,8 +31,11 @@ import {
 import AppText from '@/components/AppText';
 import VoiceAssessmentModal from '@/components/VoiceAssessmentModal';
 import RewardsModal from '@/components/RewardsModal';
+import DevicePermissionModal from '@/components/DevicePermissionModal';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { useInteractionTracker } from '@/hooks/useInteractionTracker';
+import { useConsentPrivacy } from '@/hooks/useConsentPrivacy';
+import { cameraLandmarkService } from '@/services/cameraLandmarkService';
 import { useLanguage } from '@/context/LanguageContext';
 import { LoadingView, ErrorView, OfflineBanner } from '@/components/shared-states';
 
@@ -335,6 +338,8 @@ export default function SpeechSessionScreen() {
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showGamePopup, setShowGamePopup] = useState(false);
   const [showRewardsModal, setShowRewardsModal] = useState(false);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const { consentState, hasActiveConsent } = useConsentPrivacy();
 
   // Progressive Support Ladder state (Levels: 0 = Independent, 1 = Highlight, 2 = Syllable, 3 = Audio, 4 = Simplification)
   const [currentSupportLevel, setCurrentSupportLevel] = useState<0 | 1 | 2 | 3 | 4>(0);
@@ -496,7 +501,10 @@ export default function SpeechSessionScreen() {
       content: targetSinhala,
       difficulty: 'medium',
     },
-    interactionData: interactionTracker.getTelemetry(),
+    interactionData: () => ({
+      ...interactionTracker.getTelemetry(),
+      cameraLandmarks: cameraLandmarkService.getLandmarkSequence(hasActiveConsent),
+    }),
     onSuccess: () => {
       Animated.spring(resultAnim, {
         toValue: 1,
@@ -771,7 +779,7 @@ export default function SpeechSessionScreen() {
     stopActiveSpeech();
     attemptHandledRef.current = false;
     interactionTracker.recordRetry();
-    interactionTracker.resetTracker();
+    // NOTE: do not resetTracker() here — retries must accumulate for M4 frustration detection
     session.resetSession();
     setShowGamePopup(false);
     resultAnim.setValue(0);
@@ -1145,17 +1153,34 @@ export default function SpeechSessionScreen() {
           </AppText>
         </View>
 
-        {/* AI Status Badge & Privacy Settings Link */}
+        {/* AI Status Badge & Camera Permission Link */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <View style={styles.statusBadge}>
-            <View style={styles.statusDot} />
-            <AppText size="xs" weight="bold" color={ThemeColors.primary}>
-              AI සක්‍රීයයි
+          <TouchableOpacity
+            style={[
+              styles.statusBadge,
+              hasActiveConsent ? styles.cameraBadgeActive : styles.cameraBadgeInactive,
+            ]}
+            onPress={() => setShowPermissionModal(true)}
+            activeOpacity={0.8}
+          >
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: hasActiveConsent ? '#10B981' : '#94A3B8' },
+              ]}
+            />
+            <AppText
+              size="xs"
+              weight="bold"
+              color={hasActiveConsent ? '#047857' : '#64748B'}
+            >
+              {hasActiveConsent ? '📷 Cam AI' : '📷 Cam Off'}
             </AppText>
-          </View>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.privacyIconBtn}
-            onPress={() => router.push('/(child)/consent-privacy')}
+            onPress={() => setShowPermissionModal(true)}
             activeOpacity={0.8}
           >
             <AppText size="xs">🛡️</AppText>
@@ -1894,9 +1919,10 @@ export default function SpeechSessionScreen() {
                 style={styles.nextSentenceBtn}
                 onPress={() => {
                   interactionTracker.recordTap();
-                  interactionTracker.resetTracker();
                   setCurrentTextIndex((prev) => (prev + 1) % PRACTICE_SENTENCES.length);
                   handleReset();
+                  // New sentence => fresh telemetry window
+                  interactionTracker.resetTracker();
                 }}
                 activeOpacity={0.85}
               >
@@ -2056,6 +2082,18 @@ export default function SpeechSessionScreen() {
         onClose={() => setShowVoiceModal(false)}
         onSuccess={handleVoiceModalSuccess}
       />
+
+      {/* Module 4: Under-Popup Camera Permission Bottom Sheet */}
+      <DevicePermissionModal
+        visible={showPermissionModal}
+        onClose={() => setShowPermissionModal(false)}
+        onGranted={() => {
+          // Camera telemetry active
+        }}
+        onDenied={() => {
+          // Fallback active
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -2097,6 +2135,14 @@ const styles = StyleSheet.create({
     borderRadius: ThemeRadius.full,
     borderWidth: 1,
     borderColor: ThemeColors.primaryBorder,
+  },
+  cameraBadgeActive: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  cameraBadgeInactive: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
   },
   statusDot: {
     width: 8,

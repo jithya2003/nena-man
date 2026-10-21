@@ -174,6 +174,7 @@ export interface BehaviorStateInput {
   idleTime: number;             // seconds
   taskCompletion: boolean;      // TODO: confirm boolean vs percentage with Pushpakumara
   interactionPattern: string;   // TODO: confirm exact allowed values with Pushpakumara
+  cameraLandmarks?: number[][] | null; // 30 frames x 1503 landmark coordinates (33 pose + 468 face mesh x 3)
 }
 
 export interface BehaviorStateResult {

@@ -168,6 +168,7 @@ export async function runReadingSessionPipeline(
         idleTime: cameraInteractionData.idleTime ?? 0,
         taskCompletion: cameraInteractionData.taskCompletion ?? true,
         interactionPattern: cameraInteractionData.interactionPattern ?? 'focused',
+        cameraLandmarks: (cameraInteractionData as any).cameraLandmarks ?? null,
       };
 
       const behaviorResult = await getBehaviorState(behaviorInput);

@@ -31,7 +31,7 @@ try:
     import torch.nn as nn
 
     class BehaviourGRU(nn.Module):
-        """Camera Landmark Sequence Classifier (30 frames x 1503 landmarks)."""
+        """Camera Landmark Sequence Classifier (30 frames x 1503 landmarks) - V1."""
         def __init__(self, input_size=1503, hidden_size=128, num_layers=2, num_classes=3):
             super().__init__()
             self.gru = nn.GRU(
@@ -49,9 +49,39 @@ try:
 
         def forward(self, x):
             out, _ = self.gru(x)
-            # Use representation from last temporal frame
             last_hidden = out[:, -1, :]
             return self.classifier(last_hidden)
+
+    class BehaviourBiGRU(nn.Module):
+        """Camera Landmark Sequence Classifier with BiGRU and Temporal Attention (30 frames x 1503 landmarks) - V2."""
+        def __init__(self, input_size=1503, hidden_size=96, num_layers=2, num_classes=3, dropout=0.35):
+            super().__init__()
+            self.gru = nn.GRU(
+                input_size=input_size,
+                hidden_size=hidden_size,
+                num_layers=num_layers,
+                batch_first=True,
+                bidirectional=True,
+                dropout=dropout,
+            )
+            self.attention = nn.Sequential(
+                nn.Linear(hidden_size * 2, 64),
+                nn.Tanh(),
+                nn.Linear(64, 1),
+            )
+            self.classifier = nn.Sequential(
+                nn.Linear(hidden_size * 2, 96),
+                nn.ReLU(),
+                nn.Dropout(0.4),
+                nn.Linear(96, num_classes),
+            )
+
+        def forward(self, x):
+            gru_out, _ = self.gru(x)
+            scores = self.attention(gru_out)
+            weights = torch.softmax(scores, dim=1)
+            context = torch.sum(weights * gru_out, dim=1)
+            return self.classifier(context)
 
     class AudioFrustrationModel(nn.Module):
         """Voice Acoustic / Frustration Classifier."""
@@ -82,8 +112,10 @@ class BehavioralDetectionService:
 
     def __init__(self):
         self.camera_model = None
+        self.camera_model_version = None
         self.audio_model = None
         self.interaction_model = None
+        self.interaction_scaler = None
         self.preprocessor = None
         self.fusion_engine = MultimodalFusionEngine()
 
@@ -127,11 +159,30 @@ class BehavioralDetectionService:
             audio_scaler=audio_scaler,
         )
 
-        # 3. Load Camera PyTorch GRU Model
-        cam_model_path = os.path.join(MODELS_DIR, "best_behaviour_gru.pt")
-        if os.path.exists(cam_model_path) and torch is not None and BehaviourGRU is not None:
+        # 3. Load Camera PyTorch Model (Prefers V2 BiGRU + Attention if present, falls back to V1 GRU)
+        cam_v2_path = os.path.join(MODELS_DIR, "best_behaviour_v2_bigru_attention.pt")
+        cam_v1_path = os.path.join(MODELS_DIR, "best_behaviour_gru.pt")
+
+        if os.path.exists(cam_v2_path) and torch is not None and BehaviourBiGRU is not None:
             try:
-                ckpt = torch.load(cam_model_path, map_location=torch.device('cpu'))
+                ckpt = torch.load(cam_v2_path, map_location=torch.device('cpu'))
+                self.camera_model = BehaviourBiGRU(
+                    input_size=ckpt.get("input_size", 1503),
+                    hidden_size=ckpt.get("hidden_size", 96),
+                    num_layers=ckpt.get("num_layers", 2),
+                    num_classes=ckpt.get("num_classes", 3),
+                )
+                state_dict = ckpt["model_state_dict"] if "model_state_dict" in ckpt else ckpt
+                self.camera_model.load_state_dict(state_dict)
+                self.camera_model.eval()
+                self.camera_model_version = "v2_bigru_attention"
+                logger.info("[M4 Service] Loaded PyTorch camera BiGRU+Attention (V2) model successfully.")
+            except Exception as exc:
+                logger.warning("[M4 Service] Could not load V2 camera model (%s). Trying V1 GRU.", exc)
+
+        if self.camera_model is None and os.path.exists(cam_v1_path) and torch is not None and BehaviourGRU is not None:
+            try:
+                ckpt = torch.load(cam_v1_path, map_location=torch.device('cpu'))
                 self.camera_model = BehaviourGRU(
                     input_size=ckpt.get("input_size", 1503),
                     hidden_size=ckpt.get("hidden_size", 128),
@@ -141,10 +192,12 @@ class BehavioralDetectionService:
                 state_dict = ckpt["model_state_dict"] if "model_state_dict" in ckpt else ckpt
                 self.camera_model.load_state_dict(state_dict)
                 self.camera_model.eval()
-                logger.info("[M4 Service] Loaded PyTorch camera GRU model successfully.")
+                self.camera_model_version = "v1_gru"
+                logger.info("[M4 Service] Loaded PyTorch camera GRU (V1) model successfully.")
             except Exception as exc:
                 logger.warning("[M4 Service] Could not load camera GRU (%s). Heuristic fallback active.", exc)
-        else:
+
+        if self.camera_model is None:
             logger.info("[M4 Service] Camera model running in heuristic fallback mode.")
 
         # 4. Load Audio PyTorch Model
@@ -182,20 +235,43 @@ class BehavioralDetectionService:
         else:
             logger.info("[M4 Service] Interaction model running in heuristic fallback mode.")
 
+        # 6. Interaction scaler (REQUIRED for the Keras model: it was trained on scaled telemetry).
+        interaction_scaler_path = os.path.join(MODELS_DIR, "interaction_scaler.pkl")
+        if os.path.exists(interaction_scaler_path):
+            try:
+                import joblib
+                self.interaction_scaler = joblib.load(interaction_scaler_path)
+                logger.info("[M4 Service] Loaded interaction scaler.")
+            except Exception as exc:
+                logger.warning("[M4 Service] Could not load interaction scaler: %s", exc)
+        elif self.interaction_model is not None:
+            logger.warning(
+                "[M4 Service] interaction_scaler.pkl missing — Keras interaction model disabled, "
+                "using evidence-based telemetry rules instead."
+            )
+
     def get_status(self) -> dict:
-        """Returns readiness status for all 6 model checkpoint artifacts."""
+        """Returns readiness status for all model checkpoint and scaler artifacts."""
         files = {
+            "best_behaviour_v2_bigru_attention.pt": os.path.exists(os.path.join(MODELS_DIR, "best_behaviour_v2_bigru_attention.pt")),
             "best_behaviour_gru.pt": os.path.exists(os.path.join(MODELS_DIR, "best_behaviour_gru.pt")),
             "scaler_mean.npy": os.path.exists(os.path.join(MODELS_DIR, "scaler_mean.npy")),
             "scaler_scale.npy": os.path.exists(os.path.join(MODELS_DIR, "scaler_scale.npy")),
             "best_audio_frustration_model.pt": os.path.exists(os.path.join(MODELS_DIR, "best_audio_frustration_model.pt")),
             "audio_scaler.pkl": os.path.exists(os.path.join(MODELS_DIR, "audio_scaler.pkl")),
             "best_interaction_model.keras": os.path.exists(os.path.join(MODELS_DIR, "best_interaction_model.keras")),
+            "interaction_scaler.pkl": os.path.exists(os.path.join(MODELS_DIR, "interaction_scaler.pkl")),
         }
         loaded_status = {
             "camera_model_loaded": self.camera_model is not None,
+            "camera_model_version": self.camera_model_version or "heuristic",
             "audio_model_loaded": self.audio_model is not None,
             "interaction_model_loaded": self.interaction_model is not None,
+            "interaction_model_active": self.interaction_model is not None and self.interaction_scaler is not None,
+            "interaction_mode": (
+                "keras_model" if (self.interaction_model is not None and self.interaction_scaler is not None)
+                else "evidence_rules"
+            ),
         }
         return {
             "models_directory": MODELS_DIR,
@@ -223,50 +299,59 @@ class BehavioralDetectionService:
         return np.array([0.70, 0.20, 0.10], dtype=np.float32)
 
     def _infer_interaction(self, interaction_vector: np.ndarray, raw_dict: dict) -> np.ndarray:
-        """Runs interaction Keras model or rule-based fallback."""
+        """Runs interaction Keras model or evidence-based expert logic rules."""
         if interaction_vector is None:
             return None
 
-        if self.interaction_model is not None:
-            try:
-                preds = self.interaction_model.predict(interaction_vector, verbose=0)
-                probs = preds.flatten()[:3]
-                sum_p = np.sum(probs)
-                return probs / sum_p if sum_p > 0 else np.array([0.5, 0.3, 0.2], dtype=np.float32)
-            except Exception as exc:
-                logger.warning("[M4 Service] Interaction model inference error: %s", exc)
-
-        # Intelligent rule-based fallback based on interaction telemetry
+        # Evidence-based logic rules from Proposal Section 3.2 & Appendix C
         misses = float(raw_dict.get("missClicks", 0))
         idle = float(raw_dict.get("idleTime", 0))
         retries = float(raw_dict.get("retryCount", 0))
         tap_speed = float(raw_dict.get("tapSpeed", 280))
+        skip_freq = float(raw_dict.get("skipFrequency", 0))
 
+        # Frustration rule: High repeated errors / retries / agitation
         if misses >= 3 or retries >= 3 or (tap_speed < 180 and misses >= 2):
-            return np.array([0.15, 0.20, 0.65], dtype=np.float32)  # Frustrated
-        elif idle >= 5.0 or raw_dict.get("skipFrequency", 0) > 0.3:
-            return np.array([0.20, 0.65, 0.15], dtype=np.float32)  # Distracted
-        else:
-            return np.array([0.75, 0.15, 0.10], dtype=np.float32)  # Engaged
+            return np.array([0.10, 0.15, 0.75], dtype=np.float32)  # Frustrated
+
+        # Distraction rule: High idle inactivity or high skipping
+        if idle >= 5.0 or skip_freq > 0.3:
+            return np.array([0.15, 0.70, 0.15], dtype=np.float32)  # Distracted
+
+        # If PInSoRo movement features are explicitly provided, pass through trained Keras model
+        has_pinsoro_features = (
+            isinstance(raw_dict, dict)
+            and any(k in raw_dict for k in ("pose_movement_mean", "hand_movement_mean", "face_movement_mean"))
+        )
+
+        if has_pinsoro_features and self.interaction_model is not None and self.interaction_scaler is not None:
+            try:
+                scaled = self.interaction_scaler.transform(interaction_vector)
+                preds = self.interaction_model.predict(scaled, verbose=0)
+                probs = preds.flatten()[:3]
+                sum_p = np.sum(probs)
+                if sum_p > 0 and not np.isnan(probs).any():
+                    return probs / sum_p
+            except Exception as exc:
+                logger.warning("[M4 Service] Interaction model inference error: %s", exc)
+
+        return np.array([0.80, 0.12, 0.08], dtype=np.float32)  # Engaged
 
     def _infer_audio(self, audio_vector: np.ndarray, raw_dict: dict) -> float:
         """Runs audio model or heuristic for frustration probability."""
         if audio_vector is None:
             return None
 
-        if self.audio_model is not None and torch is not None:
+        # The trained audio model expects the full 208-dim acoustic feature vector.
+        # M1 summary metrics (4 values) are NOT valid model input, so they use the heuristic below.
+        if (
+            self.audio_model is not None
+            and torch is not None
+            and audio_vector.shape[-1] == 208
+        ):
             try:
                 with torch.no_grad():
-                    # Align feature dimension if needed
-                    arr = audio_vector
-                    if arr.shape[-1] != 208:
-                        # Pad or slice to 208 dimensions
-                        if arr.shape[-1] < 208:
-                            pad_width = 208 - arr.shape[-1]
-                            arr = np.pad(arr, ((0, 0), (0, pad_width)), mode='constant')
-                        else:
-                            arr = arr[:, :208]
-                    t_in = torch.from_numpy(arr).float()
+                    t_in = torch.from_numpy(audio_vector).float()
                     out = self.audio_model(t_in)
                     probs = torch.softmax(out, dim=-1).cpu().numpy().flatten()
                     # Class 1 is 'Frustrated'
@@ -279,6 +364,8 @@ class BehavioralDetectionService:
             hesitations = float(raw_dict.get("hesitationCount", 0))
             pauses = float(raw_dict.get("pauseDuration", 0))
             fluency = float(raw_dict.get("fluencyScore", 0.8))
+            if fluency > 1.0:
+                fluency = fluency / 100.0  # accept 0-100 scale from M1
             if hesitations >= 4 or pauses > 6.0 or fluency < 0.4:
                 return 0.75
             elif hesitations >= 2 or pauses > 3.0:
@@ -298,7 +385,7 @@ class BehavioralDetectionService:
         raw_interaction = payload.get("interaction")
         raw_camera = payload.get("camera")
         raw_voice = payload.get("voice")
-        session_id = payload.get("session_id") or payload.get("child_id", "default_session")
+        session_id = payload.get("session_id") or payload.get("child_id")
 
         # Flat payload fallback
         if raw_interaction is None and ("responseTime" in payload or "tapSpeed" in payload):
@@ -327,8 +414,9 @@ class BehavioralDetectionService:
             "behavioralState": state,  # camelCase alias for sessionPipeline compatibility
             "confidence": confidence,
             "predictionConfidence": confidence,
-            "intervention_required": intervention is not None,
-            "interventionRequired": intervention is not None,
+            # Engaged => keep reading (celebration reward is optional, not a forced interruption)
+            "intervention_required": intervention is not None and state != "Engaged",
+            "interventionRequired": intervention is not None and state != "Engaged",
             "intervention": intervention,
             "recommendedIntervention": intervention["game"] if intervention else None,
             "modality_contributions": weights,

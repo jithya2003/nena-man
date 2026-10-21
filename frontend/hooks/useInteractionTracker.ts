@@ -54,6 +54,7 @@ export function useInteractionTracker(options: UseInteractionTrackerOptions = {}
   const retryCountRef = useRef<number>(0);
   const missClicksRef = useRef<number>(0);
   const skipCountRef = useRef<number>(0);
+  const totalTapsRef = useRef<number>(0);
   const idleTimeRef = useRef<number>(0);
   const taskCompletionRef = useRef<boolean>(false);
   const isTrackingActiveRef = useRef<boolean>(autoStart);
@@ -108,6 +109,7 @@ export function useInteractionTracker(options: UseInteractionTrackerOptions = {}
   const recordTap = useCallback(() => {
     const now = Date.now();
     lastInteractionRef.current = now;
+    totalTapsRef.current += 1;
 
     // Record response time on first action
     if (firstInteractionRef.current === null) {
@@ -194,6 +196,7 @@ export function useInteractionTracker(options: UseInteractionTrackerOptions = {}
     retryCountRef.current = 0;
     missClicksRef.current = 0;
     skipCountRef.current = 0;
+    totalTapsRef.current = 0;
     idleTimeRef.current = 0;
     taskCompletionRef.current = false;
 
@@ -222,7 +225,10 @@ export function useInteractionTracker(options: UseInteractionTrackerOptions = {}
       tapSpeed: metricsRef.current.tapSpeed || 280,
       retryCount: retryCountRef.current,
       missClicks: missClicksRef.current,
-      skipFrequency: skipCountRef.current,
+      // Backend expects a 0-1 rate (skips / total actions), not a raw count
+      skipFrequency: Number(
+        (skipCountRef.current / Math.max(1, totalTapsRef.current + skipCountRef.current)).toFixed(2)
+      ),
       idleTime: Math.round(idleTimeRef.current),
       taskCompletion: taskCompletionRef.current,
       interactionPattern: metricsRef.current.interactionPattern,
