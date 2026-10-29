@@ -25,7 +25,7 @@ In Sinhala orthography, complex glyph structures, syllabic ligatures (*Pillam* /
 | :--- | :--- | :--- | :--- |
 | **M1** | **Speech & Audio ML Reading Error Classifier**<br>Dual-ASR phoneme alignment, dyslexic reading error identification (Substitution, Omission, Reversal, Hesitation), and fluency scoring. | **KULATHILAKA A. M. J. S. K.** | `IT23175198` |
 | **M2** | **Sinhala Text Difficulty Analysis & Progressive Scaffolding**<br>Orthographic complexity metric extraction (Akuru/Pillam density), difficulty classification, and progressive text simplification. | **EDIRISOORIYA H. S.** | `IT23179844` |
-| **M3** | **Adaptive Learning Recommendation Engine & Explainable AI**<br>Multi-signal learner state modeling, difficulty calibration (Decrease/Maintain/Increase), peer-similarity activity selection, and parent-readable SHAP explanations. | **P. D. RANAWEERA** | `IT23199712` |
+| **M3** | **Adaptive Learning Recommendation Engine & Explainable AI**<br>Multi-signal learner state modeling (11 features), RF difficulty transition (Decrease/Maintain/Increase), KNN peer-similarity activity selection (20 Sinhala exercises), and dual-audience SHAP explanations (Parent/Teacher). | **P. D. RANAWEERA** | `IT23199712` |
 | **M4** | **Multimodal Behavioral State Detection & Adaptive Intervention**<br>Real-time affective computing (Engaged, Distracted, Frustrated) fusing vision, acoustic, and touch dynamics with automated cool-down interventions. | **PUSHPAKUMARA A. S. P. L. T.** | `IT23177246` |
 
 ---
@@ -78,14 +78,16 @@ In Sinhala orthography, complex glyph structures, syllabic ligatures (*Pillam* /
   * **Interpretable Scaffolding Policy:** Transparent rules assigning multi-level support (Highlighting, Syllable Splitting, Audio Narration Fallback).
 * **Served Endpoints:** `POST /api/v1/text/analyse`, `POST /api/v1/text/simplify`
 
-### Module 3: Adaptive Learning Recommendation Engine (P. D. RANAWEERA · `IT23199712`)
-* **Objective:** Synthesize performance, difficulty metrics, latency, and emotional states to determine the child's optimal pedagogical path.
+### Module 3: Adaptive Learning Recommendation Engine & Explainable AI (P. D. RANAWEERA · `IT23199712`)
+* **Objective:** Synthesize diagnostic telemetry across speech accuracy, text complexity, response latency, and behavioral engagement into a unified learner state vector to deliver personalized, explainable pedagogical reading interventions.
 * **Model Pipeline:**
-  * **State Representation:** 16+ dimension unified learner-state vector fusing error patterns, text difficulty, frustration indices, and interaction speed.
-  * **Difficulty Transition Classifier:** Tuned Random Forest (`rf_difficulty_model.joblib`) recommending macro adjustments: `Decrease`, `Maintain`, or `Increase` difficulty.
-  * **Micro Activity Recommender:** K-Nearest Neighbors (`knn_activity_model.joblib`) matching child performance signatures against peer clusters to select tailored reading exercises.
-  * **Explainability Layer (XAI):** SHAP (SHapley Additive exPlanations) generating natural-language pedagogical justifications for teachers and parents.
-* **Served Endpoints:** `POST /api/v1/recommendation/next`
+  * **Multi-Signal Learner State Modeling:** 11-feature normalized vector fusing diagnostic signals across M1 (reading accuracy, speech error count, error rate), M2 (text difficulty), and M4 (affective engagement: *Engaged*, *Distracted*, *Frustrated*), along with session trajectory telemetry (previous accuracy, accuracy trend, attempt count, latency).
+  * **Difficulty Transition Classifier (Macro Adaptation):** Calibrated Random Forest Classifier (`rf_difficulty_model.joblib` — 100 estimators, 96.0% accuracy, 0.96 Macro F1) predicting optimal pedagogical difficulty adjustments: `Decrease`, `Maintain`, or `Increase`.
+  * **Micro-Activity Recommender:** K-Nearest Neighbors model (`knn_activity_model.joblib` — $k=5$ Euclidean distance over difficulty and skill space) mapping learner weaknesses to 20 curated pedagogical Sinhala exercises (`A001`–`A020`) across 4 dyslexic deficit domains (*Letter Recognition*, *Word Blending/Matching*, *Fluency Practice*, *Reading Comprehension*), linked to frontend interactive quizzes.
+  * **Explainable AI (XAI) & Dual-Audience Dashboards:** SHAP (TreeExplainer / KernelExplainer) feature attribution generating dual-perspective pedagogical rationales:
+    * *Parent-Friendly Sinhala Rationale:* Culturally appropriate, natural-language Sinhala explanations clarifying why difficulty or activities were adapted.
+    * *Teacher Analytics & Visualizations:* Quantitative feature importance breakdowns, historical accuracy trends, and targeted intervention suggestions on teacher dashboards.
+* **Served Endpoints:** `POST /api/v1/recommendation/next`, `POST /api/v1/recommend`
 
 ### Module 4: Multimodal Behavioral State Detection (PUSHPAKUMARA A. S. P. L. T. · `IT23177246`)
 * **Objective:** Detect affective dysregulation, loss of attention, or cognitive overload in real time and automatically trigger therapeutic gamified interventions.
