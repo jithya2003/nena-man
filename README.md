@@ -130,7 +130,7 @@ In Sinhala orthography, complex glyph structures, syllabic ligatures (*Pillam* /
   * **Visual Modality (Pose & Facial Landmarks):** 30 temporal frames of 1503 MediaPipe landmark coordinates processed through a Bidirectional GRU with Temporal Attention (`best_behaviour_v2_bigru_attention.pt`) and standard GRU (`best_behaviour_gru.pt`).
   * **Acoustic Modality (Frustration Detection):** 208-dimensional spectral & acoustic feature feed evaluated by a PyTorch Feedforward Classifier (`best_audio_frustration_model.pt`).
   * **Interaction Modality (Touch Dynamics):** Touch latency, tap speed, miss-clicks, skip frequencies, and idle times processed via a trained Keras Neural Network (`best_interaction_model.keras`).
-  * **Late-Fusion Engine:** Weighted confidence-fusion matrix determining final states (`Engaged`, `Distracted`, `Frustrated`, `Overwhelmed`, `Tired`).
+  * **Late-Fusion Engine:** Weighted confidence-fusion matrix determining final states (`Engaged`, `Distracted`, `Frustrated`).
   * **Adaptive Interventions:** Triggers gamified micro-interventions:
     * *Balloon / Bubble Breathing Mini-Game* for Frustration / Overload reduction.
     * *Star Reward Game* for Distraction re-engagement.
