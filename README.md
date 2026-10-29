@@ -13,7 +13,7 @@
 In Sinhala orthography, complex glyph structures, syllabic ligatures (*Pillam* / පිල්ලම්), and visually similar graphemes pose severe cognitive hurdles. **Nena-Man** bridges the critical void in localized assistive educational technology by unifying **four specialized AI research modules** into an integrated, real-time closed-loop intervention ecosystem:
 
 1. **Speech Analysis & Dyslexia Error Classification** (Acoustic & phonetic phonological analysis)
-2. **Linguistic Text Difficulty Assessment & Progressive Scaffolding** (Readability modeling & text simplification)
+2. **Sinhala Text Difficulty Analysis & Progressive Reading Support** (Difficulty classification, Akuru & Pillam analysis, multi-level reading assistance, and safety-gated AI text simplification)
 3. **Adaptive Pedagogical Recommendation & Explainable AI (XAI)** (State-driven curriculum adaptation with SHAP)
 4. **Multimodal Affective & Behavioral Detection** (Camera, voice & touch dynamics with interactive calming mini-games)
 
@@ -24,7 +24,7 @@ In Sinhala orthography, complex glyph structures, syllabic ligatures (*Pillam* /
 | Module | Research Domain & Scope | Researcher | Student ID |
 | :--- | :--- | :--- | :--- |
 | **M1** | **Speech & Audio ML Reading Error Classifier**<br>Dual-ASR phoneme alignment, dyslexic reading error identification (Substitution, Omission, Reversal, Hesitation), and fluency scoring. | **KULATHILAKA A. M. J. S. K.** | `IT23175198` |
-| **M2** | **Sinhala Text Difficulty Analysis & Progressive Scaffolding**<br>Orthographic complexity metric extraction (Akuru/Pillam density), difficulty classification, and progressive text simplification. | **EDIRISOORIYA H. S.** | `IT23179844` |
+| **M2** | **Sinhala Text Difficulty Analysis & Progressive Reading Support**<br>Multi-output Random Forest difficulty and support prediction using grade level, Akuru count, Pillam count, and word-frequency features, combined with progressive Highlight, Akuru Split, Audio, and AI Sinhala Text Simplification support. | **EDIRISOORIYA H. S.** | `IT23179844` |
 | **M3** | **Adaptive Learning Recommendation Engine & Explainable AI**<br>Multi-signal learner state modeling (11 features), RF difficulty transition (Decrease/Maintain/Increase), KNN peer-similarity activity selection (20 Sinhala exercises), and dual-audience SHAP explanations (Parent/Teacher). | **P. D. RANAWEERA** | `IT23199712` |
 | **M4** | **Multimodal Behavioral State Detection & Adaptive Intervention**<br>Real-time affective computing (Engaged, Distracted, Frustrated) fusing vision, acoustic, and touch dynamics with automated cool-down interventions. | **PUSHPAKUMARA A. S. P. L. T.** | `IT23177246` |
 
@@ -51,13 +51,13 @@ In Sinhala orthography, complex glyph structures, syllabic ligatures (*Pillam* /
 │  M1: Speech   │ │   M2: Text    │  │  M3: Adaptive │   │ M4: Behavioral│
 │ Classifier    │ │  Difficulty   │  │Recommendation │   │   Detection   │
 ├───────────────┤ ├───────────────┤  ├───────────────┤   ├───────────────┤
-│• Fine-tuned   │ │• Orthographic │  │• Random Forest│   │• PyTorch      │
-│  Whisper +    │ │  Akuru/Pillam │  │  Transition   │   │  BiGRU + Attn │
-│  Wav2Vec2     │ │  Extractor    │  │  Classifier   │   │  (Vision)     │
-│• SinBERT      │ │• Random Forest│  │• KNN Activity │   │• 208-Feature  │
-│  Error Head   │ │  Classifier   │  │  Recommender  │   │  Acoustic Net │
-│• MFCC & WPM   │ │• Seq2Seq Text │  │• SHAP XAI     │   │• Keras Touch  │
-│  Fluency Flow │ │  Simplifier   │  │  Explainer    │   │• Late-Fusion  │
+│• Fine-tuned   │ │• Akuru/Pillam │  │• Random Forest│   │• PyTorch      │
+│  Whisper +    │ │  Feature Ext. │  │  Transition   │   │  BiGRU + Attn │
+│  Wav2Vec2     │ │• Multi-Output │  │  Classifier   │   │  (Vision)     │
+│• SinBERT      │ │  Random Forest│  │• KNN Activity │   │• 208-Feature  │
+│  Error Head   │ │• mT5-small +  │  │  Recommender  │   │  Acoustic Net │
+│• MFCC & WPM   │ │  LoRA Simplify│  │• SHAP XAI     │   │• Keras Touch  │
+│  Fluency Flow │ │• Level 1-4 Sup│  │  Explainer    │   │• Late-Fusion  │
 └───────────────┘ └───────────────┘  └───────────────┘   └───────────────┘
 ```
 
@@ -69,14 +69,23 @@ In Sinhala orthography, complex glyph structures, syllabic ligatures (*Pillam* /
   * **Classifier:** SinBERT contextual classification head classifying errors into `Substitution`, `Omission`, `Reversal`, and `Hesitation`.
 * **Served Endpoints:** `POST /api/v1/speech/classify`
 
-### Module 2: Text Difficulty Analysis & Progressive Scaffolding (EDIRISOORIYA H. S. · `IT23179844`)
-* **Objective:** Evaluate lexical and orthographic complexity of Sinhala sentences and dynamically generate syllable breakdowns and simplified alternatives.
-* **Model Pipeline:**
-  * **Feature Engineering:** Akuru count, Pillam usage patterns, conjunct character ratios (*Bandha Akuru*), and corpus frequency lookups.
-  * **Difficulty Model:** Calibrated multi-feature Random Forest Classifier (`text_difficulty_rf.joblib`) predicting `Easy`, `Medium`, or `Hard`.
-  * **Simplification Model:** Transformer-based Seq2Seq model (`m2_text_simplification_v2`) trained on child-targeted parallel Sinhala corpora to synthesize simpler sentence alternatives without losing semantic intent.
-  * **Interpretable Scaffolding Policy:** Transparent rules assigning multi-level support (Highlighting, Syllable Splitting, Audio Narration Fallback).
-* **Served Endpoints:** `POST /api/v1/text/analyse`, `POST /api/v1/text/simplify`
+### Module 2: Sinhala Text Difficulty Analysis & Progressive Reading Support (EDIRISOORIYA H. S. · `IT23179844`)
+* **Objective:** Analyze the difficulty of Sinhala words and short sentences and provide progressive reading assistance only when the learner requires additional support.
+* **Text Difficulty Features:** Uses grade level, Akuru count, Pillam count, and corpus-based word-frequency level as the main model inputs.
+* **Difficulty & Support Model:** A multi-output Random Forest (`text_difficulty_rf.joblib`) predicts the text difficulty (`Easy`, `Medium`, or `Hard`) together with `split_needed`, `simplification_needed`, and the maximum progressive support level.
+* **Progressive Reading Support:** Assistance begins after an independent reading attempt and can progress through:
+  * Level 1 – Highlight / Word Focus
+  * Level 2 – Akuru / Orthographic Unit Split
+  * Level 3 – Audio Support
+  * Level 4 – AI Sinhala Text Simplification
+
+  Support is content-dependent, allowing unnecessary support stages to be skipped.
+* **AI Sinhala Text Simplification:** Level 4 uses `google/mt5-small` fine-tuned with LoRA/PEFT using curated human-written Sinhala simplification references. The final adapter is stored under `m2_text_simplification_v2/best_adapter/`.
+* **Safety-Gated Generation:** Generated simplifications pass through quality checks before being shown to the learner. If a sufficiently reliable simplification is not available, the system safely returns no simplified sentence instead of displaying an unsuitable output.
+* **Backend Integration:** The component is integrated through the text-difficulty backend service and the primary analysis endpoint:
+  `POST /api/v1/text-difficulty/analyze`
+
+  The response contains the difficulty prediction, support decisions, and Level 4 simplification availability/output when required.
 
 ### Module 3: Adaptive Learning Recommendation Engine & Explainable AI (P. D. RANAWEERA · `IT23199712`)
 * **Objective:** Synthesize diagnostic telemetry across speech accuracy, text complexity, response latency, and behavioral engagement into a unified learner state vector to deliver personalized, explainable pedagogical reading interventions.
