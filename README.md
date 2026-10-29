@@ -26,7 +26,7 @@ In Sinhala orthography, complex glyph structures, syllabic ligatures (*Pillam* /
 | **M1** | **Speech & Audio ML Reading Error Classifier**<br>Dual-ASR phoneme alignment, dyslexic reading error identification (Substitution, Omission, Reversal, Hesitation), and fluency scoring. | **KULATHILAKA A. M. J. S. K.** | `IT23175198` |
 | **M2** | **Sinhala Text Difficulty Analysis & Progressive Scaffolding**<br>Orthographic complexity metric extraction (Akuru/Pillam density), difficulty classification, and progressive text simplification. | **EDIRISOORIYA H. S.** | `IT23179844` |
 | **M3** | **Adaptive Learning Recommendation Engine & Explainable AI**<br>Multi-signal learner state modeling, difficulty calibration (Decrease/Maintain/Increase), peer-similarity activity selection, and parent-readable SHAP explanations. | **P. D. RANAWEERA** | `IT23199712` |
-| **M4** | **Multimodal Behavioral State Detection & Adaptive Intervention**<br>Real-time affective computing (Engaged, Distracted, Frustrated, Overwhelmed, Tired) fusing vision, acoustic, and touch dynamics with automated cool-down interventions. | **PUSHPAKUMARA A. S. P. L. T.** | `IT23177246` |
+| **M4** | **Multimodal Behavioral State Detection & Adaptive Intervention**<br>Real-time affective computing (Engaged, Distracted, Frustrated) fusing vision, acoustic, and touch dynamics with automated cool-down interventions. | **PUSHPAKUMARA A. S. P. L. T.** | `IT23177246` |
 
 ---
 
