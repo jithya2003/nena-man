@@ -12,7 +12,7 @@
 
 In Sinhala orthography, complex glyph structures, syllabic ligatures (*Pillam* / පිල්ලම්), and visually similar graphemes pose severe cognitive hurdles. **Nena-Man** bridges the critical void in localized assistive educational technology by unifying **four specialized AI research modules** into an integrated, real-time closed-loop intervention ecosystem:
 
-1. **Speech Analysis & Dyslexia Error Classification** (Acoustic & phonetic phonological analysis)
+1. **Speech Analysis & Dyslexia Error Classification** (Fine-tuned Wav2Vec2 CTC Sinhala ASR, Balanced Random Forest reading error classification, and reading accuracy & fluency indicators)
 2. **Sinhala Text Difficulty Analysis & Progressive Reading Support** (Difficulty classification, Akuru & Pillam analysis, multi-level reading assistance, and safety-gated AI text simplification)
 3. **Adaptive Pedagogical Recommendation & Explainable AI (XAI)** (State-driven curriculum adaptation with SHAP)
 4. **Multimodal Affective & Behavioral Detection** (Camera, voice & touch dynamics with interactive calming mini-games)
@@ -23,7 +23,7 @@ In Sinhala orthography, complex glyph structures, syllabic ligatures (*Pillam* /
 
 | Module | Research Domain & Scope | Researcher | Student ID |
 | :--- | :--- | :--- | :--- |
-| **M1** | **Speech & Audio ML Reading Error Classifier**<br>Dual-ASR phoneme alignment, dyslexic reading error identification (Substitution, Omission, Reversal, Hesitation), and fluency scoring. | **KULATHILAKA A. M. J. S. K.** | `IT23175198` |
+| **M1** | **Speech & Audio ML Reading Error Classifier**<br>Fine-tuned Wav2Vec2 CTC Sinhala ASR combined with a Balanced Random Forest classifier over hybrid acoustic and ASR/text features, classifying reading outcomes as Correct, Substitution, Omission, or Hesitation, with reading accuracy and fluency indicators. | **KULATHILAKA A. M. J. S. K.** | `IT23175198` |
 | **M2** | **Sinhala Text Difficulty Analysis & Progressive Reading Support**<br>Multi-output Random Forest difficulty and support prediction using grade level, Akuru count, Pillam count, and word-frequency features, combined with progressive Highlight, Akuru Split, Audio, and AI Sinhala Text Simplification support. | **EDIRISOORIYA H. S.** | `IT23179844` |
 | **M3** | **Adaptive Learning Recommendation Engine & Explainable AI**<br>Multi-signal learner state modeling (11 features), RF difficulty transition (Decrease/Maintain/Increase), KNN peer-similarity activity selection (20 Sinhala exercises), and dual-audience SHAP explanations (Parent/Teacher). | **P. D. RANAWEERA** | `IT23199712` |
 | **M4** | **Multimodal Behavioral State Detection & Adaptive Intervention**<br>Real-time affective computing (Engaged, Distracted, Frustrated) fusing vision, acoustic, and touch dynamics with automated cool-down interventions. | **PUSHPAKUMARA A. S. P. L. T.** | `IT23177246` |
@@ -51,23 +51,49 @@ In Sinhala orthography, complex glyph structures, syllabic ligatures (*Pillam* /
 │  M1: Speech   │ │   M2: Text    │  │  M3: Adaptive │   │ M4: Behavioral│
 │ Classifier    │ │  Difficulty   │  │Recommendation │   │   Detection   │
 ├───────────────┤ ├───────────────┤  ├───────────────┤   ├───────────────┤
-│• Fine-tuned   │ │• Akuru/Pillam │  │• Random Forest│   │• PyTorch      │
-│  Whisper +    │ │  Feature Ext. │  │  Transition   │   │  BiGRU + Attn │
-│  Wav2Vec2     │ │• Multi-Output │  │  Classifier   │   │  (Vision)     │
-│• SinBERT      │ │  Random Forest│  │• KNN Activity │   │• 208-Feature  │
-│  Error Head   │ │• mT5-small +  │  │  Recommender  │   │  Acoustic Net │
-│• MFCC & WPM   │ │  LoRA Simplify│  │• SHAP XAI     │   │• Keras Touch  │
-│  Fluency Flow │ │• Level 1-4 Sup│  │  Explainer    │   │• Late-Fusion  │
+│• Wav2Vec2 CTC │ │• Akuru/Pillam │  │• Random Forest│   │• PyTorch      │
+│  Sinhala ASR  │ │  Feature Ext. │  │  Transition   │   │  BiGRU + Attn │
+│• Acoustic/Text│ │• Multi-Output │  │  Classifier   │   │  (Vision)     │
+│  Features     │ │  Random Forest│  │• KNN Activity │   │• 208-Feature  │
+│• Balanced RF  │ │• mT5-small +  │  │  Recommender  │   │  Acoustic Net │
+│  Classifier   │ │  LoRA Simplify│  │• SHAP XAI     │   │• Keras Touch  │
+│• Error/Fluency│ │• Level 1-4 Sup│  │  Explainer    │   │• Late-Fusion  │
 └───────────────┘ └───────────────┘  └───────────────┘   └───────────────┘
 ```
 
+> **M1 deployment note:** M1 inference runs in a **separate Python FastAPI service**, not through the shared Flask gateway. During research testing it runs in Google Colab and is exposed over HTTPS via a Cloudflare Tunnel. The Expo app calls it directly (`POST /analyze-reading`) through `frontend/api/readingAIClient.ts`.
+
 ### Module 1: Speech & Reading Error Classifier (KULATHILAKA A. M. J. S. K. · `IT23175198`)
-* **Objective:** Capture spoken Sinhala reading audio, extract acoustic signatures, and identify dyslexic reading impairments.
+* **Objective:** Take a child's recorded Sinhala reading audio, compare what was spoken with the expected reading text, identify word-level reading errors, and return reading performance and fluency indicators. This is an educational research prototype, **not** a clinical dyslexia diagnosis tool.
+* **Dataset Collection & Annotation:**
+  * 21 recordings from 21 Sinhala-speaking children with dyslexia, aged 7–9, reading Sinhala letters, words, sentences, and short passages.
+  * Recordings were split into reading-task clips and annotated with the expected text, a manual transcription of the spoken text, word-level reading error labels, anonymized child identifiers, and related metadata.
+  * Collected with parental/guardian consent and child assent. No personally identifying information was collected or shared.
+* **Audio Preprocessing:** Audio validation and segmentation, WAV conversion and resampling to 16 kHz, Sinhala text normalization, comparison of expected and transcribed text, and feature preparation for ASR and classification.
 * **Model Pipeline:**
-  * **Dual-ASR Engine:** Fine-tuned OpenAI Whisper and Wav2Vec2-BERT adapted for Sinhala children's speech acoustics.
-  * **Feature Extraction:** Mel-Frequency Cepstral Coefficients (MFCC), jitter, shimmer, pause duration distributions, and Words Per Minute (WPM).
-  * **Classifier:** SinBERT contextual classification head classifying errors into `Substitution`, `Omission`, `Reversal`, and `Hesitation`.
-* **Served Endpoints:** `POST /api/v1/speech/classify`
+  * **Sinhala ASR (Fine-tuned Wav2Vec2 CTC):** A pretrained Wav2Vec2 speech model fine-tuned (supervised transfer learning) on the Sinhala children's reading dataset with a Connectionist Temporal Classification (CTC) objective. It converts reading audio into Sinhala text for comparison with the expected text.
+  * **Reading Error Classifier (Balanced Random Forest):** A supervised Balanced Random Forest trained on 45 hybrid features (10 ASR/text-derived + 35 acoustic). It uses balanced sampling to handle class imbalance and classifies reading outcomes as `Correct`, `Substitution`, `Omission`, or `Hesitation`. The model is saved as a Joblib artifact.
+  * **Feature Engineering & Performance Analysis:** Features combine word-level alignment of expected vs. ASR-predicted text with acoustic and timing information from the audio.
+    * *Model predictions:* word-level reading outcome labels with confidence values.
+    * *Calculated indicators* (computed values, not classifier outputs): reading accuracy, reading speed (words per minute), hesitation count, total pause duration, fluency score, and overall severity.
+* **Evaluation (child-independent splits; researcher-reported results):** Training, validation, and test sets are split by child to reduce speaker-level leakage.
+
+  | Component | Split / Metric | Result |
+  | :--- | :--- | :--- |
+  | Dataset split | Train / Validation / Test | 543 / 120 / 120 clips (test set: 3 held-out children) |
+  | Wav2Vec2 CTC ASR | Character Error Rate (CER) | 8.45% |
+  | Wav2Vec2 CTC ASR | Word Error Rate (WER) | 26.10% |
+  | Balanced Random Forest | Accuracy / Macro F1 / Balanced Accuracy | 81.48% / 0.321 / 37.65% |
+
+  The classifier's high overall accuracy is mostly driven by the majority `Correct` class. Its low macro F1 and balanced accuracy show limited performance on the minority error classes.
+* **Deployment & Mobile Integration:**
+  * The Python **FastAPI** inference service loads the fine-tuned Wav2Vec2 CTC model and the Balanced Random Forest classifier. It runs in **Google Colab** for research testing and is exposed through a **Cloudflare Tunnel** HTTPS endpoint.
+  * The Expo app (`frontend/app/(child)/m1-session.tsx`, `frontend/hooks/useReadingSession.ts`, `frontend/api/readingAIClient.ts`) sends a multipart request with the recorded `audio` and `expected_text`, authenticated with an `X-API-Key` header.
+  * The response includes per-word results (`text`, `expected`, `status`, `confidence`), `readingAccuracy`, `errorPatternSummary`, `readingSpeed`, `hesitationCount`, `pauseDuration`, `fluencyScore`, and `severity`. The mobile interface uses these to highlight reading errors and show performance indicators.
+  * For UI compatibility, the frontend keeps a `reversal` field in the error summary and defaults it to `0`. Reversal is **not** an output of the final classifier.
+  * Model checkpoints and the inference notebook are kept outside this repository (Google Drive / Google Colab / Hugging Face).
+* **Limitations:** Small dataset (21 children); weak performance on minority error classes; the temporary tunnel URL changes when the Colab session or tunnel restarts; and outputs are educational indicators, not clinical assessments.
+* **Served Endpoint (M1 FastAPI service):** `POST /analyze-reading`
 
 ### Module 2: Sinhala Text Difficulty Analysis & Progressive Reading Support (EDIRISOORIYA H. S. · `IT23179844`)
 * **Objective:** Analyze the difficulty of Sinhala words and short sentences and provide progressive reading assistance only when the learner requires additional support.
@@ -121,6 +147,7 @@ In Sinhala orthography, complex glyph structures, syllabic ligatures (*Pillam* /
 | **Backend API** | Python 3.11/3.13 · Flask · Flask-CORS · Marshmallow Validation · Thread-Safe Model Slot Architecture |
 | **Deep Learning & ML** | PyTorch (`torch`, `torch.nn`) · TensorFlow / Keras · scikit-learn · Joblib · NumPy · Pandas |
 | **NLP & Audio Processing** | HuggingFace Transformers · Librosa · SoundFile · MediaPipe · Sinhala Orthographic Analyzers |
+| **M1 Speech Inference Service** | FastAPI · Fine-tuned Wav2Vec2 CTC (Hugging Face Transformers) · Balanced Random Forest · Joblib · Google Colab · Cloudflare Tunnel |
 | **Explainable AI (XAI)** | SHAP (KernelExplainer / TreeExplainer) |
 | **Database & Cloud Auth** | Firebase Firestore · Firebase Authentication |
 | **Testing & Quality** | Pytest (Backend, 33+ comprehensive test suites) · TypeScript Compiler (`tsc --noEmit`) |
@@ -145,6 +172,7 @@ nena-man/
 │   ├── api/                      # Strongly typed REST client & contract definitions
 │   │   ├── client.ts             # Axios/Fetch gateway with retry logic
 │   │   ├── endpoints.ts          # Centralized route catalog
+│   │   ├── readingAIClient.ts    # M1 client for the separate FastAPI reading service
 │   │   └── types.ts              # Final TypeScript interfaces for M1–M4
 │   ├── hooks/                    # Custom hooks (e.g., useInteractionTracker)
 │   └── components/               # Accessible child-friendly UI widgets
@@ -154,7 +182,7 @@ nena-man/
 │   ├── app/
 │   │   ├── core/                 # Shared infrastructure (BaseModelSlot, Error handlers)
 │   │   └── modules/
-│   │       ├── speech_classifier/      # M1 Blueprint & services
+│   │       ├── speech_classifier/      # M1 placeholder (live M1 inference runs in separate FastAPI service)
 │   │       ├── text_difficulty/        # M2 Blueprint, RF analyzer & simplifier
 │   │       ├── recommendation_engine/  # M3 Blueprint, RF/KNN & SHAP XAI
 │   │       │   └── models/             # M3 Joblib checkpoints & metadata
@@ -169,7 +197,7 @@ nena-man/
 │   │   ├── m2_text_difficulty/
 │   │   └── m2_text_simplification_v2/
 │   ├── notebooks/                # Jupyter / Colab notebooks for EDA & training
-│   │   ├── m1_speech_classifier/
+│   │   ├── m1_speech_classifier/ # Placeholder; M1 notebooks/checkpoints kept in Drive/Colab/HF
 │   │   ├── m2_text_difficulty/
 │   │   ├── m3_recommendation/
 │   │   └── m4_behavioral/        # BiGRU visual, acoustic & interaction notebooks
@@ -251,6 +279,20 @@ nena-man/
    npx expo start
    ```
    *Scan the generated QR code using the Expo Go mobile app.*
+
+---
+
+### 4. M1 Reading Analysis Service (Separately Hosted)
+
+The M1 FastAPI inference service is **not** started by `backend/run.py`. For research testing it runs in Google Colab behind a Cloudflare Tunnel, and its endpoint is set separately in `frontend/.env`:
+```env
+EXPO_PUBLIC_USE_MOCK_READING_ANALYSIS=false
+EXPO_PUBLIC_READING_AI_BASE_URL=https://<your-cloudflare-tunnel-url>
+EXPO_PUBLIC_READING_AI_API_KEY=<m1-service-api-key>
+```
+* The Colab inference service and its tunnel must both be running for live M1 analysis.
+* The temporary Cloudflare URL **changes each time the tunnel restarts**, so update `EXPO_PUBLIC_READING_AI_BASE_URL` and restart Expo (`npx expo start -c`).
+* Never commit real tunnel URLs or API keys.
 
 ---
 
