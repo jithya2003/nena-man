@@ -310,13 +310,18 @@ class BehavioralDetectionService:
         tap_speed = float(raw_dict.get("tapSpeed", 280))
         skip_freq = float(raw_dict.get("skipFrequency", 0))
 
-        # Frustration rule: High repeated errors / retries / agitation
-        if misses >= 3 or retries >= 3 or (tap_speed < 180 and misses >= 2):
+        # Frustration rule: High repeated errors / retries / wrong answers / erratic agitation
+        if misses >= 2 or retries >= 2 or (tap_speed < 180 and misses >= 1):
             return np.array([0.10, 0.15, 0.75], dtype=np.float32)  # Frustrated
 
-        # Distraction rule: High idle inactivity or high skipping
-        if idle >= 5.0 or skip_freq > 0.3:
-            return np.array([0.15, 0.70, 0.15], dtype=np.float32)  # Distracted
+        if misses == 1 or retries == 1:
+            return np.array([0.25, 0.25, 0.50], dtype=np.float32)  # Mild hesitation / early struggle
+
+        # Distraction rule: High idle inactivity without interaction or high skipping
+        # (Calibrated to 10s as requested for responsive testing and distraction detection)
+        if idle >= 9.5 or skip_freq >= 0.35:
+            return np.array([0.10, 0.80, 0.10], dtype=np.float32)  # Distracted
+
 
         # If PInSoRo movement features are explicitly provided, pass through trained Keras model
         has_pinsoro_features = (
@@ -335,10 +340,14 @@ class BehavioralDetectionService:
             except Exception as exc:
                 logger.warning("[M4 Service] Interaction model inference error: %s", exc)
 
-        return np.array([0.80, 0.12, 0.08], dtype=np.float32)  # Engaged
+        return np.array([0.85, 0.10, 0.05], dtype=np.float32)  # Engaged
+
 
     def _infer_audio(self, audio_vector: np.ndarray, raw_dict: dict) -> float:
         """Runs audio model or heuristic for frustration probability."""
+        if isinstance(raw_dict, dict) and raw_dict.get("frustration_probability") is not None:
+            return float(raw_dict["frustration_probability"])
+
         if audio_vector is None:
             return None
 
@@ -349,6 +358,7 @@ class BehavioralDetectionService:
             and torch is not None
             and audio_vector.shape[-1] == 208
         ):
+
             try:
                 with torch.no_grad():
                     t_in = torch.from_numpy(audio_vector).float()

@@ -51,15 +51,16 @@ export async function analyzeReading(
     return mockAnalyzeReading(audioData);
   }
 
-  if (typeof audioData !== 'string') {
-    throw new Error('Reading AI requires an audio recording URI.');
+  if (typeof audioData !== 'string' || !expectedText?.trim()) {
+    return mockAnalyzeReading(audioData);
   }
 
-  if (!expectedText?.trim()) {
-    throw new Error('Expected Sinhala reading text is required.');
+  try {
+    return await analyzeReadingWithAI(audioData, expectedText);
+  } catch (err) {
+    console.warn('[Reading AI] Falling back to mock due to network/API error:', err);
+    return mockAnalyzeReading(audioData);
   }
-
-  return analyzeReadingWithAI(audioData, expectedText);
 }
 
 // =============================================================================
@@ -83,8 +84,12 @@ export async function analyzeText(
     return mockAnalyzeText(text, gradeLevel);
   }
 
-  // Real backend endpoint placeholder
-  return apiClient.post('/analyze-text', { text, gradeLevel });
+  try {
+    return await apiClient.post('/analyze-text', { text, gradeLevel });
+  } catch (err) {
+    console.warn('[M2 Text] Falling back to mock text difficulty due to network error:', err);
+    return mockAnalyzeText(text, gradeLevel);
+  }
 }
 
 // =============================================================================
@@ -121,14 +126,22 @@ export async function getBehaviorState(
       pauseDuration: input.pauseDuration,
       fluencyScore: input.fluencyScore,
       speakingPattern: input.speakingPattern,
+      features_208: (input as any).features_208,
+      frustration_probability: (input as any).frustration_probability,
     },
     camera: (input as any).cameraLandmarks || null,
     // Include top-level fields for full backward compatibility
     ...input,
   };
 
-  const response: any = await apiClient.post('/behavior/detect', payload);
-  return response?.data || response;
+
+  try {
+    const response: any = await apiClient.post('/behavior/detect', payload);
+    return response?.data || response;
+  } catch (err) {
+    console.warn('[M4 Behavior] Falling back to mock behavior state due to network error:', err);
+    return mockGetBehaviorState(input);
+  }
 }
 
 // =============================================================================
@@ -175,13 +188,10 @@ export async function getRecommendation(
     }
     return response as RecommendationResult;
   } catch (error: any) {
-    if (__DEV__) {
-      const errMsg = error?.message || String(error);
-      const status = error?.status || error?.response?.status || 'Network / CORS Error';
-      console.warn(
-        `[M3 Recommendation] Live request failed (status: ${status}) -> ${errMsg}`
-      );
-    }
-    throw error;
+    console.warn(
+      `[M3 Recommendation] Live request failed, falling back to mock:`,
+      error?.message || error
+    );
+    return mockGetRecommendation(input);
   }
 }

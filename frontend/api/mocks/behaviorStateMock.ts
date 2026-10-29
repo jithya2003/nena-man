@@ -48,19 +48,40 @@ const MOCK_BEHAVIOR_PROFILES: BehaviorStateResult[] = [
 export async function mockGetBehaviorState(
   input: BehaviorStateInput
 ): Promise<BehaviorStateResult> {
-  await new Promise((resolve) => setTimeout(resolve, 800));
+  // Fast, responsive delay for demo screen recording
+  await new Promise((resolve) => setTimeout(resolve, 200));
 
-  // If input shows very high pause duration or low fluency, bias towards Frustrated/Distracted
-  if (input.pauseDuration > 4 || input.fluencyScore < 0.5) {
-    return JSON.parse(JSON.stringify(MOCK_BEHAVIOR_PROFILES[2])); // Frustrated
+  const misses = Number(input.missClicks || 0);
+  const retries = Number(input.retryCount || 0);
+  const wrongAnswers = Number((input as any).totalWrongAnswers || (input as any).consecutiveWrongAnswers || 0);
+  const idle = Number(input.idleTime || 0);
+  const pauses = Number(input.pauseDuration || 0);
+  const fluency = Number(input.fluencyScore ?? 1.0);
+  const frustrationProb = Number((input as any).frustration_probability || 0);
+
+  // 1. Priority 1 — Frustrated (Child struggling: 2 wrong answers/miss-clicks, retries, or speech hesitation)
+  if (
+    misses >= 2 ||
+    retries >= 2 ||
+    wrongAnswers >= 2 ||
+    frustrationProb > 0.5 ||
+    pauses > 3.5 ||
+    fluency < 0.6
+  ) {
+    return JSON.parse(JSON.stringify(MOCK_BEHAVIOR_PROFILES[2])); // Frustrated -> Balloon Breathing
   }
 
-  if (input.lookingAwayFrequency > 3 || input.idleTime > 5) {
-    return JSON.parse(JSON.stringify(MOCK_BEHAVIOR_PROFILES[1])); // Distracted
+  // 2. Priority 2 — Distracted (Inactivity / prolonged idle without touching screen >= 8s)
+  if (
+    idle >= 8 ||
+    (input.lookingAwayFrequency && input.lookingAwayFrequency > 2) ||
+    (input.skipFrequency && input.skipFrequency > 0.3)
+  ) {
+    return JSON.parse(JSON.stringify(MOCK_BEHAVIOR_PROFILES[1])); // Distracted -> Catch the Star
   }
 
-  const randomIndex = Math.floor(Math.random() * MOCK_BEHAVIOR_PROFILES.length);
-  return JSON.parse(JSON.stringify(MOCK_BEHAVIOR_PROFILES[randomIndex]));
+  // 3. Priority 3 — Engaged (Active focused reading / correct answers)
+  return JSON.parse(JSON.stringify(MOCK_BEHAVIOR_PROFILES[0])); // Engaged -> Bubble Pop
 }
 
 export default mockGetBehaviorState;

@@ -113,21 +113,42 @@ class BehavioralPreprocessor:
     def preprocess_audio(self, voice_data) -> np.ndarray:
         """
         Preprocesses acoustic or hesitation metrics from audio/voice input.
+        If 208-dim acoustic features or base64 audio are provided, converts to 208-dim
+        vector and scales with audio_scaler.pkl.
         Returns scaled numpy array.
         """
         if voice_data is None:
             return None
 
         try:
+            arr = None
             if isinstance(voice_data, dict):
-                # Sourced from M1 voice metrics or acoustic features
-                features = [
-                    float(voice_data.get("readingSpeed", 60.0)),
-                    float(voice_data.get("hesitationCount", 0)),
-                    float(voice_data.get("pauseDuration", 0.0)),
-                    float(voice_data.get("fluencyScore", 0.8)),
-                ]
-                arr = np.array([features], dtype=np.float32)
+                # 1. Direct 208 features provided
+                if "features_208" in voice_data:
+                    raw_208 = voice_data["features_208"]
+                    arr = np.array(raw_208, dtype=np.float32)
+                    if arr.ndim == 1:
+                        arr = np.expand_dims(arr, axis=0)
+
+                # 2. Audio base64 provided
+                elif "audio_base64" in voice_data:
+                    import base64
+                    from .audio_extractor import read_audio_bytes_to_waveform, extract_208_features_from_audio
+                    raw_bytes = base64.b64decode(voice_data["audio_base64"])
+                    waveform = read_audio_bytes_to_waveform(raw_bytes)
+                    feats = extract_208_features_from_audio(waveform)
+                    arr = np.expand_dims(feats, axis=0)
+
+                # 3. High-level reading metrics
+                else:
+                    features = [
+                        float(voice_data.get("readingSpeed", 60.0)),
+                        float(voice_data.get("hesitationCount", 0)),
+                        float(voice_data.get("pauseDuration", 0.0)),
+                        float(voice_data.get("fluencyScore", 0.8)),
+                    ]
+                    arr = np.array([features], dtype=np.float32)
+
             elif isinstance(voice_data, (list, np.ndarray)):
                 arr = np.array(voice_data, dtype=np.float32)
                 if arr.ndim == 1:
@@ -135,13 +156,15 @@ class BehavioralPreprocessor:
             else:
                 return None
 
-            if self.audio_scaler is not None:
+            # Only scale if the vector dimension matches the scaler (208 features)
+            if self.audio_scaler is not None and arr is not None and arr.shape[-1] == 208:
                 try:
                     arr = self.audio_scaler.transform(arr)
                 except Exception as scale_err:
-                    logger.debug("[Preprocessor] Audio scaler transform note: %s", scale_err)
+                    logger.warning("[Preprocessor] Audio scaler transform note: %s", scale_err)
 
             return arr
         except Exception as exc:
             logger.warning("[Preprocessor] Failed to preprocess audio data: %s", exc)
             return None
+

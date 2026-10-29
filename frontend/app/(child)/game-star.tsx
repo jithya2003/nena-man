@@ -97,12 +97,12 @@ export default function GameStarScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.backActionBtn}
-                onPress={() => router.push('/(child)/cooldown')}
+                style={[styles.backActionBtn, { backgroundColor: ThemeColors.primary }]}
+                onPress={() => (router.canGoBack() ? router.back() : router.push('/(child)/home'))}
                 activeOpacity={0.85}
               >
-                <AppText size="xs" weight="bold" color="#FFFFFF">
-                  🌿 විවේක පිටුවට
+                <AppText size="xs" weight="extrabold" color="#FFFFFF">
+                  ← නැවත පාඩමට යමු
                 </AppText>
               </TouchableOpacity>
             </View>

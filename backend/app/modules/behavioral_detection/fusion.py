@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 
 CLASSES = ["Engaged", "Distracted", "Frustrated"]
 BASE_WEIGHTS = {
-    "camera": 0.55,
-    "interaction": 0.30,
-    "voice": 0.15,
+    "camera": 0.50,
+    "interaction": 0.25,
+    "voice": 0.25,
 }
 
 CONFIDENCE_THRESHOLD = 0.40  # Minimum confidence required to accept predicted state
@@ -82,12 +82,18 @@ class MultimodalFusionEngine:
 
         # 3. Voice contribution (Frustration probability distribution)
         if "voice" in normalized_weights:
-            # Voice model outputs frustration probability: [Engaged, Distracted, Frustrated]
             p_fru = float(voice_frustration_prob)
-            p_eng = max(0.0, (1.0 - p_fru) * 0.70)
-            p_dis = max(0.0, (1.0 - p_fru) * 0.30)
-            voice_dist = np.array([p_eng, p_dis, p_fru], dtype=np.float32)
+            if p_fru >= 0.50:
+                # Frustrated voice
+                voice_dist = np.array([0.10, 0.15, 0.75], dtype=np.float32)
+            else:
+                # Fluent / Engaged voice: reading aloud actively
+                p_eng = max(0.0, (1.0 - p_fru) * 0.88)
+                p_dis = max(0.0, (1.0 - p_fru) * 0.12)
+                voice_dist = np.array([p_eng, p_dis, p_fru], dtype=np.float32)
+
             fused_probs += normalized_weights["voice"] * voice_dist
+
 
         # Normalize final probability vector
         sum_p = np.sum(fused_probs)

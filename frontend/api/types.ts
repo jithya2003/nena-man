@@ -175,7 +175,12 @@ export interface BehaviorStateInput {
   taskCompletion: boolean;      // TODO: confirm boolean vs percentage with Pushpakumara
   interactionPattern: string;   // TODO: confirm exact allowed values with Pushpakumara
   cameraLandmarks?: number[][] | null; // 30 frames x 1503 landmark coordinates (33 pose + 468 face mesh x 3)
+  features_208?: number[];
+  frustration_probability?: number;
+  totalWrongAnswers?: number;
+  consecutiveWrongAnswers?: number;
 }
+
 
 export interface BehaviorStateResult {
   behavioralState: BehavioralState;

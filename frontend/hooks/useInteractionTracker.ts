@@ -34,7 +34,7 @@ export interface UseInteractionTrackerOptions {
 }
 
 export function useInteractionTracker(options: UseInteractionTrackerOptions = {}) {
-  const { autoStart = true, idleThresholdSeconds = 4, onIdleWarning } = options;
+  const { autoStart = true, idleThresholdSeconds = 2, onIdleWarning } = options;
 
   const metricsRef = useRef<InteractionMetrics>({
     responseTime: 0,
@@ -109,6 +109,8 @@ export function useInteractionTracker(options: UseInteractionTrackerOptions = {}
   const recordTap = useCallback(() => {
     const now = Date.now();
     lastInteractionRef.current = now;
+    idleTimeRef.current = 0;
+    metricsRef.current.idleTime = 0;
     totalTapsRef.current += 1;
 
     // Record response time on first action
@@ -212,6 +214,16 @@ export function useInteractionTracker(options: UseInteractionTrackerOptions = {}
     };
   }, []);
 
+  // Pause and resume tracking (e.g. when navigating to game screens)
+  const pauseTracking = useCallback(() => {
+    isTrackingActiveRef.current = false;
+  }, []);
+
+  const resumeTracking = useCallback(() => {
+    isTrackingActiveRef.current = true;
+    lastInteractionRef.current = Date.now();
+  }, []);
+
   // Export current snapshot ready for sessionPipeline / BehaviorStateInput
   const getTelemetry = useCallback((): InteractionMetrics => {
     const now = Date.now();
@@ -229,7 +241,10 @@ export function useInteractionTracker(options: UseInteractionTrackerOptions = {}
       skipFrequency: Number(
         (skipCountRef.current / Math.max(1, totalTapsRef.current + skipCountRef.current)).toFixed(2)
       ),
-      idleTime: Math.round(idleTimeRef.current),
+      idleTime: Math.max(
+        Math.round(idleTimeRef.current),
+        Math.round(Math.max(0, (now - lastInteractionRef.current) / 1000))
+      ),
       taskCompletion: taskCompletionRef.current,
       interactionPattern: metricsRef.current.interactionPattern,
     };
@@ -260,6 +275,8 @@ export function useInteractionTracker(options: UseInteractionTrackerOptions = {}
       recordSkip,
       setTaskCompletion,
       resetTracker,
+      pauseTracking,
+      resumeTracking,
       getTelemetry,
       getInteractionPayload,
     }),
@@ -271,6 +288,8 @@ export function useInteractionTracker(options: UseInteractionTrackerOptions = {}
       recordSkip,
       setTaskCompletion,
       resetTracker,
+      pauseTracking,
+      resumeTracking,
       getTelemetry,
       getInteractionPayload,
     ]

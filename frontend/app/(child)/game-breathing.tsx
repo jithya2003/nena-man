@@ -116,7 +116,7 @@ export default function GuidedBreathingScreen() {
       {/* ── Top Header ──────────────────────────────────────────────────────── */}
       <View style={styles.topBar}>
         <TouchableOpacity
-          onPress={() => router.push('/(child)/cooldown')}
+          onPress={() => (router.canGoBack() ? router.back() : router.push('/(child)/home'))}
           style={styles.navIconBtn}
           activeOpacity={0.7}
         >
@@ -210,11 +210,11 @@ export default function GuidedBreathingScreen() {
 
               <TouchableOpacity
                 style={styles.gamesActionBtn}
-                onPress={() => router.push('/(child)/cooldown')}
+                onPress={() => (router.canGoBack() ? router.back() : router.push('/(child)/home'))}
                 activeOpacity={0.85}
               >
-                <AppText size="sm" weight="bold" color="#FFFFFF">
-                  🎮 ක්‍රීඩා පිටුවට යමු
+                <AppText size="sm" weight="extrabold" color="#FFFFFF">
+                  ← නැවත පාඩමට යමු
                 </AppText>
               </TouchableOpacity>
             </View>
@@ -227,11 +227,11 @@ export default function GuidedBreathingScreen() {
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={styles.finishBtn}
-            onPress={() => router.push('/(child)/cooldown')}
+            onPress={() => (router.canGoBack() ? router.back() : router.push('/(child)/home'))}
             activeOpacity={0.85}
           >
-            <AppText size="md" weight="bold" color="#FFFFFF">
-              🎮 ක්‍රීඩා පිටුවට යමු
+            <AppText size="md" weight="extrabold" color="#FFFFFF">
+              ← නැවත පාඩමට යමු
             </AppText>
           </TouchableOpacity>
         </View>

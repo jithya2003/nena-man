@@ -103,7 +103,7 @@ export default function BubbleCalmScreen() {
       {/* ── Top Bar ────────────────────────────────────────────────────────── */}
       <View style={styles.topBar}>
         <TouchableOpacity
-          onPress={() => router.push('/(child)/cooldown')}
+          onPress={() => (router.canGoBack() ? router.back() : router.push('/(child)/home'))}
           style={styles.navIconBtn}
           activeOpacity={0.7}
         >
@@ -151,12 +151,12 @@ export default function BubbleCalmScreen() {
 
             <View style={styles.actionRow}>
               <TouchableOpacity
-                style={styles.rewardActionBtn}
-                onPress={() => setShowRewards(true)}
+                style={[styles.rewardActionBtn, { backgroundColor: ThemeColors.primary }]}
+                onPress={() => (router.canGoBack() ? router.back() : router.push('/(child)/home'))}
                 activeOpacity={0.85}
               >
-                <AppText size="xs" weight="bold" color="#FFFFFF">
-                  🏆 ජයග්‍රහණ බලන්න
+                <AppText size="xs" weight="extrabold" color="#FFFFFF">
+                  ← නැවත පාඩමට යමු
                 </AppText>
               </TouchableOpacity>
 
@@ -166,7 +166,7 @@ export default function BubbleCalmScreen() {
                 activeOpacity={0.85}
               >
                 <AppText size="xs" weight="bold" color="#FFFFFF">
-                  🔄 තව බුබුළු පුපුරුවමු
+                  🔄 තව පුපුරුවමු
                 </AppText>
               </TouchableOpacity>
             </View>
