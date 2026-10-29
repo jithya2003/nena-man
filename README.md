@@ -76,16 +76,6 @@ In Sinhala orthography, complex glyph structures, syllabic ligatures (*Pillam* /
   * **Feature Engineering & Performance Analysis:** Features combine word-level alignment of expected vs. ASR-predicted text with acoustic and timing information from the audio.
     * *Model predictions:* word-level reading outcome labels with confidence values.
     * *Calculated indicators* (computed values, not classifier outputs): reading accuracy, reading speed (words per minute), hesitation count, total pause duration, fluency score, and overall severity.
-* **Evaluation (child-independent splits; researcher-reported results):** Training, validation, and test sets are split by child to reduce speaker-level leakage.
-
-  | Component | Split / Metric | Result |
-  | :--- | :--- | :--- |
-  | Dataset split | Train / Validation / Test | 543 / 120 / 120 clips (test set: 3 held-out children) |
-  | Wav2Vec2 CTC ASR | Character Error Rate (CER) | 8.45% |
-  | Wav2Vec2 CTC ASR | Word Error Rate (WER) | 26.10% |
-  | Balanced Random Forest | Accuracy / Macro F1 / Balanced Accuracy | 81.48% / 0.321 / 37.65% |
-
-  The classifier's high overall accuracy is mostly driven by the majority `Correct` class. Its low macro F1 and balanced accuracy show limited performance on the minority error classes.
 * **Deployment & Mobile Integration:**
   * The Python **FastAPI** inference service loads the fine-tuned Wav2Vec2 CTC model and the Balanced Random Forest classifier. It runs in **Google Colab** for research testing and is exposed through a **Cloudflare Tunnel** HTTPS endpoint.
   * The Expo app (`frontend/app/(child)/m1-session.tsx`, `frontend/hooks/useReadingSession.ts`, `frontend/api/readingAIClient.ts`) sends a multipart request with the recorded `audio` and `expected_text`, authenticated with an `X-API-Key` header.
